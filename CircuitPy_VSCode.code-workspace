@@ -1,0 +1,106 @@
+{
+	// ============================================================================
+	// CircuitPython Multi-Experiment Workspace
+	// ============================================================================
+	//
+	// Architecture:
+	// - Workflow (tasks) → defined in .vscode/tasks.json
+	// - Common settings → defined here (Python venv, Pylance, stubs, bundle)
+	// - Board-specific settings → per-experiment .vscode/settings.json
+	//
+	// Adding new experiments:
+	// 1. Add folder entry below
+	// 2. Create <experiment>/.vscode/settings.json with board-specific config
+	// 3. Copy lib/ folder with required CircuitPython libraries
+	//
+	// ============================================================================
+	"folders": [
+		{
+			"path": "2026-03_Exp11_Ws2812_with_CPy_RP2350-Bit-Board",
+			"name": "Exp11: WS2812b & DotStar (RP2350)"
+		},
+		{
+			"path": "CircuitPy-VsCode-Tooling",
+			"name": "CircuitPython Toolbox"
+		},
+		{
+			"path": "2026-02_Exp10_Jupiter-CPy_RP2350-Bit-Board"
+		},
+		{
+			"path": "2026-02_Exp09_BPI-Bit-S2-LED-Matrix",
+			"name": "Exp09: LED Matrix (archived)"
+		},
+		{
+			"path": "2026-02_Exp08_BPI-Bit-S2-CircuitPy_ButtonAndCrashSensor",
+			"name": "Exp08: Button & Crash Sensor (archived)"
+		},
+		{
+			"path": "2026-01_Exp06_BPI-Bit-S2-CircuitPy_VSCode-Setup-Test",
+			"name": "Exp06: VSCode Setup (archived)"
+		},
+		{
+			"path": "../../Isana/Crash-Sensor_Mini-Challenge"
+		},
+		{
+			"path": "2026-03_Exp12_AirLift_on_generic_ESP32"
+		}
+	],
+	"settings": {
+		// ==========================================================================
+		// CircuitPython CONFIGURATION - Update these paths for your environment
+		// ==========================================================================
+		// Python venv with pyserial installed (used by Pylance)
+		"python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+		// CircuitPython library bundles location (downloaded via circup or extension)
+		"circuitpython.bundle.localBundleDir": "/Users/alex/Development/VsCode/CircuitPython/bundles",
+		// Environment variables for tasks (exposed to terminal)
+		// Tasks use ${config:python.defaultInterpreterPath} for Python path (single source of truth)
+		"terminal.integrated.env.osx": {
+			"CIRCUITPY_TOOLBOX_DIR": "/Users/alex/Development/VsCode/CircuitPython/CircuitPy-VsCode-Tooling"
+		},
+		"terminal.integrated.env.linux": {
+			"CIRCUITPY_TOOLBOX_DIR": "/Users/alex/Development/VsCode/CircuitPython/CircuitPy-VsCode-Tooling"
+		},
+		"terminal.integrated.env.windows": {
+			"CIRCUITPY_TOOLBOX_DIR": "/Users/alex/Development/VsCode/CircuitPython/CircuitPy-VsCode-Tooling"
+		},
+		// ==========================================================================
+		// CONFIGURATION
+		// ==========================================================================
+		// ==== CircuitPython Extension ====
+		"circuitpython.bundle.tag": "latest",
+		// ==== Python Analysis ====
+		// Light type checking - CircuitPython stubs are partial by nature
+		"python.analysis.typeCheckingMode": "basic",
+		"python.analysis.autoSearchPaths": true,
+		"python.languageServer": "Pylance",
+		"python.analysis.diagnosticSeverityOverrides": {
+			"reportMissingModuleSource": "none",
+			"reportShadowedImports": "none"
+		},
+		// ==== CircuitPython IntelliSense Stubs ====
+		// NOTE: VSCode doesn't merge arrays! If experiment .vscode/settings.json defines
+		// python.analysis.extraPaths, it OVERRIDES this setting entirely.
+		// Each experiment must include ALL paths (board-specific + stubs + bundle).
+		// This workspace-level setting is only used if no experiment setting exists.
+		"python.analysis.extraPaths": [
+			"/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/boards/0x303A/0x80E6",
+			"/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/stubs",
+			"/Users/alex/Library/Application Support/Code/User/globalStorage/wmerkens.vscode-circuitpython-v2/bundle/20260124/adafruit-circuitpython-bundle-py-20260124/lib"
+		],
+		// ==== Environment Manager ====
+		"python-envs.pythonProjects": [],
+		"python-envs.defaultEnvManager": "ms-python.python:venv",
+		"circuitpython.board.version": "10.0.3"
+		// ==== Board-Specific Settings ====
+		// These are INTENTIONALLY NOT defined here.
+		// Each experiment defines in <experiment>/.vscode/settings.json:
+		//   - circuitpython.board.vid
+		//   - circuitpython.board.pid
+		//   - circuitpython.board.version
+		//   - python.analysis.extraPaths (board-specific: boards/<VID>/<PID>)
+		//   - circuitpython.drive (optional override)
+		//   - circuitpython.serialPort (optional override)
+	}
+	// Tasks are defined in .vscode/tasks.json (not here, to keep this file valid JSONC)
+}

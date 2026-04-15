@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# CircuitPython device output
+boot_out.txt
+
+# Credentials — NEVER commit these
+settings.toml
+
+# Adafruit bundle archives (large, re-downloadable)
+libArchive/
+
+# Top-level experiment ZIP archives
+*.zip
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Empty bundle placeholder
+bundles/

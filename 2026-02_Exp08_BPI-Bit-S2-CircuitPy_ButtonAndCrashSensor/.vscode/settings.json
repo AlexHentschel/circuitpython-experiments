@@ -1,0 +1,54 @@
+{
+    // ===========================================================================
+    // Experiment 08: BPI-Bit-S2 Board Configuration (Button & Crash Sensor)
+    // ===========================================================================
+    //
+    // This file contains BOARD-SPECIFIC settings only.
+    // Common settings (Python, Pylance, stubs, bundle) are in the workspace file.
+    //
+    // When using a different board, update:
+    //   - circuitpython.board.vid / pid (from boot_out.txt or board docs)
+    //   - circuitpython.board.version (CircuitPython version on the board)
+    //   - python.analysis.extraPaths (board-specific stubs path)
+    //
+    // ===========================================================================
+    
+    // ==== Board Identity ====
+    // BPI-Bit-S2 (ESP32-S2)
+    "circuitpython.board.version": "10.0.3",
+    "circuitpython.board.vid": "0x303A",
+    "circuitpython.board.pid": "0x80E6",
+
+    // ==== IntelliSense Stubs (all paths must be here - VSCode doesn't merge arrays) ====
+    "python.analysis.extraPaths": [
+        // Board-specific stubs
+        "/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/boards/0x303A/0x80E6",
+        // Common CircuitPython stubs
+        "/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/stubs",
+        // Adafruit bundle (neopixel, etc.)
+        "/Users/alex/Library/Application Support/Code/User/globalStorage/wmerkens.vscode-circuitpython-v2/bundle/20260124/adafruit-circuitpython-bundle-py-20260124/lib"
+    ],
+    "python-envs.pythonProjects": [
+        {
+            "path": "",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ],
+
+    // ==== Device Detection Overrides (OPTIONAL) ====
+    //
+    // Tasks use: read_setting.py → fallback to auto-detect
+    // Uncomment to pin specific values and skip auto-detection:
+    //
+    // Examples:
+    //   macOS:   "circuitpython.drive": "/Volumes/CIRCUITPY"
+    //            "circuitpython.serialPort": "/dev/cu.usbmodem0740D10F1BE91"
+    //   Linux:   "circuitpython.drive": "/media/$USER/CIRCUITPY"
+    //            "circuitpython.serialPort": "/dev/ttyACM0"
+    //   Windows: "circuitpython.drive": "D:"
+    //            "circuitpython.serialPort": "COM3"
+    //
+    // "circuitpython.drive": "",
+    // "circuitpython.serialPort": ""
+}

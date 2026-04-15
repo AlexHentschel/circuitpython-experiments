@@ -1,0 +1,4 @@
+SD card storage directory (reserved for future use).
+
+If an SD card is connected via SPI, CircuitPython can mount it here.
+Currently unused in this experiment.

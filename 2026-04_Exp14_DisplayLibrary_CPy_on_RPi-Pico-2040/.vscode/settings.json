@@ -1,0 +1,12 @@
+{
+    // ==========================================================================
+    // CircuitPython CONFIGURATION
+    // ==========================================================================
+
+    // Python venv -- used by CircuitPythonSync for serial monitor and circup
+    "python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+
+	// Folder-level settings for Exp14.
+	// Board-level CircuitPythonSync settings (drive path, board name, CP version, lib tag)
+	// are defined in the workspace file: circuitpython.code-workspace
+}

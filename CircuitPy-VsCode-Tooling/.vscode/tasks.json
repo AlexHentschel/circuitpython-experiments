@@ -1,0 +1,359 @@
+{
+  // VS Code Tasks for CircuitPython workflow (macOS/Linux primary; Windows notes below)
+  //
+  // Goals:
+  // - Edit code locally (git-friendly)
+  // - Sync only the files that matter to the CIRCUITPY drive (fast)
+  // - Soft reload CircuitPython after syncing
+  //
+  // Requirements:
+  // - macOS/Linux: rsync on PATH (macOS has it; most Linux distros have it)
+  // - Python used for soft reload must have pyserial:
+  //     pip install pyserial
+  //
+  // IMPORTANT:
+  // - Only ONE program can open the serial port at a time.
+  //   Close miniterm/serial monitor before running "Sync & Soft Reload".
+  //
+  // Configuration:
+  // - Workspace settings must specify:
+  //   * "python.defaultInterpreterPath" - Python venv with pyserial
+  //   * "terminal.integrated.env.*" - CIRCUITPY_TOOLBOX_DIR path
+  //
+  // - Per-experiment .vscode/settings.json can specify:
+  //   * "circuitpython.drive" - skip drive auto-detection
+  //   * "circuitpython.serialPort" - skip port auto-detection
+  //
+  // Auto-detection:
+  // - CIRCUITPY mount point: Auto-detected by detect_circuitpy_drive.py
+  //   * macOS: /Volumes/CIRCUITPY
+  //   * Linux: /media/$USER/CIRCUITPY or /run/media/$USER/CIRCUITPY
+  //   * Windows: D:, E:, F:, etc.
+  //
+  // - Serial port: Auto-detected by detect_circuitpy_port.py (with VID/PID scoring)
+  //   * macOS: /dev/cu.usbmodem*
+  //   * Linux: /dev/ttyACM0 or /dev/ttyUSB0
+  //   * Windows: COM3, COM4, ...
+  //
+  // Soft reload mechanism:
+  // - Sends Ctrl-C twice to interrupt running code
+  // - Executes: import supervisor; supervisor.reload()
+  // - More reliable than Ctrl-D on some USB stacks
+  //
+  // Troubleshooting:
+  // - "CIRCUITPY drive not found": Check board connected, CircuitPython running
+  // - "Serial port busy": Close all serial monitors before reload
+  // - "Permission denied" (Linux): sudo usermod -a -G dialout $USER (logout/login)
+
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // TASK: sync python files
+      //
+      // Auto-detects CIRCUITPY drive mount point (macOS/Linux/Windows)
+      // and syncs only CircuitPython-relevant files for fast deployment.
+      //
+      // What gets synced:
+      //   - code.py, main.py, boot.py (main program files)
+      //   - settings.toml (configuration)
+      //   - lib/ (all libraries recursively)
+      //
+      // What gets excluded:
+      //   - Development artifacts (.vscode/, .git/, README.md, etc.)
+      //   - macOS metadata (._*, .DS_Store, etc.)
+      //
+      // Options:
+      //   --delete: Mirrors deletions (removes files on device not in source)
+      //   --modify-window=2: Tolerates FAT filesystem timestamp coarseness
+      //
+      "label": "CircuitPython: Sync To CIRCUITPY Drive",
+      "type": "shell",
+      "options": {
+        // Run from directory containing active file → enables per-experiment config
+        "cwd": "${fileDirname}"
+      },
+      "command": [
+        // Step 1: Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Step 2: Determine experiment root (walk up from current file until code.py found)
+        "; EXPERIMENT_DIR=$(pwd)",
+        "; while [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ] && [ \"$EXPERIMENT_DIR\" != \"/\" ]; do",
+        "    EXPERIMENT_DIR=$(dirname \"$EXPERIMENT_DIR\");",
+        "  done",
+        "; if [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ]; then echo \"❌ ERROR: 'code.py' or 'main.py' not found. Open a file inside an experiment folder before running this task.\"; exit 1; fi",
+        // Step 3: Change to experiment root (required for read_setting.py to find .vscode/settings.json)
+        "; cd \"$EXPERIMENT_DIR\"",
+        // Step 4: Try configured drive from experiment settings, fallback to auto-detect
+        "; DRIVE=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/read_setting.py\" \"circuitpython.drive\")",
+        "  || { echo \"ATTENTION: It is recommended to configure CIRCUITPY drive in experiment '.vscode/settings.json' specifying the key 'circuitpython.drive'. Attempting to auto-detect drive in absence of such configuration.\" >&2; DRIVE=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/detect_circuitpy_drive.py\"); }",
+        "  || { echo 'Failed to detect CIRCUITPY drive' >&2; exit 1; }",
+        // Step 5: Confirm sync target
+        "; echo \"Syncing '$(basename \"$EXPERIMENT_DIR\")' to: '$DRIVE'...\"",
+        // Step 6: Execute rsync with "Sync All + Ignore" Strategy
+        //
+        // Strategy (Opt-out / Blacklist):
+        // 1. Sync EVERYTHING by default.
+        // 2. Exclude specific system/project files (hardcoded safety).
+        // 3. Exclude user-defined patterns from `.circuitpyignore` (if exists).
+        //
+        "; rsync -rv",
+        "  --delete",
+        "  --checksum",
+        // --- 1. Global Safety Excludes (Always Blocked) ---
+        "  --filter 'P ._*'",       // Protect: prevent rsync from deleting metadata files on the device if they exist
+        "  --filter 'P .Trashes'",  // Protect: macOS system folder on mounted volumes (cannot be deleted)
+        "  --exclude '._*'",        // Exclude: do not copy local metadata files to device
+        "  --exclude '.DS_Store'",
+        "  --exclude '.Trashes'",   // Exclude: don't try to sync macOS trash folder
+        "  --exclude '.git/'",
+        "  --exclude '.vscode/'",
+        "  --exclude '__pycache__/'",
+        "  --exclude 'venv/'",
+        "  --exclude 'node_modules/'",
+        "  --exclude 'boot_out.txt'",
+        // --- 2. Feature Protection ---
+        "  --include '/sd/'",       // Ensure 'sd' folder exists...
+        "  --exclude '/sd/*'",      // ...but protect its contents from sync/delete
+        // --- 3. User Ignoring (.circuitpyignore) ---
+        // Optional local file for custom pattern-based excludes (syntax matches .gitignore).
+        // If `.circuitpyignore` exists, instruct rsync to apply exclusions as directed therein. File `.circuitpyignore`
+        // accepts standard gitignore-style syntax (e.g. '*.log', 'docs/'). It it is experiement-specific and allows 
+        // local artifacts to be excluded from being synced and consuming space on the microcontroller.
+        "  $([ -f \".circuitpyignore\" ] && echo \"--exclude-from=.circuitpyignore\")",
+        "  --exclude '.circuitpyignore'", // noop if file not exist
+        // --- 4. Sync Everything ---
+        "  \"$EXPERIMENT_DIR/\"",
+        "  \"$DRIVE/\""
+      ].join(" "),
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      // TASK: sync python files & reboot board
+      //
+      // Complete deployment workflow:
+      // 1. Syncs files to CIRCUITPY drive (dependency task)
+      // 2. Auto-detects CircuitPython serial port
+      // 3. Sends soft reload command to board
+      //
+      // IMPORTANT: Close all serial monitors before running
+      // (only one program can access serial port at a time)
+      //
+      "label": "CircuitPython: Sync & Soft Reload",
+      "dependsOn": "CircuitPython: Sync To CIRCUITPY Drive",
+      "type": "shell",
+      "options": {
+        "cwd": "${fileDirname}"
+      },
+      "command": [
+        // Step 1: Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Step 2: Determine experiment root
+        "; EXPERIMENT_DIR=$(pwd)",
+        "; while [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ] && [ \"$EXPERIMENT_DIR\" != \"/\" ]; do",
+        "    EXPERIMENT_DIR=$(dirname \"$EXPERIMENT_DIR\");",
+        "  done",
+        "; if [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ]; then echo \"❌ ERROR: 'code.py' or 'main.py' not found. Open a file inside an experiment folder before running this task.\"; exit 1; fi",
+        // Step 3: Print Python environment for debugging
+        "; echo \"Using Python: '$SETTINGS_DEFAULT_PYTHON_PATH'\"",
+        // Step 4: Change to experiment root (required for read_setting.py to find .vscode/settings.json)
+        "; cd \"$EXPERIMENT_DIR\"",
+        // Step 5: Try configured port from experiment settings, fallback to auto-detect
+        "; PORT=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/read_setting.py\" \"circuitpython.serialPort\")",
+        "  || { echo \"ATTENTION: It is recommended to configure CircuitPython serial port in experiment '.vscode/settings.json' specifying the key 'circuitpython.serialPort'. Attempting to auto-detect port in absence of such configuration:\" >&2; PORT=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/detect_circuitpy_port.py\"); }",
+        "  || { echo 'Failed to detect CircuitPython serial port' >&2; exit 1; }",
+        // Step 6: Confirm reload target
+        "; echo \"Attempting communication via serial port: '$PORT'...\"",
+        // Step 7: Run the reload script
+        "; \"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/circuitpython_soft_reload.py\" \"$PORT\"",
+        "; echo \"\""
+      ].join(""),
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      // TASK [Debug]: print python interpreter path used for the CircuitPython tasks
+      //
+      // Diagnostic tool to verify VSCode is using the correct Python environment.
+      // Prints resolved python.defaultInterpreterPath, file info, and sys.executable.
+      //
+      // Use this when:
+      // - Tasks fail with "python not found"
+      // - Verifying virtual environment configuration
+      // - Debugging pyserial installation issues
+      //
+      "label": "CircuitPython: print python interpreter path [DEBUG]",
+      "type": "shell",
+      "command": [
+        // Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Show what we captured
+        "; echo \"SETTINGS_DEFAULT_PYTHON_PATH=$SETTINGS_DEFAULT_PYTHON_PATH\"",
+        // Verify the file exists and is executable
+        "; ls -l \"$SETTINGS_DEFAULT_PYTHON_PATH\"",
+        // Execute the interpreter and print sys.executable (proof)
+        "; \"$SETTINGS_DEFAULT_PYTHON_PATH\" -c \"import sys; print('sys.executable =', sys.executable)\"",
+        "; echo \"\""
+      ].join(""),
+      "problemMatcher": []
+    },
+    {
+      // TASK [Debug]: Auto-detect CIRCUITPY drive
+      //
+      // Always runs drive auto-detection regardless of settings.json configuration.
+      // Use this to:
+      // - Verify auto-detection is working
+      // - Find the correct path to configure in experiment settings
+      // - Debug drive detection issues
+      //
+      "label": "CircuitPython: Auto-detect CIRCUITPY Drive [DEBUG]",
+      "type": "shell",
+      "command": [
+        // Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Always run auto-detection (never use configuration)
+        "; echo \"Running CIRCUITPY drive auto-detection (ignoring configured values)...\"",
+        "; echo \"\"",
+        "; DRIVE=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/detect_circuitpy_drive.py\")",
+        "; if [ $? -eq 0 ]; then",
+        "    echo \"✓ Auto-detected drive: \\\"$DRIVE\\\"\";",
+        "    echo \"\";",
+        "    echo \"To use this value, add to experiment '.vscode/settings.json':\";",
+        "    echo '  \"circuitpython.drive\": \"'\"$DRIVE\"'\"';",
+        "  else",
+        "    echo \"✗ Auto-detection failed\" >&2;",
+        "    exit 1;",
+        "  fi",
+        "; echo \"\""
+      ].join(""),
+      "problemMatcher": []
+    },
+    {
+      // TASK [Debug]: Auto-detect CircuitPython serial port
+      //
+      // Always runs port auto-detection regardless of settings.json configuration.
+      // Use this to:
+      // - Verify auto-detection is working
+      // - Find the correct port to configure in experiment settings
+      // - Debug port detection issues
+      //
+      "label": "CircuitPython: Auto-detect Port [DEBUG]",
+      "type": "shell",
+      "command": [
+        // Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Always run auto-detection (never use configuration)
+        "; echo \"Running CircuitPython serial port auto-detection (ignoring configured values)...\"",
+        "; echo \"\"",
+        "; PORT=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/detect_circuitpy_port.py\")",
+        "; if [ $? -eq 0 ]; then",
+        "    echo \"✓ Auto-detected port: \\\"$PORT\\\"\";",
+        "    echo \"\";",
+        "    echo \"To use this value, add to experiment '.vscode/settings.json':\";",
+        "    echo '  \"circuitpython.serialPort\": \"'\"$PORT\"'\"';",
+        "  else",
+        "    echo \"✗ Auto-detection failed\" >&2;",
+        "    exit 1;",
+        "  fi",
+        "; echo \"\""
+      ].join(""),
+      "problemMatcher": []
+    },
+    {
+      // TASK: Interrupt running code and open REPL
+      //
+      // Programmatically interrupts CircuitPython (more reliable than manual Ctrl-C)
+      // then opens interactive miniterm REPL session.
+      //
+      // Use this when:
+      // - Code is running in tight loop and won't respond to manual Ctrl-C
+      // - You want to inspect variables or test code interactively
+      // - Serial monitor isn't working properly
+      //
+      // Controls in miniterm:
+      // - Ctrl-D: Reload code
+      // - Ctrl-]: Exit miniterm
+      //
+      "label": "CircuitPython: Interrupt & Open REPL",
+      "type": "shell",
+      "options": {
+        "cwd": "${fileDirname}"
+      },
+      "command": [
+        // Capture Python interpreter from VSCode settings (once, to avoid multi-resolution bug)
+        "SETTINGS_DEFAULT_PYTHON_PATH=\"${config:python.defaultInterpreterPath}\"",
+        // Determine experiment root
+        "; EXPERIMENT_DIR=$(pwd)",
+        "; while [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ] && [ \"$EXPERIMENT_DIR\" != \"/\" ]; do",
+        "    EXPERIMENT_DIR=$(dirname \"$EXPERIMENT_DIR\");",
+        "  done",
+        "; if [ ! -f \"$EXPERIMENT_DIR/code.py\" ] && [ ! -f \"$EXPERIMENT_DIR/main.py\" ]; then echo \"❌ ERROR: 'code.py' or 'main.py' not found. Open a file inside an experiment folder before running this task.\"; exit 1; fi",
+        // Change to experiment root (required for read_setting.py to find .vscode/settings.json)
+        "; cd \"$EXPERIMENT_DIR\"",
+        // Try configured port from experiment settings, fallback to auto-detect
+        "; PORT=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/read_setting.py\" \"circuitpython.serialPort\")",
+        "  || { echo \"ATTENTION: It is recommended to configure CircuitPython serial port in experiment '.vscode/settings.json' specifying the key 'circuitpython.serialPort'. Attempting to auto-detect port in absence of such configuration:\" >&2; PORT=$(\"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/detect_circuitpy_port.py\"); }",
+        "  || { echo 'Failed to detect CircuitPython serial port' >&2; exit 1; }",
+        // Launch interrupt & REPL script
+        "; \"$SETTINGS_DEFAULT_PYTHON_PATH\" \"$CIRCUITPY_TOOLBOX_DIR/circuitpython_interrupt_and_repl.py\" \"$PORT\""
+      ].join(""),
+      "problemMatcher": [],
+      "isBackground": false,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated"
+      }
+    }
+
+    // ---------------- Linux tweaks ----------------
+    //
+    // The tasks now auto-detect both CIRCUITPY mount point and serial port,
+    // so they work across macOS/Linux/Windows without manual changes.
+    //
+    // Linux-specific requirements:
+    // 1) rsync: Usually pre-installed; if missing: sudo apt install rsync
+    //
+    // 2) Serial port permissions:
+    //    sudo usermod -a -G dialout $USER
+    //    (logout/login required for group membership to take effect)
+    //
+    // 3) Auto-detection searches common Linux mount points:
+    //    - /media/$USER/CIRCUITPY
+    //    - /run/media/$USER/CIRCUITPY
+    //    - /mnt/CIRCUITPY
+    //
+    // 4) Serial port detection looks for:
+    //    - /dev/ttyACM* (CDC ACM devices, most common)
+    //    - /dev/ttyUSB* (USB-UART bridges)
+
+    // ---------------- Windows notes ----------------
+    //
+    // Windows doesn't ship rsync by default.
+    // Options:
+    //
+    // A) Install rsync via:
+    //    - Git for Windows (includes bash + rsync)
+    //    - MSYS2
+    //    - WSL (paths may differ, adjust workspaceFolder if needed)
+    //
+    // B) Use Robocopy (built-in) instead of rsync:
+    //    Replace the "Sync To CIRCUITPY Drive" task command with:
+    //    ```
+    //    robocopy "${workspaceFolder}" "%DRIVE%" code.py main.py boot.py settings.toml /MIR /XD .vscode .git lib
+    //    robocopy "${workspaceFolder}\lib" "%DRIVE%\lib" /MIR
+    //    ```
+    //    (Note: Robocopy exit codes differ from rsync; may need custom error handling)
+    //
+    // Auto-detection works on Windows:
+    // - Drive: Scans D: through Z: for CIRCUITPY markers
+    // - Serial port: Scans COM3, COM4, etc.
+  ]
+}

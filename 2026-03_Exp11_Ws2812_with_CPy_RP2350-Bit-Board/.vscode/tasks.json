@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Serial Monitor (miniterm)",
+            "type": "shell",
+            // Finds the first tty.usbmodem* port automatically -- survives replug port renames.
+            // Uses pyserial-miniterm from the venv (works in Cursor; screen fails with "no PTY").
+            // Exit: Ctrl+]
+            "command": "PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1); if [ -z \"$PORT\" ]; then echo 'ERROR: No usbmodem device found. Is the board plugged in?'; else echo \"Connecting to $PORT at 115200 baud.\"; echo \"Exit: Ctrl+]\"; /Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/pyserial-miniterm --raw \"$PORT\" 115200; fi",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",     // always opens in its own terminal tab
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Serial Monitor: disconnect (kill miniterm)",
+            "type": "shell",
+            "command": "pkill -f pyserial-miniterm; echo 'miniterm process killed.'",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": false
+            },
+            "problemMatcher": []
+        }
+    ]
+}

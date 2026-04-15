@@ -1,0 +1,17 @@
+# CircuitPython Sync Ignore File
+# Add patterns here to exclude files/folders from syncing to the board.
+# Syntax is compatible with basic .gitignore rules (globs, trailing slashes for dirs),
+# though advanced git features like negation (!) may behave differently.
+
+docs/
+assets/
+sd/
+*.log
+
+README.md
+CONTEXT_HANDOFF.md
+
+# Milestone scripts kept as reference -- only code.py runs on the board.
+# When switching milestones, copy the content into code.py.
+milestone1_test_pins.py
+milestone2_ws2812b_5x5.py

@@ -1,0 +1,375 @@
+Wmerkens CircuitPython V2 extension with VSCode
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+Roughly following https://learn.adafruit.com/using-the-circuitpython-extension-for-visual-studio-code/use-the-circuitpython-extension-for-vs-code
+But with error fixes, based on GhatGPT
+
+Step 1: Create a “CircuitPython-only” VS Code Profile (avoids PlatformIO collisions)
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+In VS Code:
+* Command Palette [Cmd + Shift + P] → `Profiles: New Profile`
+  - Named it `CircuitPython`
+  - In that profile, install only:
+    Python (Microsoft)
+    Pylance
+    CircuitPython v2 (wmerkens)
+    Microsoft’s 'Serial Monitor' 
+
+Step 2 — Set up your dedicated venv (your given path) + install typing helpers
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+* Set up virtual env (as usual), e.g. in 
+  `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode`
+* activate: 
+  $> source /Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/activate
+* install dependencies:
+  $> python -m pip install circup circuitpython-stubs adafruit-circuitpython-typing
+* Create folder for circuitPython bundles, e.g. 
+  `/Users/alex/Development/VsCode/CircuitPython/bundles`
+
+Step 3 — Point VS Code at that venv (this is what makes completion “real”)
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+* VSCode: 
+  Command Palette [Cmd + Shift + P]  → `Python: Select Interpreter` → pick environment `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python`
+* In VSCode project
+  create or edit `.vscode/settings.json` to include the stubs path if Pylance doesn’t pick it up automatically.
+  The same file can be accessed, by VSCode Command Palette [Cmd + Shift + P]  → `Preferences: Open Workspace Settings (JSON)`
+  
+  Recommended `.vscode/settings.json`:
+
+```
+{
+    // Explicitly select the CircuitPython venv
+    "python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+
+    // CircuitPython v2 bundle config (prevents "localBundleDir or tag is not set")
+    "circuitpython.bundle.localBundleDir": "/Users/alex/Development/VsCode/CircuitPython/bundles",
+    "circuitpython.bundle.tag": "latest",
+
+    // Keep type checking light (CircuitPython stubs are partial by nature)
+    "python.analysis.typeCheckingMode": "basic",
+
+    // Optional but helps avoid stale indexing
+    "python.analysis.autoSearchPaths": true,
+    "python.languageServer": "Pylance",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingModuleSource": "none",
+        "reportShadowedImports": "none"
+    }
+}
+```
+
+Step 4: Attempt to connect to board
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+running the following VSCode Command Palette [Cmd + Shift + P] should add more details to the 
+* Command Palette → `Developer: Reload Window`
+* Command Palette → `CircuitPython: Check for latest bundle`
+* Command Palette → `CircuitPython: Choose CircuitPython Board`
+
+Optionally, we might need to configure the CircuitPython major version, by adding the following line to the `.vscode/settings.json`:
+>   "circuitpython.board.version": "10.0.3"  
+
+Full example:
+```
+{
+    // Explicitly select the CircuitPython venv
+    "python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+
+    // CircuitPython v2 bundle config (prevents "localBundleDir or tag is not set")
+    "circuitpython.bundle.localBundleDir": "/Users/alex/Development/VsCode/CircuitPython/bundles",
+    "circuitpython.bundle.tag": "latest",
+
+    // Keep type checking light (CircuitPython stubs are partial by nature)
+    "python.analysis.typeCheckingMode": "basic",
+
+    // Optional but helps avoid stale indexing
+    "python.analysis.autoSearchPaths": true,
+    "python.languageServer": "Pylance",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingModuleSource": "none",
+        "reportShadowedImports": "none"
+    },
+
+    // Optional: align extension behavior with your CircuitPython major version
+    "circuitpython.board.version": "10.0.3"  
+}
+```
+
+
+Step 5: Add mechanism to sync local copy of python code to board
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Create `.vscode/tasks.json` in your local project folder, with contents [MacOS]:
+```
+{
+  // VS Code Tasks (JSON with comments)
+  // Place this file at: <your-project>/.vscode/tasks.json
+  //
+  // What it does:
+  // 1) "CircuitPython: Sync To CIRCUITPY Drive"
+  //    Copies your *local* project folder to the CIRCUITPY USB drive.
+  //    (This keeps your source of truth on disk + in git.)
+  //
+  // 2) "CircuitPython: Sync & Soft Reload"
+  //    Syncs, then sends Ctrl-D (0x04) over the serial port to soft-reload CircuitPython.
+  //
+  // Requirements:
+  // - macOS/Linux: rsync installed (macOS has it by default; Linux usually too)
+  // - Python in your selected interpreter must have pyserial:
+  //     python -m pip install pyserial
+  //
+  // IMPORTANT:
+  // - Only ONE program can open the serial port at a time.
+  //   If you have miniterm open, close it before "Sync & Soft Reload".
+
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CircuitPython: Sync To CIRCUITPY Drive",
+      "type": "shell",
+
+      // -------- macOS / Linux (default) --------
+      // CIRCUITPY mount:
+      //   macOS:   /Volumes/CIRCUITPY
+      //   Linux:   typically /media/<user>/CIRCUITPY  or  /run/media/<user>/CIRCUITPY
+      //
+      // Adjust the destination path below if needed.
+      "command": "rsync",
+      "args": [
+        "-av",
+        "--delete",
+
+        // Excludes: keep your repo clean and avoid copying editor metadata
+        "--exclude", ".git/",
+        "--exclude", ".vscode/",
+        "--exclude", "__pycache__/",
+        "--exclude", "*.pyc",
+        "--exclude", ".DS_Store",
+
+        // Source: your local project folder
+        "${workspaceFolder}/",
+
+        // Destination: the CIRCUITPY drive (macOS default)
+        "/Volumes/CIRCUITPY/"
+      ],
+
+      "problemMatcher": []
+    },
+
+    {
+      "label": "CircuitPython: Sync & Soft Reload",
+      "type": "shell",
+      "dependsOn": "CircuitPython: Sync To CIRCUITPY Drive",
+
+      // Sends Ctrl-D (0x04) to CircuitPython over the serial port.
+      //
+      // SERIAL PORT NOTES:
+      // - macOS: /dev/cu.usbmodem0740D10F1BE91  (your current device)
+      // - Linux: often /dev/ttyACM0 or /dev/ttyUSB0 (varies)
+      // - Windows: COM3 / COM4 / etc
+      //
+      // You will need to edit the port string per machine.
+      "command": "python",
+      "args": [
+        "-c",
+        "import time,serial; p=serial.Serial('/dev/cu.usbmodem0740D10F1BE91',115200,timeout=1); time.sleep(0.2); p.write(b'\\x04'); time.sleep(0.2); p.close()"
+      ],
+      "problemMatcher": []
+    }
+
+    // ---------------- Windows notes ----------------
+    //
+    // Windows does not ship rsync by default.
+    // Choose ONE of these approaches:
+    //
+    // A) Use Robocopy (recommended built-in)
+    //    - Replace the first task's command+args with something like:
+    //      "command": "robocopy",
+    //      "args": [
+    //        "${workspaceFolder}",
+    //        "E:\\",               // <-- your CIRCUITPY drive letter
+    //        "/MIR",               // mirror (like rsync --delete)
+    //        "/XD", ".git", ".vscode", "__pycache__",
+    //        "/XF", ".DS_Store", "*.pyc"
+    //      ]
+    //
+    // B) Install rsync via:
+    //    - Git for Windows (comes with a bash + rsync), or
+    //    - MSYS2, or
+    //    - WSL (then your paths change)
+    //
+    // Soft reload on Windows:
+    // - Change '/dev/cu.usbmodem...' to 'COM3' (or whichever COM port)
+    //   Example:
+    //     serial.Serial('COM3', 115200, timeout=1)
+  ]
+}
+
+```
+
+Run it:
+VSCode Command Palette [Cmd + Shift + P] → `Tasks: Run Task`
+     `CircuitPython: Sync To CIRCUITPY Drive`
+  or `CircuitPython: Sync & Soft Reload`
+
+
+TROUBLE SHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check Status of extensions:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+In VSCode Command Palette [Cmd + Shift + P] → `Developer: Show Running Extensions`
+
+Reload:
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+VSCode Command Palette [Cmd + Shift + P] → `Developer: Reload Window`
+
+Find CircuitPython’s USB serial
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+$> ls /dev/cu.* | grep -i usb
+Works if: You see a `cu.usbmodem...` (or similar) entry appear when the board is plugged in.
+
+
+
+
+Problem 1: command 'circuitpython.<something>' not found [MacOS 26.2]
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+For example VSCode Command Palette [Cmd + Shift + P] → `CircuitPython: Select Serial Port` produces error
+```
+Command 'CircuitPython: Select Serial Port' resulted in an error
+
+command 'circuitpython.selectSerialPort' not found
+```
+(screenshot of same error attached as well)
+
+Context (ChatGPT explanation): 
+That means the native serialport binary shipped/installed inside the extension is wrong or corrupted for your macOS arm64,
+so the extension can’t finish activating — and therefore all its commands show “not found”. This is a known class of problem
+with the extension’s bundled serialport dependency; the maintainer’s recommended fix on similar failures is to delete the
+serialport folder inside the extension and reinstall it.
+
+Confirming Diagnosis:
+* In VsCode → View → Output
+* in `Output` terminal window, select at dropdown menu "Extension Host" , which should show's the extension host's log messages
+* filter for `wmerkens` 
+* There should be an error similar to the following:
+```
+Error: dlopen(/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/node_modules/serialport/node_modules/@serialport/bindings-cpp/build/Release/bindings.node, 0x0001): tried: '/Users/alex/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4/node_modules/serialport/node_modules/@serialport/bindings-cpp/build/Release/bindings.node' (slice is not valid mach-o file) ... 
+```
+
+Solution:
+1. Make sure Apple’s build tools are installed, by running:
+   $> xcode-select --install
+   This should return something like 
+   "xcode-select: note: Command line tools are already installed. ..."
+2. We need NPM package manger: 
+   $> brew install node
+   Confirm availability of npm: 
+   $> node -v
+   $> npm -v
+3. Rebuild the extension’s serialport dependency
+   • go to the extension folder (version may change):
+     $> cd ~/.vscode/extensions/wmerkens.vscode-circuitpython-v2-0.3.4
+   • remove the problematic serialport dependency:
+     $> rm -rf node_modules/serialport
+   • reinstall dependencies (will fetch the correct native binary for your machine):
+     #> npm install
+
+
+Problem 2: CircuitPython V2 Extension "Error: localBundleDir or tag is not set"
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Confirming Diagnosis:
+* In VsCode → View → Output
+* in `Output` terminal window, select at dropdown menu "Extension Host" , which should show's the extension host's log messages
+* filter for `wmerkens` 
+* There should be an error similar to the following:
+  "Error: localBundleDir or tag is not set"
+
+
+Solution:
+VSCode Command Palette [Cmd + Shift + P] → `Preferences: Open Workspace Settings (JSON)`
+
+make sure the following is part of the workspace settings:
+```
+  // CircuitPython v2 — REQUIRED to avoid bundle init crash
+  "circuitpython.bundle.localBundleDir": "/Users/alex/Development/circuitpython/bundles",
+  "circuitpython.bundle.tag": "latest",
+```
+Here, `localBundleDir` can be any _stable_ local directory 
+
+
+
+
+Problem 3:   Command Palette → `CircuitPython: Choose CircuitPython Board` works
+        BUT  `CircuitPython: Open Serial Monitor` still errors with `command 'circuitpython.openSerialMonitor' not found`
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Context:
+ * Extension is alive and its library/board features are registering correctly. The remaining issue is specifically the serial command you’re invoking.
+ * Use the correct serial command for 'CircuitPython v2' should be Command Palette → run `Circuit Python: Open Serial Console`
+   If you only have Open Serial Monitor and it still errors:
+   That command is effectively unusable in your current extension state. Use a stable workaround for REPL/serial while keeping VS Code for editing + completion:
+   $> python -m serial.tools.miniterm /dev/cu.usbmodem0740D10F1BE91 115200
+   This gives you the REPL (Ctrl-C to break into >>>, Ctrl-D to reload, Ctrl-] to exit miniterm).
+
+Work-around: 
+* Install Microsoft’s 'Serial Monitor' extension (ms-vscode.vscode-serial-monitor). 
+* Then open its serial view and select `/dev/cu.usbmodem0740D10F1BE91`, baud `115200`.
+
+
+
+Problem 4:  VS Code `Tasks: Run Task` seems to call wrong python environment
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+In `.vscode/settings.json` we specify the python environment
+```
+    // Explicitly select the CircuitPython venv
+    "python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+```
+
+Now, lets consider a custom task in `.vscode/tasks.json` with a defined "command" key, such as 
+```
+{
+  "label": "Debug: Reload interpreter check",
+  "type": "shell",
+  "command": "${command:python.interpreterPath} -c \"import sys; print(sys.executable)\"",
+  "problemMatcher": []
+}
+```
+
+While the first occurrence `${command:python.interpreterPath}` would resolve correctly (using the value of "python.defaultInterpreterPath" from `.vscode/settings.json`),
+later occurrences of the same would resolved to the default system-wide python instance. Not what we want!
+
+Work-around: 
+* We introduce an explicit shell variable: `SETTINGS_DEFAULT_PYTHON_PATH`
+    ```
+    SETTINGS_DEFAULT_PYTHON_PATH="${command:python.interpreterPath}"
+    ```
+* This captures the interpreter choice _once_. 
+  No reliance on PATH, shell defaults, or environment guessing
+  Makes execution explicit and debuggable:
+  - print it from the shell command via `echo`
+  - We can confirm `sys.executable` from python at runtime
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+EOF

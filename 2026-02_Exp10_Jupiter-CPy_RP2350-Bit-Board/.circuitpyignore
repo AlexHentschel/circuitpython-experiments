@@ -1,0 +1,11 @@
+# CircuitPython Sync Ignore File
+# Add patterns here to exclude files/folders from syncing to the board.
+# Syntax is compatible with basic .gitignore rules (globs, trailing slashes for dirs),
+# though advanced git features like negation (!) may behave differently.
+
+docs/
+assets/
+circuitpython_jupyter_kernel/
+*.log
+
+README.md

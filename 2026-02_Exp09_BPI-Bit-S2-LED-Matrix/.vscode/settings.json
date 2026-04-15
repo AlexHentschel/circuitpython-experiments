@@ -1,0 +1,8 @@
+{
+    // ==========================================================================
+	// CircuitPython CONFIGURATION - Update these paths for your environment
+	// ==========================================================================
+	// Python venv with pyserial installed (used by CircuitPythonSync serial monitor)
+    "python.defaultInterpreterPath": "/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/python",
+    "python.languageServer": "Default"
+}

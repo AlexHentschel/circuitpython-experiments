@@ -1,0 +1,16 @@
+CircuitPython external libraries (.mpy files) go here.
+
+Install via circup (no board connection needed):
+
+  /Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/circup \
+    --path /Users/alex/Development/VsCode/CircuitPython/2026-03_Exp13_Ws2812_CPy_on_RPi-Pico-2040 \
+    --board-id vcc_gnd_yd_rp2040 --cpy-version 10.1.4 \
+    install <library_name>
+
+Or use CircuitPythonSync's "Install or Update Libraries and Stubs" command.
+
+Libraries are synced to the board via CircuitPythonSync "Copy Libs to Board".
+
+Expected contents after install:
+  neopixel.mpy           -- WS2812b driver (Milestone 2)
+  adafruit_pixelbuf.mpy  -- pixel buffer base (dependency, also built-in)

@@ -1,0 +1,10 @@
+# CircuitPython Sync Ignore File
+# Exclude files/folders from syncing to the board.
+
+docs/
+assets/
+sd/
+*.log
+
+README.md
+CONTEXT_HANDOFF.md
