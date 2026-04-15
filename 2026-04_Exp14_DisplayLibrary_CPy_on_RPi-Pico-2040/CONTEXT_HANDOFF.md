@@ -49,10 +49,10 @@ The library (`lib/display.py`) exposes patterns as `#`/`.` grid strings,
 a color palette, and simple methods (`show_leds`, `set_pixel`, `clear`, etc.).
 
 **Phase 1** (complete): basic 8×8 rendering, pattern display, color cycling.
-**Phase 2** (design complete, implementation pending): asyncio-based cooperative
+**Phase 2** (implemented, hardware test pending): asyncio-based cooperative
 multitasking with cancellation-token counter, two-tier API (sync rendering +
 async MakeCode-compatible methods), Image class with scrolling, font rendering
-via `adafruit_bitmap_font`, 40 hand-designed 8x8 icons, 8 arrows, unified
+via `adafruit_bitmap_font`, 40 hand-designed 8×8 icons, 8 arrows, unified
 color/palette parameter. Full design in the Phase 2 plan file.
 
 ---
@@ -92,7 +92,7 @@ for these pins. Use the aliases.
 |----------|-------|
 | Type | WS2812b (NeoPixel) |
 | Size | 8 × 8 (64 pixels) |
-| Wiring layout | Serpentine (zig-zag) row-major |
+| Wiring layout | Progressive left-to-right, bottom-up (index 0 = bottom-left) |
 | Data pin | GP0 |
 | Voltage | 5 V (requires 3.3 V → 5 V level shifter on data line) |
 
@@ -152,17 +152,21 @@ Note: `circup` is in the project venv at `/Users/alex/Development/PythonVEs/Circ
 
 ### 3.3 Project library — `lib/display.py`
 
-Core deliverable. Phase 1 is implemented; Phase 2 is designed (see plan) but not yet coded. Below describes the Phase 2 target architecture.
+Core deliverable. Phase 2 is implemented (hardware test pending). Below describes the current architecture.
 
 **Module-level constants**: `WIDTH` (8), `HEIGHT` (8), `NUM_PIXELS` (64), `PIXEL_PIN` (`board.GP0`), `BRIGHTNESS` (0.05).
 
 **Color palette**: Adafruit LED Animation standard colors (`RED`, `YELLOW`, `ORANGE`, `GREEN`, `TEAL`, `CYAN`, `BLUE`, `PURPLE`, `MAGENTA`, `WHITE`, `BLACK`, `GOLD`, `PINK`, `AQUA`, `JADE`, `AMBER`, `OLD_LACE`) plus LED-tuned extras (`GRAY`, `DARKSLATEBLUE`, `YELLOWGREEN`, `DEEPPINK`). `OFF` = alias for `BLACK`. Re-exports `colorwheel` from `rainbowio`.
 
-**Coordinate mapping**: Pre-computed 64-byte LUT (`_LUT`) bakes rotation (0/90/180/270) and serpentine wiring into `_LUT[x * HEIGHT + y] → strip index`. Replaces Phase 1's per-call `_xy_to_index()` function (which is retained as a LUT-backed wrapper).
+**Coordinate mapping**: A pre-computed 64-byte lookup table (LUT) bakes rotation (0/90/180/270) and bottom-up progressive wiring into a single array: `LUT[x * HEIGHT + y]` yields the NeoPixel strip index for logical pixel `(x, y)` where `x` = column (0 = left) and `y` = row (0 = top). Replaces Phase 1's per-call `_xy_to_index()` function (which is retained as a LUT-backed wrapper).
+
+**Cancellation-token counter**: A module-level sequence counter `_seq` (int, starts at 0) enables cooperative multitasking. `_acquire()` increments `_seq` and returns the new value as a token. `_cancelled(token)` returns `True` if `_seq` has advanced past that token, meaning a newer operation has taken control.
 
 **Two-tier API**:
 - **Tier 1 (sync)**: Immediate rendering to NeoPixel buffer. `render_pattern`, `render_icon`, `render_arrow`, `clear_screen`, `set_pixel`, `fill`, `set_brightness`, `set_rotation`, `get_pixel`. Display-mutating methods call `_acquire()` to cancel ongoing Tier 2 animations.
-- **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` + `_seq` cancellation-token counter.
+- **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` and check `_cancelled(token)` between animation frames.
+
+**Bitmap format — column-major bytes**: Monochrome bitmaps (icons, arrows, font glyphs, mono `Image` data) are stored as one byte per column, where bit N of a column byte indicates whether row N is lit. This layout enables efficient horizontal scrolling by iterating contiguous column bytes. See Section 3.4 for icon/arrow storage.
 
 **Image class**: Column-major bytes (mono) or per-pixel tuple array (multi-color). `from_pattern()`, `recolor()`, async `show_image()` / `scroll_image()`. Module-level factories: `create_image()`, `create_big_image()`.
 
@@ -174,7 +178,7 @@ Core deliverable. Phase 1 is implemented; Phase 2 is designed (see plan) but not
 
 ### 3.4 Project library — `lib/display_icons.py` (Phase 2)
 
-Icon + arrow bitmap data. Column-major `bytes` literals (1 byte per column, bit N = row N). 40 icons (320 bytes) + 8 compass arrows (64 bytes). `IconNames` / `ArrowNames` enum-like classes defined in `display.py`.
+Icon + arrow bitmap data stored as column-major `bytes` literals: each byte represents one column, where bit `n` (0 = LSB) corresponds to row `n` (1 = pixel lit). 40 icons (8 bytes each = 320 bytes) + 8 compass arrows (8 bytes each = 64 bytes). `IconNames` / `ArrowNames` enum-like classes defined in `display.py`.
 
 ---
 
@@ -190,7 +194,7 @@ Icon + arrow bitmap data. Column-major `bytes` literals (1 byte per column, bit 
 ├── code.py                       Demo script (Phase 1: patterns + color cycling; Phase 2: asyncio showcase)
 ├── lib/
 │   ├── display.py                MakeCode-style display library (project module)
-│   ├── display_icons.py          Icon + arrow bitmap data (Phase 2, to be created)
+│   ├── display_icons.py          Icon + arrow bitmap data (Phase 2)
 │   ├── README                    Library folder documentation
 │   ├── neopixel.mpy              (external, installed via circup)
 │   ├── adafruit_pixelbuf.mpy     (external, installed via circup)
@@ -272,11 +276,12 @@ Full design documented in the Phase 2 plan file (`phase_2_display_library_2e99c8
 
 ## 7. Known issues and notes
 
-1. **Serpentine wiring assumption**: Phase 1 uses a `SERPENTINE = True` flag.
-   Phase 2 replaces this with a pre-computed LUT (`_build_lut`) that bakes
-   serpentine wiring and rotation into a 64-byte lookup table. The serpentine
-   pattern (odd rows reversed) is hardcoded in `_build_lut`; adapting to
-   non-serpentine wiring requires modifying that function.
+1. **Wiring layout** (hardware-tested): Progressive left-to-right, bottom-up.
+   All rows run left-to-right (no serpentine). Strip index 0 = bottom-left
+   pixel. Strip index formula (before rotation):
+   `idx = (HEIGHT - 1 - py) * WIDTH + px`, where `px` and `py` are the
+   physical column and row after rotation is applied. `_build_lut` bakes
+   this wiring plus rotation into the 64-byte LUT.
 
 2. **Brightness**: Default is 0.05 (very dim) to avoid drawing excessive
    current during development. Increase carefully -- 64 WS2812b LEDs at

@@ -13,7 +13,7 @@ scrolling, font rendering, 40 icons, 8 arrows, multi-color palette support.
 |-----------|--------|
 | **MCU board** | YD-RP2040 by VCC-GND Studio (RP2040, 16 MB flash, USB-C) |
 | **CircuitPython** | 10.1.4 -- board-id `vcc_gnd_yd_rp2040` |
-| **LED matrix** | 8x8 WS2812b (64 NeoPixels), serpentine (zig-zag) wiring |
+| **LED matrix** | 8x8 WS2812b (64 NeoPixels), progressive bottom-up L-to-R wiring |
 | **Data pin** | GP0 -> level shifter -> WS2812b DIN |
 | **Level shifter** | 3.3 V -> 5 V (required -- RP2040 is 3.3 V logic) |
 
@@ -128,13 +128,13 @@ await display.show_leds("""
 Origin `(0, 0)` at top-left. `x` increases rightward (column), `y` increases
 downward (row).
 
-The physical LED strip uses **serpentine wiring**: even rows (0, 2, 4, 6) run
-left-to-right, odd rows (1, 3, 5, 7) run right-to-left. The library handles
-this mapping transparently via a pre-computed **LUT** (lookup table) -- a
-64-byte array where `LUT[x * 8 + y]` gives the NeoPixel strip index for
+The physical LED strip uses **progressive bottom-up wiring**: all rows run
+left-to-right, but strip index 0 starts at the bottom-left corner. The library
+handles this mapping transparently via a pre-computed **LUT** (lookup table) --
+a 64-byte array where `LUT[x * 8 + y]` gives the NeoPixel strip index for
 logical pixel `(x, y)`. Users never need to think about physical wiring.
 
-Example (no rotation, serpentine):
+Example (no rotation):
 
 Logical coordinates (x, y):
 
@@ -150,18 +150,18 @@ y=6    (0,6) (1,6) (2,6) (3,6) (4,6) (5,6) (6,6) (7,6)
 y=7    (0,7) (1,7) (2,7) (3,7) (4,7) (5,7) (6,7) (7,7)
 ```
 
-Physical NeoPixel strip indices (serpentine wiring, no rotation):
+Physical NeoPixel strip indices (progressive bottom-up L-to-R, no rotation):
 
 ```
          x=0   x=1   x=2   x=3   x=4   x=5   x=6   x=7
-y=0    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)   -> L-to-R
-y=1    (15)  (14)  (13)  (12)  (11)  (10)  ( 9)  ( 8)   <- R-to-L
-y=2    (16)  (17)  (18)  (19)  (20)  (21)  (22)  (23)   -> L-to-R
-y=3    (31)  (30)  (29)  (28)  (27)  (26)  (25)  (24)   <- R-to-L
-y=4    (32)  (33)  (34)  (35)  (36)  (37)  (38)  (39)   -> L-to-R
-y=5    (47)  (46)  (45)  (44)  (43)  (42)  (41)  (40)   <- R-to-L
-y=6    (48)  (49)  (50)  (51)  (52)  (53)  (54)  (55)   -> L-to-R
-y=7    (63)  (62)  (61)  (60)  (59)  (58)  (57)  (56)   <- R-to-L
+y=0    (56)  (57)  (58)  (59)  (60)  (61)  (62)  (63)   top row
+y=1    (48)  (49)  (50)  (51)  (52)  (53)  (54)  (55)
+y=2    (40)  (41)  (42)  (43)  (44)  (45)  (46)  (47)
+y=3    (32)  (33)  (34)  (35)  (36)  (37)  (38)  (39)
+y=4    (24)  (25)  (26)  (27)  (28)  (29)  (30)  (31)
+y=5    (16)  (17)  (18)  (19)  (20)  (21)  (22)  (23)
+y=6    ( 8)  ( 9)  (10)  (11)  (12)  (13)  (14)  (15)
+y=7    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)   bottom row (strip start)
 ```
 
 Display rotation (0/90/180/270 degrees via `set_rotation()`) is also baked
