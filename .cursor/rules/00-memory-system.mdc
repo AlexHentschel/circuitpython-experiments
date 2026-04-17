@@ -1,0 +1,88 @@
+---
+description: Persistent memory system — file architecture, retrieval, update rules, validation gate, maintenance
+alwaysApply: true
+---
+
+# Memory System
+
+Persistent learning across sessions lives in `memory/` (this directory's sibling). Without it, every session re-derives the same conclusions and re-calibrates to the same preferences.
+
+## File Architecture
+
+| File | Purpose | Update authority |
+|------|---------|------------------|
+| `memory/WORKING_STYLE.md` | Behavioral directive catalog (human-given + self-prescribed). Tracks reinforcement counts. | Agent (free) |
+| `memory/SESSION_LOG.md` | Per-session insights, artifacts, open questions. Living summary at top. | Agent (free) |
+| `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent records `unverified`; human elevates to `verified` |
+| `memory/CONCLUSIONS.md` | Cross-session validated/invalidated findings. | Agent records `unverified`/`evidence-supported`; human elevates to `verified` |
+| `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes. **Defer creation until first structural change.** | Agent (free) |
+
+## Active Retrieval (at session start)
+
+Memory files are **not** auto-injected. Read selectively:
+
+1. `SESSION_LOG.md` — living summary + last 1–2 entries + Open Questions
+2. `WORKING_STYLE.md` — scan for directives relevant to the current task
+3. `CONCLUSIONS.md` — only if validating or revisiting findings
+4. `TECHNICAL.md` — only if doing technical work
+5. `CHANGELOG.md` — only during self-evaluation or compaction
+
+Run **health checks** alongside reading: anything unfamiliar? files unexpectedly large/small? stale entries? If any check raises concern, request a dedicated maintenance session — do not fix as a side effect.
+
+## Update Rules
+
+After every substantive exchange, evaluate:
+
+1. New concept introduced? → `TECHNICAL.md` (mark `unverified`)
+2. Correction received? → mark prior understanding `invalidated`; record correction
+3. Working-style direction given? → `WORKING_STYLE.md` (new row or reinforcement increment)
+4. Conclusion validated/invalidated? → `CONCLUSIONS.md`
+5. Session produced insights/artifacts? → `SESSION_LOG.md`
+6. Takeaway stated in conversation but not written to file? → write it now. Conversation does not persist.
+7. Pattern emerging from repeated friction (3+ iterations)? → extract into `WORKING_STYLE.md` as new directive
+
+### How
+
+- Snippets over sentences. `key: value` and bullet fragments, not paragraphs.
+- References over copies. Point to artifacts; don't duplicate.
+- Track provenance (when/why added).
+- Mark status on every factual claim.
+- Generalize appropriately: "at what level of generality does this still hold?"
+- Principles over recollections. State the rule; reference the case as example.
+
+## Validation Gate
+
+- **Technical conclusions** (findings about the system being built/analyzed): agent records at `unverified` or `evidence-supported`. Only the human elevates to `verified`. Proactively present when evidence is sufficient.
+- **Operational content** (working style, session logs, meta-rules): agent updates freely.
+
+## Maintenance
+
+1. Compaction is **always deliberate** — never a side effect of another edit.
+2. Read `CHANGELOG.md` first; recall past compaction failures.
+3. Before removing/merging any entry: state what, why, verify it isn't the sole record of tracking metadata.
+4. Prefer **splitting over pruning**. If a file grows large, create a topic file and reference it from the index.
+5. Log every maintenance action in `CHANGELOG.md`.
+
+### Evolution vocabulary (use in CHANGELOG entries)
+
+`extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`
+
+## Content Hierarchy (caution proportional to level)
+
+| Level | Content | Change frequency | Caution |
+|-------|---------|-----------------|---------|
+| 0 | Technical findings | Every session | Normal — evidence-gated |
+| 1 | Working-style directives | Most sessions | Moderate — track reinforcement |
+| 2 | Memory organization | Every few sessions | High — broad impact |
+| 3 | Meta-rules | Rarely | Very high — strong evidence required |
+
+Higher level = more stable = stronger evidence required to change.
+
+## See also (read on demand)
+
+- Full rationale for this rule's directives: `reference/01-memory-system.md` (blueprint source)
+- Top-down architectural overview: `reference/00-overview.md`
+- Validation gate full treatment: `reference/04-evidence-and-validation.md`
+- Pattern extraction and self-reflection: `reference/03-self-improvement.md`
+- Compaction failure cases (read before any compaction): `reference/06-failure-modes.md` §§ F1, F8, F10
+- Bootstrapping (file templates, first-session protocol): `reference/08-bootstrapping.md`

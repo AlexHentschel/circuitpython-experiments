@@ -1,0 +1,83 @@
+---
+description: Domain skeleton for the CircuitPython multi-experiment workspace — categories, conventions, status defaults
+alwaysApply: true
+---
+
+# Domain: CircuitPython Multi-Experiment Workspace
+
+## Scope
+
+Embedded development with **CircuitPython** across multiple hardware experiments under `/Users/alex/Development/VsCode/CircuitPython/`. Each experiment is a folder named `YYYY-MM_ExpNN_<descriptor>/`. A shared toolbox lives in `CircuitPy-VsCode-Tooling/`.
+
+This rule sets the domain skeleton: what categories `TECHNICAL.md` and `CONCLUSIONS.md` should organize knowledge under, what conventions are house-style, and what status defaults apply.
+
+All entries default to `unverified` unless specified otherwise. Code references include experiment name + relative path + (when relevant) commit/branch.
+
+## Active Experiment Detection
+
+Detect which experiment the current work belongs to by inspecting the most-recently-edited file path or the user's open files: the first `2026-NN_ExpNN_*` (or `CircuitPy-VsCode-Tooling`) segment in the path is the active experiment. If ambiguous (e.g. files from multiple experiments), ask before writing entries that are experiment-scoped.
+
+When recording in `SESSION_LOG.md` or `TECHNICAL.md`, tag entries with the experiment slug (e.g. `[exp14]`, `[exp13]`, `[tooling]`, `[universal]`).
+
+> **Terminology note**: in this pre-warm-reset layout, "experiment" is the unit of scope. After the `warm reset` mandate executes, the equivalent concept becomes "project" — a strictly broader term that can encompass non-CircuitPython work. Treat `experiment` and `project` as synonyms when reading older entries post-warm-reset.
+
+## TECHNICAL.md Categories
+
+Seven sections, authoritative schema lives in `memory/TECHNICAL.md` itself (with per-section intent notes as HTML comments):
+
+1. Terminology
+2. Boards & MCUs (+ pin maps as subsections per board)
+3. CircuitPython Library Map
+4. Hardware-Interfacing Patterns
+5. Pin / Peripheral Assumptions
+6. Toolchain
+7. Code Map
+8. Verification Queue
+
+Add subsections per experiment as needed. If a category outgrows its section, apply the §Scaling rule from `00-memory-system.mdc` (split into a topic file).
+
+## CONCLUSIONS.md Conventions
+
+Status tiers (per memory system rule):
+- `verified` — human-confirmed
+- `evidence-supported` — sufficient evidence, awaiting confirmation
+- `unverified` — stated but not investigated
+- `disputed` — conflicting evidence
+- `invalidated` — disproven
+
+Tag every conclusion with its experiment scope: `[exp14]`, `[exp13]`, `[tooling]`, `[cross-experiment]`, `[universal]`.
+
+When a finding holds across 2+ experiments, note it as `[cross-experiment]` and consider whether to promote a derived directive into `WORKING_STYLE.md`.
+
+## House Conventions
+
+- **No code edits to vendored libraries** in `lib/` — those are versioned copies of upstream bundle libraries. Modifications belong in experiment-local code.
+- **Settings layering**: workspace-level `.code-workspace` settings provide defaults; per-experiment `.vscode/settings.json` overrides board-specific items. VS Code does **not** merge arrays — `python.analysis.extraPaths` defined per experiment fully overrides the workspace-level value.
+- **Credentials in `settings.toml`** — never commit. Listed in `.gitignore`.
+- **Bundle archives** under `bundles/` and `libArchive/` are gitignored; treat as re-downloadable.
+- **CIRCUITPY drive**: when present, treat as the deployment target; never edit files there as a source of truth — they are deploys from the experiment's local source.
+
+## Where to Put New Knowledge
+
+| Discovery | File | Section |
+|-----------|------|---------|
+| New board added to an experiment | `TECHNICAL.md` | Boards & MCUs |
+| Library installed via circup | `TECHNICAL.md` | CircuitPython Library Map |
+| New peripheral wiring confirmed | `TECHNICAL.md` | Pin / Peripheral Assumptions |
+| Reusable hardware-interface idiom | `TECHNICAL.md` | Hardware-Interfacing Patterns |
+| Toolchain quirk / VS Code config behaviour | `TECHNICAL.md` | Toolchain |
+| Validated end-to-end behaviour of an experiment | `CONCLUSIONS.md` | Validated (with `[expNN]`) |
+| Pattern observed in 2+ experiments | `CONCLUSIONS.md` tagged `[cross-experiment]`, **and** consider directive promotion to `WORKING_STYLE.md` |
+| Behavioural correction from the human | `WORKING_STYLE.md` | matching section, increment reinforcement |
+| Open question that survives a session | `SESSION_LOG.md` § Open Questions |
+
+## Open Mandates (triggered structural changes)
+
+The human has pre-declared structural evolutions of this persona, each gated behind an explicit trigger phrase. When the human utters the trigger, read the corresponding mandate file **in full** and follow its pre-flight checklist before acting.
+
+| Trigger phrase | Mandate file | Effect |
+|---------------|--------------|--------|
+| `warm reset` | `mandates/multi-project.md` | Reorganize flat `memory/` into multi-project layout (`universal/`, `projects/`, `crossref/`) with scope-tagged entries, promotion ladder, and cross-project retrieval. Level 2-3 change — requires explicit confirmation. |
+
+Mandates are **declared intents**, not immediate actions. Do not pre-emptively restructure memory in anticipation; wait for the explicit trigger.
+

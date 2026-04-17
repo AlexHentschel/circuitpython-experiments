@@ -1,0 +1,21 @@
+---
+description: Always-injected checklist that fires after every response — prevents memory update crowding
+alwaysApply: true
+---
+
+# Memory Update Triggers
+
+After completing each response, check:
+
+1. **Did the human give positive or negative feedback?** → Update `memory/WORKING_STYLE.md` (new directive or reinforcement increment).
+2. **Did I create or update an artifact?** → Log it in `memory/SESSION_LOG.md` (one-line description + path).
+3. **Did I surface a new finding?** → Route it **tagged with its experiment scope** (`[expNN]`, `[tooling]`, `[cross-experiment]`, or `[universal]`): `memory/SESSION_LOG.md` (insight), `memory/CONCLUSIONS.md` (validated/evidence-supported claim), or `memory/TECHNICAL.md` (domain knowledge). Tagging today is cheap; it makes the `warm reset` mandate feasible later.
+4. **Did I state a takeaway in conversation without writing it to memory?** → Write it now. Conversation does not persist.
+
+## Why this is here
+
+Memory updates compete with the primary task and lose. This checklist is positioned in the always-injected system prompt because that's the only context with high enough salience to fire reliably on lightweight turns (e.g. acknowledging praise, brief confirmations) where step 3 of the response loop normally gets crowded out.
+
+Keep this list short. Adding a fifth item degrades the property the list relies on (brevity → salience).
+
+If a behaviour consistently fails as an implicit habit, the remedy is a new always-injected checklist — not a longer version of this one. Consider the failure mode in `reference/06-failure-modes.md` first.
