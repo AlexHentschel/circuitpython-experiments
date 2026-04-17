@@ -4,7 +4,14 @@
 docs/
 assets/
 sd/
+tests/
+.venv/
 *.log
 
 README.md
 CONTEXT_HANDOFF.md
+conftest.py
+requirements-dev.txt
+
+# Host-side dev files inside the library package
+lib/display/README.md

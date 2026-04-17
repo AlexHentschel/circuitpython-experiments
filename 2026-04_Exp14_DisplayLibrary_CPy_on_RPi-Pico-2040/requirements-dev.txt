@@ -1,0 +1,5 @@
+pytest>=8
+# Tier 2 additions (deferred; install when test_display_core.py lands):
+# circuitpython-mocks
+# adafruit-circuitpython-bitmap-font
+# pytest-asyncio

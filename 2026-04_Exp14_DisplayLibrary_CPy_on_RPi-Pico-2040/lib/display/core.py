@@ -1,26 +1,23 @@
 """
-MakeCode-style display library for an 8x8 WS2812b NeoPixel matrix.
+Runtime display engine for the 8x8 WS2812b NeoPixel matrix.
 
-Hardware: YD-RP2040, WS2812b data on GP0 via 3.3V-to-5V level shifter.
-Wiring:   Progressive left-to-right, bottom-up (strip index 0 = bottom-left).
+Owns the live NeoPixel buffer, the coordinate LUT (populated via
+``geometry.build_lut``), the PCF font (loaded from the sibling
+``font_free_mono_8/`` directory via a ``__file__``-relative path), and
+the ``Display`` + ``Image`` classes.
+
+Cooperative multitasking uses a module-level sequence counter
+(``Display._seq``). Every display-mutating method calls ``_acquire()``
+to increment the token; Tier 2 animations holding an older token abort
+via ``_cancelled(token)`` between awaits. ``Image`` methods reference
+module globals (``display``, ``_LUT``, ``_pixels``) directly -- tight
+coupling acceptable for a single-display MCU library.
 
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, clear_screen,
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
-
-Cooperative multitasking via asyncio + cancellation-token counter (_seq).
-Display-mutating methods call _acquire() to invalidate any ongoing animation.
-Async methods check _cancelled(token) after each await to detect preemption.
-
-Monochrome bitmaps (icons, arrows, font glyphs, mono Images) use column-major
-bytes internally: one byte per column, bit N = row N (bit 0 = top). This
-enables efficient horizontal scrolling by iterating contiguous column bytes.
-
-Image class owns its display color(s) and supports async show/scroll.
-Image methods reference module globals (display, _LUT, _pixels) directly --
-tight coupling acceptable for a single-display MCU library.
 """
 
 import asyncio
@@ -29,49 +26,22 @@ import neopixel
 from rainbowio import colorwheel  # noqa: F401 -- re-export for user convenience
 
 from adafruit_bitmap_font import bitmap_font
-from display_icons import ICONS, ARROWS
+
+from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
+from .geometry import build_lut
+from .icons import ICONS, ARROWS
+
 
 # ---------------------------------------------------------------------------
-# Hardware configuration
+# Hardware configuration (kept out of _constants.py so that pure sub-modules
+# stay importable on CPython without a device).
 # ---------------------------------------------------------------------------
-WIDTH = 8
-HEIGHT = 8
-NUM_PIXELS = WIDTH * HEIGHT
 PIXEL_PIN = board.GP0
 BRIGHTNESS = 0.05
 
 _pixels = neopixel.NeoPixel(
     PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False
 )
-
-# ---------------------------------------------------------------------------
-# Color constants -- Adafruit LED Animation standard + LED-tuned extras
-# ---------------------------------------------------------------------------
-RED = (255, 0, 0)
-YELLOW = (255, 150, 0)
-ORANGE = (255, 40, 0)
-GREEN = (0, 255, 0)
-TEAL = (0, 255, 120)
-CYAN = (0, 255, 255)
-BLUE = (0, 0, 255)
-PURPLE = (180, 0, 255)
-MAGENTA = (255, 0, 20)
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GOLD = (255, 222, 30)
-PINK = (242, 90, 255)
-AQUA = (50, 255, 255)
-JADE = (0, 255, 40)
-AMBER = (255, 100, 0)
-OLD_LACE = (253, 245, 230)
-RAINBOW = (RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE)
-
-GRAY = (160, 160, 160)
-DARKSLATEBLUE = (80, 0, 180)
-YELLOWGREEN = (120, 230, 0)
-DEEPPINK = (255, 0, 160)
-
-OFF = BLACK
 
 
 def color(r, g, b):
@@ -80,63 +50,9 @@ def color(r, g, b):
 
 
 # ---------------------------------------------------------------------------
-# Coordinate LUT -- pre-computed (x, y) -> strip index
+# Coordinate LUT -- mutated in-place on rotation so references stay valid.
 # ---------------------------------------------------------------------------
-_LUT = bytearray(WIDTH * HEIGHT)
-
-
-def _build_lut(rotation=0):
-    """Pre-compute (x, y) -> strip index for configured rotation.
-
-    Two-stage coordinate transform:
-      1. Rotation: logical (x, y) -> physical (px, py).
-         Clockwise rotation in degrees.
-      2. Bottom-up progressive wiring: physical (px, py) -> strip index.
-         All rows run left-to-right. Bottom row (py=H-1) = strip indices 0-7.
-         idx = (H-1-py)*W + px.
-
-    Logical coordinates (x = column, y = row):
-
-             x=0   x=1   x=2   x=3   x=4   x=5   x=6   x=7
-    y=0    (0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0)
-    y=1    (0,1) (1,1) (2,1) (3,1) (4,1) (5,1) (6,1) (7,1)
-    ...
-    y=7    (0,7) (1,7) (2,7) (3,7) (4,7) (5,7) (6,7) (7,7)
-
-    Physical strip indices (progressive bottom-up L-to-R, rotation=0):
-
-             x=0   x=1   x=2   x=3   x=4   x=5   x=6   x=7
-    y=0    (56)  (57)  (58)  (59)  (60)  (61)  (62)  (63)  -> top row
-    y=1    (48)  (49)  (50)  (51)  (52)  (53)  (54)  (55)
-    y=2    (40)  (41)  (42)  (43)  (44)  (45)  (46)  (47)
-    y=3    (32)  (33)  (34)  (35)  (36)  (37)  (38)  (39)
-    y=4    (24)  (25)  (26)  (27)  (28)  (29)  (30)  (31)
-    y=5    (16)  (17)  (18)  (19)  (20)  (21)  (22)  (23)
-    y=6    ( 8)  ( 9)  (10)  (11)  (12)  (13)  (14)  (15)
-    y=7    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)  -> bottom row (strip start)
-    """
-    for x in range(WIDTH):
-        for y in range(HEIGHT):
-            # Stage 1: rotate logical -> physical
-            if rotation == 90:
-                px, py = (WIDTH - 1) - y, x
-            elif rotation == 180:
-                px, py = (WIDTH - 1) - x, (HEIGHT - 1) - y
-            elif rotation == 270:
-                px, py = y, (HEIGHT - 1) - x
-            else:
-                px, py = x, y
-            # Stage 2: bottom-up progressive wiring -> strip index
-            # All rows L-to-R, bottom row = indices 0..W-1
-            _LUT[x * HEIGHT + y] = ((HEIGHT - 1) - py) * WIDTH + px
-
-
-_build_lut(0)
-
-
-def _xy_to_index(x, y):
-    """Map logical (x, y) to NeoPixel strip index via pre-computed LUT."""
-    return _LUT[x * HEIGHT + y]
+_LUT = build_lut(0)
 
 
 # ---------------------------------------------------------------------------
@@ -156,10 +72,14 @@ def _render_colmajor(data, offset, color_on):
 
 
 # ---------------------------------------------------------------------------
-# Font loading -- PCF font via adafruit_bitmap_font
+# Font loading -- PCF font via adafruit_bitmap_font.
+# Path is resolved relative to this file so the font ships with the package
+# on both host and device; os.path coverage on CircuitPython is partial so
+# rsplit is preferred over os.path.dirname.
 # ---------------------------------------------------------------------------
-_font = bitmap_font.load_font("/lib/font_free_mono_8/font.pcf")
-_font.load_glyphs(range(32, 127))
+_FONT_PATH = __file__.rsplit("/", 1)[0] + "/font_free_mono_8/font.pcf"
+_font = bitmap_font.load_font(_FONT_PATH)
+_font.load_glyphs(range(32, 127))  # preload printable ASCII at import time
 
 
 def _glyph_columns(ch):
@@ -203,63 +123,6 @@ def _glyph_columns(ch):
 
 
 # ---------------------------------------------------------------------------
-# IconNames / ArrowNames enums
-# ---------------------------------------------------------------------------
-class IconNames:
-    HEART = 0
-    SMALL_HEART = 1
-    YES = 2
-    NO = 3
-    HAPPY = 4
-    SAD = 5
-    CONFUSED = 6
-    ANGRY = 7
-    ASLEEP = 8
-    SURPRISED = 9
-    SILLY = 10
-    FABULOUS = 11
-    MEH = 12
-    TSHIRT = 13
-    ROLLERSKATE = 14
-    DUCK = 15
-    HOUSE = 16
-    TORTOISE = 17
-    BUTTERFLY = 18
-    STICK_FIGURE = 19
-    GHOST = 20
-    SWORD = 21
-    GIRAFFE = 22
-    SKULL = 23
-    UMBRELLA = 24
-    SNAKE = 25
-    RABBIT = 26
-    COW = 27
-    QUARTER_NOTE = 28
-    EIGHTH_NOTE = 29
-    PITCHFORK = 30
-    TARGET = 31
-    TRIANGLE = 32
-    LEFT_TRIANGLE = 33
-    CHESSBOARD = 34
-    DIAMOND = 35
-    SMALL_DIAMOND = 36
-    SQUARE = 37
-    SMALL_SQUARE = 38
-    SCISSORS = 39
-
-
-class ArrowNames:
-    NORTH = 0
-    NORTH_EAST = 1
-    EAST = 2
-    SOUTH_EAST = 3
-    SOUTH = 4
-    SOUTH_WEST = 5
-    WEST = 6
-    NORTH_WEST = 7
-
-
-# ---------------------------------------------------------------------------
 # Image class
 # ---------------------------------------------------------------------------
 class Image:
@@ -269,7 +132,7 @@ class Image:
     Multi-color images store a flat tuple of per-pixel RGB tuples.
 
     Image async methods reference module globals (display, _LUT, _pixels)
-    directly -- coupling documented in the Phase 2 plan (section 8.3).
+    directly -- coupling documented in the package README.
     """
     __slots__ = ('_data', '_width', '_multi', '_color')
 
@@ -395,7 +258,6 @@ class Image:
             pos += offset
 
 
-# Module-level factories
 def create_image(pattern_str, color_palette=None):
     if color_palette is None:
         color_palette = WHITE
@@ -533,7 +395,9 @@ class Display:
     @staticmethod
     def set_rotation(degrees):
         """Rebuild coordinate LUT for 0/90/180/270 rotation."""
-        _build_lut(degrees)
+        # Mutate in place so any module reading _LUT sees the new mapping
+        # without needing to re-import.
+        _LUT[:] = build_lut(degrees)
 
     # -- Tier 2: Async MakeCode-compatible methods ---------------------------
 

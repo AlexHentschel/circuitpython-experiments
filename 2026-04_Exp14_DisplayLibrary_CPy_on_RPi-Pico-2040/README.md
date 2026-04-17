@@ -26,7 +26,13 @@ Level-Shifter OUT --> WS2812b DIN    (5 V side)
 GND          --> all GNDs (board, shifter, LED matrix, PSU)
 ```
 
-## Library API -- `lib/display.py`
+## Library API -- `lib/display/` package
+
+The library is structured as a Python package (`lib/display/`) with six
+sub-modules. User-facing imports (`from display import ...`) are
+unchanged. See [lib/display/README.md](lib/display/README.md) for the
+package architecture and design rationale.
+
 
 ### Quick start (async, recommended)
 
@@ -176,7 +182,8 @@ any single character maps to a color. Spaces stripped.
 ## Icons and arrows
 
 40 built-in icons (`IconNames.*`) and 8 arrows (`ArrowNames.*`). See
-`lib/display_icons.py` for the full list and ASCII art designs.
+[lib/display/icons.py](lib/display/icons.py) for the full list and
+ASCII art designs.
 
 ## Library installation
 
@@ -201,17 +208,38 @@ Use `circup` flags `--path <project-dir> --board-id vcc_gnd_yd_rp2040 --cpy-vers
 |   +-- settings.json         Python venv path
 |   +-- cpfiles.txt           CircuitPythonSync manifest
 +-- code.py                   Demo script (asyncio-based Phase 2 showcase)
++-- requirements-dev.txt      Host-side test dependencies (pytest)
 +-- lib/
-|   +-- display.py            MakeCode-style display library
-|   +-- display_icons.py      Icon + arrow bitmap data (column-major bytes)
+|   +-- display/              MakeCode-style display library (package)
+|   |   +-- __init__.py       Public-API re-exports
+|   |   +-- _constants.py     Dimensions + encoding limit + colors (pure)
+|   |   +-- bitmap_codec.py   ASCII art <-> column-major bytes codec
+|   |   +-- geometry.py       Pure build_lut / xy_to_index
+|   |   +-- icons.py          ICONS, ARROWS, IconNames, ArrowNames
+|   |   +-- core.py           Display + Image runtime (hardware-coupled)
+|   |   +-- font_free_mono_8/ PCF font (ships with package)
+|   |   +-- README.md         Package architecture + design rationale
 |   +-- neopixel.mpy          (installed by circup)
 |   +-- adafruit_pixelbuf.mpy (installed by circup)
 |   +-- asyncio/              (installed by circup)
 |   +-- adafruit_ticks.mpy    (installed by circup)
 |   +-- adafruit_bitmap_font/ (installed by circup)
-|   +-- font_free_mono_8/     (installed by circup -- PCF font)
++-- tests/                    Tier 1 pytest suite (host-side)
 +-- CONTEXT_HANDOFF.md        AI context document
 +-- README.md                 This file
+```
+
+## Running tests (host-side, Tier 1)
+
+Pure sub-modules (`bitmap_codec`, `geometry`, `icons`, `_constants`)
+are exercised on CPython without any CircuitPython stubs. The
+`display.core` runtime (NeoPixel buffer, font) is covered by Tier 2
+tests (deferred; will add `circuitpython-mocks` + local stubs).
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest tests/
 ```
 
 ## Development workflow
