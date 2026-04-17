@@ -14,6 +14,10 @@ Cooperative multitasking via asyncio + cancellation-token counter (_seq).
 Display-mutating methods call _acquire() to invalidate any ongoing animation.
 Async methods check _cancelled(token) after each await to detect preemption.
 
+Monochrome bitmaps (icons, arrows, font glyphs, mono Images) use column-major
+bytes internally: one byte per column, bit N = row N (bit 0 = top). This
+enables efficient horizontal scrolling by iterating contiguous column bytes.
+
 Image class owns its display color(s) and supports async show/scroll.
 Image methods reference module globals (display, _LUT, _pixels) directly --
 tight coupling acceptable for a single-display MCU library.

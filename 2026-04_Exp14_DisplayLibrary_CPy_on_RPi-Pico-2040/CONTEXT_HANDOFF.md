@@ -26,6 +26,10 @@
 - Minimize heap fragmentation: prefer pre-allocated buffers, `bytes` literals for static data, `bytearray` for mutable fixed-size buffers, and `__slots__` on classes. Avoid repeated small allocations in hot paths.
 - Optimize for performance (runtime and RAM) wherever easily possible. Prefer O(1) lookups over repeated computation, pre-compute what can be pre-computed, and avoid unnecessary copies.
 - Rely on existing libraries to a large extent. Only reimplement when an existing library has major disadvantages (excessive memory, missing critical functionality, unacceptable performance). Document the rationale when choosing not to use an available library.
+- **Parametric dimensions**:
+  - *Naming discipline (required)*: business logic must never contain numeric literals that stand for display height or width. Such numbers must be named — via module-level constants (`WIDTH`, `HEIGHT`), function parameters, or clearly-scoped local variables — so intent is explicit at every use site. Exceptions: docstrings, explanatory comments, and data-definition constants describing the on-disk layout of a specific hardware target (e.g. icon ASCII art with 8 columns).
+  - *Flexibility (aspirational, not guaranteed)*: resizing the library to a different matrix should be reasonably straightforward but is not required to be a single-constant swap. Small edits across a few sites are acceptable; end-to-end parameterization is pursued only when it does not add significant complexity.
+  - *Format-imposed limits*: encoding constraints (e.g. 8 bits per byte in column-major storage, capping height at 8) are distinct from display dimensions. Name them separately (e.g. `_MAX_HEIGHT_PER_COLUMN_BYTE`, not a second `HEIGHT`). Error messages must distinguish "format limit" from "current display size". Exceeding a format limit, or using a non-multiple-of-8 height, is a conscious redesign of the storage format, not a parameter tweak.
 
 ### Code documentation
 - Detail-dense and concise. Use sentence fragments where they aid brevity without hurting clarity. Avoid boilerplate that restates what variable names or code already convey.

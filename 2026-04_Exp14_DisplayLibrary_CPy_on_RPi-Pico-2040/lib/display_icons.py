@@ -1,13 +1,125 @@
 """
 Icon and arrow bitmap data for the 8x8 WS2812b display library.
 
-Storage format: column-major bytes (see display.py section on unified bitmap
-format). Each icon/arrow is 8 bytes -- one byte per column, bit N = row N
-(bit 0 = top row). Designed as row-major ASCII art (# = on, . = off),
-then transposed to column-major at design time for efficient rendering.
+Storage format: column-major bytes -- one byte per column, where bit N of
+each byte indicates row N is lit (bit 0 = top row). This layout enables
+efficient horizontal scrolling by iterating contiguous column bytes.
+Each icon/arrow is WIDTH bytes (one per column of the WIDTH x HEIGHT grid,
+with WIDTH = HEIGHT = 8 for this hardware). Designed as row-major ASCII
+art (# = on, . = off), then transposed to column-major at design time.
 
-Lookup: ICONS[icon_id * 8 : icon_id * 8 + 8] gives the 8 column bytes.
+Encoding-vs-geometry note: the single-byte-per-column format caps height
+at 8 (8 bits per byte). This is independent of display geometry -- a taller
+display would need a different storage format, not just a parameter change.
+See `_MAX_HEIGHT_PER_COLUMN_BYTE` below.
+
+Lookup: ICONS[icon_id * WIDTH : (icon_id + 1) * WIDTH] gives the WIDTH
+column bytes.
+
+Design-time helpers `pattern_to_colmajor` / `colmajor_to_pattern` convert
+between ASCII art and the byte encoding, useful for authoring new icons
+or verifying existing ones.
 """
+
+
+# ---------------------------------------------------------------------------
+# Design-time conversion helpers (not used at runtime by the display library)
+# ---------------------------------------------------------------------------
+
+# Display grid defaults for the helpers -- match the hardware described in
+# display.py. Duplicated locally (not imported from display) because display
+# imports ICONS/ARROWS from this module; the reverse import would be circular.
+# Keeping these named rather than using bare literals preserves parameter
+# intent at every use site.
+_DEFAULT_WIDTH = 8
+_DEFAULT_HEIGHT = 8
+
+# Encoding-imposed hard limit: each column is stored as a single byte, so at
+# most 8 rows can be encoded. This is a property of the column-major byte
+# format, NOT of the display geometry. Error messages must distinguish the
+# two: exceeding this is a storage-format redesign, not a simple resize.
+_MAX_HEIGHT_PER_COLUMN_BYTE = 8
+
+
+def pattern_to_colmajor(pattern, width=_DEFAULT_WIDTH, height=_DEFAULT_HEIGHT):
+    """Convert monochrome ASCII art to column-major bytes.
+
+    Input: multiline string of `#` (on) / `.` (off) cells. Each non-blank
+    line is treated as one row. Inter-cell spaces are stripped, so both
+    `# # . .` and `##..` work. Blank lines are skipped.
+
+    Output: `bytes` of length `width`. Bit N of byte `c` = row N of column `c`
+    (bit 0 = top row). `height` is capped by the encoding format limit of
+    {_MAX_HEIGHT_PER_COLUMN_BYTE} bits per column-byte.
+
+    Validation is strict (design-time authoring tool): raises `ValueError`
+    with row/column locators for short rows, long rows, wrong row counts,
+    or unknown cell characters. This surfaces typos in hard-coded icon
+    definitions rather than silently padding/truncating.
+
+    Use case: author a new icon as ASCII art, convert once, paste the hex
+    bytes into ICONS.
+
+        >>> pattern_to_colmajor('''
+        ... . # # . . # # .
+        ... # # # # # # # #
+        ... # # # # # # # #
+        ... # # # # # # # #
+        ... . # # # # # # .
+        ... . . # # # # . .
+        ... . . . # # . . .
+        ... . . . . . . . .
+        ... ''').hex()
+        '0e1f3f7e7e3f1f0e'
+    """
+    if height > _MAX_HEIGHT_PER_COLUMN_BYTE:
+        raise ValueError("height={} exceeds column-major encoding limit of {} (one byte per column)".format(height, _MAX_HEIGHT_PER_COLUMN_BYTE))
+
+    # Normalize each input line: strip surrounding whitespace, remove inter-
+    # cell spaces and tabs, drop blanks. Order is preserved; each surviving
+    # line becomes one row.
+    rows = []
+    for raw in pattern.split("\n"):
+        stripped = raw.strip().replace(" ", "").replace("\t", "")
+        if stripped:
+            rows.append(stripped)
+
+    if len(rows) < height:
+        raise ValueError("expected {} rows, got {}".format(height, len(rows)))
+    if len(rows) > height:
+        raise ValueError("expected {} rows, got {} (extra rows: {})".format(height, len(rows), rows[height:]))
+
+    cols = bytearray(width)
+    for row_idx, row in enumerate(rows):
+        if len(row) != width:
+            raise ValueError('row {}: {} cells, expected {}: "{}"'.format(row_idx, len(row), width, row))
+        for col_idx, ch in enumerate(row):
+            if ch == "#":
+                cols[col_idx] |= 1 << row_idx
+            elif ch != ".":
+                raise ValueError("row {}, col {}: unknown cell '{}' (expected '#' or '.')".format(row_idx, col_idx, ch))
+    return bytes(cols)
+
+
+def colmajor_to_pattern(data, width=None, height=_DEFAULT_HEIGHT):
+    """Inverse of `pattern_to_colmajor`: render bytes back to ASCII art.
+
+    Input: `data` bytes in column-major layout, `width` columns (default
+    `len(data)`), `height` rows.
+
+    Output: multiline string, one line per row, cells separated by spaces
+    (`# . . # ...`). Paste-ready for documentation comments.
+
+    Use case: inspect existing ICONS / ARROWS bytes or verify a round trip.
+    """
+    if width is None:
+        width = len(data)
+    lines = []
+    for row in range(height):
+        row_cells = ["#" if (data[col] >> row) & 1 else "." for col in range(width)]
+        lines.append(" ".join(row_cells))
+    return "\n".join(lines)
+
 
 # fmt: off
 
