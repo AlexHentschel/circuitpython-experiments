@@ -416,48 +416,60 @@ class Display:
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_string(self, text, color=WHITE, interval_ms=150):
+    async def show_string(self, text, color=WHITE, interval_ms=150, loop=False):
         """Scroll text across the display.
 
         Builds a column-major buffer from font glyphs, then slides an
         8-column window across it. interval_ms = milliseconds per column step.
         Single character: display directly, hold for interval_ms * 5.
+
+        loop: if True, keep scrolling indefinitely (or, for text that fits
+        on screen, hold indefinitely) until cancelled by another display
+        operation.
         """
         token = self._acquire()
         text = str(text)
         if not text:
             return
-        # Build scroll buffer from glyph columns
         buf = bytearray()
         for ch in text:
             buf.extend(_glyph_columns(ch))
         if len(buf) <= WIDTH:
-            # Fits on screen: display centered, hold
             pad = (WIDTH - len(buf)) // 2
             padded = bytearray(WIDTH)
             for i in range(len(buf)):
                 if pad + i < WIDTH:
                     padded[pad + i] = buf[i]
             _render_colmajor(padded, 0, color)
+            if loop:
+                # Hold indefinitely until cancelled.
+                poll_s = (interval_ms / 1000) if interval_ms > 0 else 0.05
+                while True:
+                    if self._is_cancelled(token):
+                        return
+                    await asyncio.sleep(poll_s)
             if interval_ms > 0:
                 await asyncio.sleep(interval_ms * 5 / 1000)
             return
-        # Scroll: slide window across buffer
-        # Pad with blank columns at start and end for scroll-in/out effect
+        # Scroll: slide window across buffer.
+        # Pad with blank columns at start and end for scroll-in/out effect.
         padding = bytearray(WIDTH)
         scroll_buf = padding + buf + padding
         max_offset = len(scroll_buf) - WIDTH
-        for offset in range(max_offset + 1):
-            if self._is_cancelled(token):
-                return
-            _render_colmajor(scroll_buf, offset, color)
-            await asyncio.sleep(interval_ms / 1000)
-            if self._is_cancelled(token):
+        while True:
+            for offset in range(max_offset + 1):
+                if self._is_cancelled(token):
+                    return
+                _render_colmajor(scroll_buf, offset, color)
+                await asyncio.sleep(interval_ms / 1000)
+                if self._is_cancelled(token):
+                    return
+            if not loop:
                 return
 
-    async def show_number(self, n, color=WHITE, interval_ms=150):
+    async def show_number(self, n, color=WHITE, interval_ms=150, loop=False):
         """Display a number. Single digit: centered. Multi-digit: scroll."""
-        await self.show_string(str(n), color, interval_ms)
+        await self.show_string(str(n), color, interval_ms, loop)
 
     async def pause(self, ms):
         """Cancellable async sleep for ms milliseconds."""
