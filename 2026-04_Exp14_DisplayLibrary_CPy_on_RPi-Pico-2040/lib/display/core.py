@@ -142,7 +142,7 @@ class Image:
         self._color = color
 
     @staticmethod
-    def from_pattern(pattern_str, color=None):
+    def from_pattern(pattern_str, color=WHITE):
         """Parse a pattern string into an Image.
 
         color: RGB tuple (mono) or dict {char: RGB} (multi-color).
@@ -151,8 +151,6 @@ class Image:
         Column-major conversion happens here (not at render time) because
         Image data persists for repeated show_image / scroll_image calls.
         """
-        if color is None:
-            color = WHITE
         is_dict = isinstance(color, dict)
         lines = pattern_str.strip().split("\n")
         rows = []
@@ -257,15 +255,11 @@ class Image:
             pos += offset
 
 
-def create_image(pattern_str, color=None):
-    if color is None:
-        color = WHITE
+def create_image(pattern_str, color=WHITE):
     return Image.from_pattern(pattern_str, color)
 
 
-def create_big_image(pattern_str, color=None):
-    if color is None:
-        color = WHITE
+def create_big_image(pattern_str, color=WHITE):
     return Image.from_pattern(pattern_str, color)
 
 
@@ -300,7 +294,7 @@ class Display:
 
     # -- Tier 1: Synchronous rendering primitives ----------------------------
 
-    def render_pattern(self, pattern, color=None):
+    def render_pattern(self, pattern, color=WHITE):
         """Parse and render a pattern string directly to LEDs.
 
         Direct render via LUT -- no intermediate column-major buffer.
@@ -309,8 +303,6 @@ class Display:
 
         color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
         """
-        if color is None:
-            color = WHITE
         self._acquire()
         is_dict = isinstance(color, dict)
         lines = pattern.strip().split("\n")
@@ -338,17 +330,13 @@ class Display:
             y += 1
         _pixels.show()
 
-    def render_icon(self, icon, color=None):
+    def render_icon(self, icon, color=WHITE):
         """Render an icon bitmap (from ICONS) to the LEDs."""
-        if color is None:
-            color = WHITE
         self._acquire()
         _render_colmajor(ICONS, icon * WIDTH, color)
 
-    def render_arrow(self, direction, color=None):
+    def render_arrow(self, direction, color=WHITE):
         """Render an arrow bitmap (from ARROWS) to the LEDs."""
-        if color is None:
-            color = WHITE
         self._acquire()
         _render_colmajor(ARROWS, direction * WIDTH, color)
 
@@ -362,19 +350,15 @@ class Display:
         """Alias for clear_screen()."""
         self.clear_screen()
 
-    def set_pixel(self, x, y, color=None):
+    def set_pixel(self, x, y, color=WHITE):
         """Set one pixel and update the display. Cancels ongoing animations."""
-        if color is None:
-            color = WHITE
         self._acquire()
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             _pixels[_LUT[x * HEIGHT + y]] = color
             _pixels.show()
 
-    def fill(self, color=None):
+    def fill(self, color=WHITE):
         """Fill all pixels. Cancels ongoing animations."""
-        if color is None:
-            color = WHITE
         self._acquire()
         _pixels.fill(color)
         _pixels.show()
@@ -400,42 +384,34 @@ class Display:
 
     # -- Tier 2: Async MakeCode-compatible methods ---------------------------
 
-    async def show_leds(self, pattern, color=None, interval_ms=0):
+    async def show_leds(self, pattern, color=WHITE, interval_ms=0):
         """Render a pattern, then hold for interval_ms milliseconds (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
         """
-        if color is None:
-            color = WHITE
         self.render_pattern(pattern, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_icon(self, icon, color=None, interval_ms=0):
+    async def show_icon(self, icon, color=WHITE, interval_ms=0):
         """Render icon, hold for interval_ms milliseconds."""
-        if color is None:
-            color = WHITE
         self.render_icon(icon, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_arrow(self, direction, color=None, interval_ms=0):
+    async def show_arrow(self, direction, color=WHITE, interval_ms=0):
         """Render arrow, hold for interval_ms milliseconds."""
-        if color is None:
-            color = WHITE
         self.render_arrow(direction, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_string(self, text, color=None, interval_ms=150):
+    async def show_string(self, text, color=WHITE, interval_ms=150):
         """Scroll text across the display.
 
         Builds a column-major buffer from font glyphs, then slides an
         8-column window across it. interval_ms = milliseconds per column step.
         Single character: display directly, hold for interval_ms * 5.
         """
-        if color is None:
-            color = WHITE
         token = self._acquire()
         text = str(text)
         if not text:
@@ -468,10 +444,8 @@ class Display:
             if self._cancelled(token):
                 return
 
-    async def show_number(self, n, color=None, interval_ms=150):
+    async def show_number(self, n, color=WHITE, interval_ms=150):
         """Display a number. Single digit: centered. Multi-digit: scroll."""
-        if color is None:
-            color = WHITE
         await self.show_string(str(n), color, interval_ms)
 
     async def pause(self, ms):
