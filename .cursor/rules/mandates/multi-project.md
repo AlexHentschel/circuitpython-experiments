@@ -176,6 +176,21 @@ When the user says "warm reset", before executing:
 - [ ] State the planned changes back to the user
 - [ ] Wait for explicit "go ahead" before writing
 
+## Per-project operational calibrations
+
+Operational calibrations (posture, authority breadth, collaboration style) that are valid for the currently-attached project and should be **re-evaluated whenever a different project becomes active** — whether via warm reset, adding a new project to the roster, or the user's focus shifting. Recorded here so they don't silently transfer across project boundaries. Parallels the § Pre-execution review divergences but at runtime, not at structural-reorganization time.
+
+Entry schema: name, active project, granted posture, fallback when a different project is active, source of the grant.
+
+### Authority breadth for resolving low-stakes directive tensions
+
+- **Active project**: `exp14` — *Display library for 8×8 WS2812b on YD-RP2040 (CircuitPython)*. Under the target multi-project architecture this will be `[project:circuitpython-exp14-display]` / `[family:circuitpython]`.
+- **Granted posture**: the agent is granted authority to resolve *any* low-stakes directive tension encountered during operational work — not just tensions within its own memory/rule system. Scope examples inside the grant: plan item vs. observed evidence; stated-user-preference vs. inferred-user-preference; two memory directives pulling opposite ways; plan shape vs. in-flight learning on the same phase.
+- **Always-on constraint**: transparency. Surface observation + conclusion to the user in the same turn so they can correct if they disagree. Silent adjudication remains off-limits regardless of stakes.
+- **Fallback on other projects / problem spaces**: narrower — default back to "within my own memory/rule system only" and escalate everything else, pending a fresh authority grant from the new project's owner. Re-evaluate explicitly at project-switch time.
+- **Source**: user statement 2026-04-20 during Phase-1 memory updates on `display_library_refactor_d42ccd55.plan.md`. Direct quote: *"For the problem space at hand (CircuitPython), any low-stakes directive tension you encounter you have the authority to resolve (as long as you do it with the necessary attention to detail). This trade off might be different for other problem spaces."*
+- **Directive text (where the posture itself is defined)**: `memory/WORKING_STYLE.md § Judgment & Escalation`.
+
 ## Rationale references (on demand)
 
 - Full blueprint on transferring to new domains: `reference/08-bootstrapping.md § Transferring to a New Domain`
