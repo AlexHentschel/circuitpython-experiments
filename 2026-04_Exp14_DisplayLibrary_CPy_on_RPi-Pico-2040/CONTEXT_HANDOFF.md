@@ -249,11 +249,11 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 
 **Coordinate mapping**: A pre-computed 64-byte lookup table (LUT) bakes rotation (0/90/180/270) and bottom-up progressive wiring into a single array: `LUT[x * HEIGHT + y]` yields the NeoPixel strip index for logical pixel `(x, y)` where `x` = column (0 = left) and `y` = row (0 = top). `set_rotation(degrees)` mutates the LUT in place so references stay valid.
 
-**Cancellation-token counter**: A per-instance sequence counter `Display._seq` enables cooperative multitasking. `_acquire()` increments `_seq` and returns the new value as a token. `_cancelled(token)` returns `True` if `_seq` has advanced past that token, meaning a newer operation has taken control.
+**Cancellation-token counter**: A per-instance sequence counter `Display._seq` enables cooperative multitasking. `_acquire()` increments `_seq` and returns the new value as a token. `_is_cancelled(token)` returns `True` if `_seq` has advanced past that token, meaning a newer operation has taken control.
 
 **Two-tier API**:
 - **Tier 1 (sync)**: Immediate rendering to NeoPixel buffer. `render_pattern`, `render_icon`, `render_arrow`, `clear_screen`, `set_pixel`, `fill`, `set_brightness`, `set_rotation`, `get_pixel`. Display-mutating methods call `_acquire()` to cancel ongoing Tier 2 animations.
-- **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` and check `_cancelled(token)` between animation frames.
+- **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` and check `_is_cancelled(token)` between animation frames.
 
 **Bitmap format — column-major bytes**: Monochrome bitmaps (icons, arrows, font glyphs, mono `Image` data) are stored as one byte per column, where bit N of a column byte indicates whether row N is lit. This layout enables efficient horizontal scrolling by iterating contiguous column bytes. Icons use 40 × 8 bytes in `ICONS`; arrows use 8 × 8 bytes in `ARROWS`. Lookup: `ICONS[icon_id * WIDTH : (icon_id + 1) * WIDTH]`.
 

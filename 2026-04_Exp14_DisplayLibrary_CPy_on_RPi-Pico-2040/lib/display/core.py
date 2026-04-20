@@ -9,7 +9,7 @@ the ``Display`` + ``Image`` classes.
 Cooperative multitasking uses a module-level sequence counter
 (``Display._seq``). Every display-mutating method calls ``_acquire()``
 to increment the token; Tier 2 animations holding an older token abort
-via ``_cancelled(token)`` between awaits. ``Image`` methods reference
+via ``_is_cancelled(token)`` between awaits. ``Image`` methods reference
 module globals (``display``, ``_LUT``, ``_pixels``) directly -- tight
 coupling acceptable for a single-display MCU library.
 
@@ -231,7 +231,7 @@ class Image:
             max_start = 0
         pos = 0
         while pos <= max_start:
-            if display._cancelled(token):
+            if display._is_cancelled(token):
                 return
             if self._multi:
                 for x in range(WIDTH):
@@ -250,7 +250,7 @@ class Image:
                         _pixels[_LUT[x * HEIGHT + y]] = self._color if (col_byte >> y) & 1 else OFF
                 _pixels.show()
             await asyncio.sleep(interval_ms / 1000)
-            if display._cancelled(token):
+            if display._is_cancelled(token):
                 return
             pos += offset
 
@@ -283,12 +283,12 @@ class Display:
         """Increment and return the cancellation token.
 
         Called by every display-mutating method. Any Tier 2 animation
-        holding an older token will detect preemption via _cancelled().
+        holding an older token will detect preemption via _is_cancelled().
         """
         self._seq += 1
         return self._seq
 
-    def _cancelled(self, token):
+    def _is_cancelled(self, token):
         """Returns True if a newer operation has superseded the given token."""
         return self._seq != token
 
@@ -437,11 +437,11 @@ class Display:
         scroll_buf = padding + buf + padding
         max_offset = len(scroll_buf) - WIDTH
         for offset in range(max_offset + 1):
-            if self._cancelled(token):
+            if self._is_cancelled(token):
                 return
             _render_colmajor(scroll_buf, offset, color)
             await asyncio.sleep(interval_ms / 1000)
-            if self._cancelled(token):
+            if self._is_cancelled(token):
                 return
 
     async def show_number(self, n, color=WHITE, interval_ms=150):

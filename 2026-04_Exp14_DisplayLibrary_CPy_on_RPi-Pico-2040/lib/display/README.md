@@ -54,12 +54,12 @@ Image methods (`show_image`, `scroll_image`) are also Tier 2.
 display-mutating method calls `_acquire()`, which increments `_seq` and
 returns the new value as a **cancellation token**. Tier 2 animations
 capture the token at start and re-check it between frames via
-`_cancelled(token)` (``True`` if `_seq` has advanced past the token).
+`_is_cancelled(token)` (``True`` if `_seq` has advanced past the token).
 This lets a new render pre-empt an ongoing scroll without explicit
 task cancellation; the scroll coroutine simply returns early.
 
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
-methods, and check `_cancelled(token)` on both sides of the await.
+methods, and check `_is_cancelled(token)` on both sides of the await.
 
 ## Column-major bytes (monochrome bitmap format)
 
