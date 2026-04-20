@@ -6,18 +6,21 @@ Owns the live NeoPixel buffer, the coordinate Look-Up Table [LUT] (populated via
 ``font_free_mono_8/`` directory via a ``__file__``-relative path), and
 the ``Display`` + ``Image`` classes.
 
-Cooperative multitasking uses a module-level sequence counter
-(``Display._seq``). Every display-mutating method calls ``_acquire()``
-to increment the token; Tier 2 animations holding an older token abort
-via ``_is_cancelled(token)`` between awaits. ``Image`` methods reference
-module globals (``display``, ``_LUT``, ``_pixels``) directly -- tight
-coupling acceptable for a single-display MCU library.
-
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, clear_screen,
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
+
+Cancellation policy: calling any display-mutating method cancels any Tier 2
+animation currently in progress, and starting a new Tier 2 animation likewise
+cancels any earlier one. The read-only methods ``get_pixel``, ``set_brightness``
+and ``set_rotation`` do not cancel. Mechanism is private to this module — a
+monotonically-increasing sequence counter captured by each animation as a
+token and re-checked between frames; see ``_acquire`` and ``_is_cancelled``.
+
+``Image`` methods reference module globals (``display``, ``_LUT``, ``_pixels``)
+directly -- tight coupling acceptable for a single-display MCU library.
 """
 
 import asyncio
@@ -222,8 +225,8 @@ class Image:
     async def scroll_image(self, offset=1, interval_ms=200):
         """Scroll through the image, advancing `offset` columns per frame, with `interval_ms` milliseconds between frames.
 
-        Uses display._seq for cancellation -- a newer display operation
-        will cause this coroutine to return early.
+        Cancellable: any newer display operation causes this coroutine to
+        return early (see module docstring's cancellation policy).
         """
         token = display._acquire()
         max_start = self._width - WIDTH
@@ -269,9 +272,10 @@ def create_big_image(pattern_str, color=WHITE):
 class Display:
     """Controls an 8x8 WS2812b NeoPixel matrix.
 
-    Singleton at module level (``display``). Manages the cancellation-token
-    counter (_seq) for cooperative multitasking: every display-mutating method
-    calls _acquire() to invalidate ongoing animations.
+    Singleton at module level (``display``). Starting any display-mutating
+    operation cancels any Tier 2 animation in progress; the read-only methods
+    ``get_pixel``, ``set_brightness`` and ``set_rotation`` do not cancel. See
+    the module docstring for the full cancellation policy.
     """
 
     def __init__(self):
@@ -280,16 +284,23 @@ class Display:
     # -- Cancellation token --------------------------------------------------
 
     def _acquire(self):
-        """Increment and return the cancellation token.
+        """Start a new display-operation generation.
 
-        Called by every display-mutating method. Any Tier 2 animation
-        holding an older token will detect preemption via _is_cancelled().
+        Increments the sequence counter and returns the new value as a
+        cancellation token. Any Tier 2 animation that captured an earlier
+        token before this call will see ``_is_cancelled(its_token)`` become
+        True on its next check, and should return early. Called internally
+        by every display-mutating method.
         """
         self._seq += 1
         return self._seq
 
     def _is_cancelled(self, token):
-        """Returns True if a newer operation has superseded the given token."""
+        """True if a display operation newer than ``token`` has started.
+
+        Tier 2 animations check this between frames -- on both sides of an
+        ``await`` -- and return early when it becomes True.
+        """
         return self._seq != token
 
     # -- Tier 1: Synchronous rendering primitives ----------------------------
@@ -364,7 +375,7 @@ class Display:
         _pixels.show()
 
     def get_pixel(self, x, y):
-        """Read the buffered pixel color at (x, y). Does not acquire."""
+        """Read the buffered pixel color at (x, y). Read-only; does not cancel ongoing animations."""
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             return _pixels[_LUT[x * HEIGHT + y]]
         return OFF
