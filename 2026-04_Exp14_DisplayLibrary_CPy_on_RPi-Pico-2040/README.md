@@ -79,8 +79,8 @@ display.render_icon(IconNames.HEART, color=RED)
 | `show_leds(pattern, color=WHITE, interval_ms=0)` | Render + hold. `color` accepts an RGB tuple (mono) or a palette dict. |
 | `show_icon(icon, color=WHITE, interval_ms=0)` | Render icon + hold. |
 | `show_arrow(direction, color=WHITE, interval_ms=0)` | Render arrow + hold. |
-| `show_string(text, color=WHITE, interval_ms=150)` | Scroll text. `interval_ms` = milliseconds per column step. |
-| `show_number(n, color=WHITE, interval_ms=150)` | Single digit: centered. Multi-digit: scroll. |
+| `show_string(text, color=WHITE, interval_ms=150, loop=False)` | Scroll text. `interval_ms` = milliseconds per column step. `loop=True` keeps scrolling (or holding, for short text) until another display call cancels. |
+| `show_number(n, color=WHITE, interval_ms=150, loop=False)` | Single digit: centered. Multi-digit: scroll. Accepts `loop=True` (see `show_string`). |
 | `pause(ms)` | Cancellable async sleep. |
 | `forever(callback)` | Sync convenience: while-True loop via asyncio. |
 

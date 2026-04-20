@@ -14,8 +14,10 @@ Two-tier API:
 
 Cancellation policy: calling any display-mutating method cancels any Tier 2
 animation currently in progress, and starting a new Tier 2 animation likewise
-cancels any earlier one. The read-only methods ``get_pixel``, ``set_brightness``
-and ``set_rotation`` do not cancel. Mechanism is private to this module — a
+cancels any earlier one. The non-cancelling methods are ``get_pixel`` (pure
+read), ``set_brightness``, and ``set_rotation`` — the latter two do update
+pixel output but deliberately leave the cancellation counter unchanged so a
+running animation is not disturbed. Mechanism is private to this module — a
 monotonically-increasing sequence counter captured by each animation as a
 token and re-checked between frames; see ``_acquire`` and ``_is_cancelled``.
 
@@ -273,9 +275,9 @@ class Display:
     """Controls an 8x8 WS2812b NeoPixel matrix.
 
     Singleton at module level (``display``). Starting any display-mutating
-    operation cancels any Tier 2 animation in progress; the read-only methods
-    ``get_pixel``, ``set_brightness`` and ``set_rotation`` do not cancel. See
-    the module docstring for the full cancellation policy.
+    operation cancels any Tier 2 animation in progress. Non-cancelling
+    methods: ``get_pixel``, ``set_brightness``, ``set_rotation``. See the
+    module docstring for the full cancellation policy.
     """
 
     def __init__(self):
@@ -388,7 +390,7 @@ class Display:
 
     @staticmethod
     def set_rotation(degrees):
-        """Rebuild coordinate LUT for 0/90/180/270 rotation."""
+        """Rebuild coordinate LUT for 0/90/180/270 rotation. Does not cancel animations."""
         # Mutate in place so any module reading _LUT sees the new mapping
         # without needing to re-import.
         _LUT[:] = build_lut(degrees)
@@ -425,7 +427,8 @@ class Display:
 
         loop: if True, keep scrolling indefinitely (or, for text that fits
         on screen, hold indefinitely) until cancelled by another display
-        operation.
+        operation. On the short-text hold path, cancellation is polled
+        every ``interval_ms`` ms (or every 50 ms when ``interval_ms == 0``).
         """
         token = self._acquire()
         text = str(text)
@@ -468,7 +471,10 @@ class Display:
                 return
 
     async def show_number(self, n, color=WHITE, interval_ms=150, loop=False):
-        """Display a number. Single digit: centered. Multi-digit: scroll."""
+        """Display a number. Single digit: centered. Multi-digit: scroll.
+
+        Accepts ``loop=True`` (see ``show_string``).
+        """
         await self.show_string(str(n), color, interval_ms, loop)
 
     async def pause(self, ms):

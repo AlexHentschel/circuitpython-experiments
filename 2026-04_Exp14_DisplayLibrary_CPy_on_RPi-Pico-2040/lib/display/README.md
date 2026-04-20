@@ -39,9 +39,13 @@ NeoPixel buffer; no ``await``):
 `await`, cancellable):
 
 - `show_leds` / `show_icon` / `show_arrow` -- render + hold.
-- `show_string(text, color, interval_ms)` -- scroll text (single character
-  displays centered).
-- `show_number(n, ...)` -- delegate to `show_string`.
+- `show_string(text, color=WHITE, interval_ms=150, loop=False)` -- scroll
+  text (single character displays centered). With `loop=True`, keeps
+  scrolling (or holding, for short text) until cancelled by another
+  display call; on short text the cancellation poll cadence is
+  `interval_ms` ms, or 50 ms when `interval_ms == 0`.
+- `show_number(n, color=WHITE, interval_ms=150, loop=False)` -- delegate
+  to `show_string`.
 - `pause(ms)` -- cancellable async sleep.
 - `forever(callback)` -- sync convenience wrapper running a callback in
   an asyncio `while True` loop.
@@ -55,7 +59,7 @@ display-mutating method calls `_acquire()`, which increments `_seq` and
 returns the new value as a **cancellation token**. Tier 2 animations
 capture the token at start and re-check it between frames via
 `_is_cancelled(token)` (``True`` if `_seq` has advanced past the token).
-This lets a new render pre-empt an ongoing scroll without explicit
+This lets a new render cancel an ongoing scroll without explicit
 task cancellation; the scroll coroutine simply returns early.
 
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
