@@ -259,7 +259,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 
 **Image class**: Column-major bytes (mono) or per-pixel tuple array (multi-color). `from_pattern()`, `recolor()`, async `show_image()` / `scroll_image()`. Module-level factories: `create_image()`, `create_big_image()`.
 
-**Parameter convention**: `color_palette` (tuple or dict) for pattern-based methods; `color` (tuple only) for single-color methods.
+**Parameter convention**: `color` is the single kwarg across the API; it accepts either an RGB tuple (single-color) or a palette `dict` (multi-color, for pattern-based methods). Time intervals are named with an explicit unit suffix, e.g. `interval_ms`, `pause(ms)`.
 
 **Coordinate system**: Origin (0, 0) at top-left. x → right, y → down.
 

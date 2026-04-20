@@ -194,8 +194,8 @@ class Image:
         if not self._multi:
             self._color = new_color
 
-    async def show_image(self, offset=0, interval=0):
-        """Render WIDTH columns starting at offset. Holds for interval ms."""
+    async def show_image(self, offset=0, interval_ms=0):
+        """Render WIDTH columns starting at offset. Holds for interval_ms milliseconds."""
         display._acquire()
         if self._multi:
             # Multi-color: per-pixel lookup
@@ -218,11 +218,11 @@ class Image:
                 for y in range(HEIGHT):
                     _pixels[_LUT[x * HEIGHT + y]] = self._color if (col_byte >> y) & 1 else OFF
             _pixels.show()
-        if interval > 0:
-            await asyncio.sleep(interval / 1000)
+        if interval_ms > 0:
+            await asyncio.sleep(interval_ms / 1000)
 
-    async def scroll_image(self, offset=1, interval=200):
-        """Scroll through the image, advancing offset columns per frame.
+    async def scroll_image(self, offset=1, interval_ms=200):
+        """Scroll through the image, advancing `offset` columns per frame, with `interval_ms` milliseconds between frames.
 
         Uses display._seq for cancellation -- a newer display operation
         will cause this coroutine to return early.
@@ -251,7 +251,7 @@ class Image:
                     for y in range(HEIGHT):
                         _pixels[_LUT[x * HEIGHT + y]] = self._color if (col_byte >> y) & 1 else OFF
                 _pixels.show()
-            await asyncio.sleep(interval / 1000)
+            await asyncio.sleep(interval_ms / 1000)
             if display._cancelled(token):
                 return
             pos += offset
@@ -400,39 +400,39 @@ class Display:
 
     # -- Tier 2: Async MakeCode-compatible methods ---------------------------
 
-    async def show_leds(self, pattern, color=None, interval=0):
-        """Render a pattern, then hold for interval ms (0 = return after render).
+    async def show_leds(self, pattern, color=None, interval_ms=0):
+        """Render a pattern, then hold for interval_ms milliseconds (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
         """
         if color is None:
             color = WHITE
         self.render_pattern(pattern, color)
-        if interval > 0:
-            await asyncio.sleep(interval / 1000)
+        if interval_ms > 0:
+            await asyncio.sleep(interval_ms / 1000)
 
-    async def show_icon(self, icon, color=None, interval=0):
-        """Render icon, hold for interval ms."""
+    async def show_icon(self, icon, color=None, interval_ms=0):
+        """Render icon, hold for interval_ms milliseconds."""
         if color is None:
             color = WHITE
         self.render_icon(icon, color)
-        if interval > 0:
-            await asyncio.sleep(interval / 1000)
+        if interval_ms > 0:
+            await asyncio.sleep(interval_ms / 1000)
 
-    async def show_arrow(self, direction, color=None, interval=0):
-        """Render arrow, hold for interval ms."""
+    async def show_arrow(self, direction, color=None, interval_ms=0):
+        """Render arrow, hold for interval_ms milliseconds."""
         if color is None:
             color = WHITE
         self.render_arrow(direction, color)
-        if interval > 0:
-            await asyncio.sleep(interval / 1000)
+        if interval_ms > 0:
+            await asyncio.sleep(interval_ms / 1000)
 
-    async def show_string(self, text, color=None, interval=150):
+    async def show_string(self, text, color=None, interval_ms=150):
         """Scroll text across the display.
 
         Builds a column-major buffer from font glyphs, then slides an
-        8-column window across it. interval = ms per column step.
-        Single character: display directly, hold for interval * 5.
+        8-column window across it. interval_ms = milliseconds per column step.
+        Single character: display directly, hold for interval_ms * 5.
         """
         if color is None:
             color = WHITE
@@ -452,8 +452,8 @@ class Display:
                 if pad + i < WIDTH:
                     padded[pad + i] = buf[i]
             _render_colmajor(padded, 0, color)
-            if interval > 0:
-                await asyncio.sleep(interval * 5 / 1000)
+            if interval_ms > 0:
+                await asyncio.sleep(interval_ms * 5 / 1000)
             return
         # Scroll: slide window across buffer
         # Pad with blank columns at start and end for scroll-in/out effect
@@ -464,15 +464,15 @@ class Display:
             if self._cancelled(token):
                 return
             _render_colmajor(scroll_buf, offset, color)
-            await asyncio.sleep(interval / 1000)
+            await asyncio.sleep(interval_ms / 1000)
             if self._cancelled(token):
                 return
 
-    async def show_number(self, n, color=None, interval=150):
+    async def show_number(self, n, color=None, interval_ms=150):
         """Display a number. Single digit: centered. Multi-digit: scroll."""
         if color is None:
             color = WHITE
-        await self.show_string(str(n), color, interval)
+        await self.show_string(str(n), color, interval_ms)
 
     async def pause(self, ms):
         """Cancellable async sleep for ms milliseconds."""

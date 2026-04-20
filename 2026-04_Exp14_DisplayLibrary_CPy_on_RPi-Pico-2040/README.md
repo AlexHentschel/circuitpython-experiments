@@ -41,8 +41,8 @@ import asyncio
 from display import display, IconNames, RED, GREEN, create_image
 
 async def main():
-    await display.show_icon(IconNames.HEART, color=RED, interval=800)
-    await display.show_string("Hello!", color=GREEN, interval=150)
+    await display.show_icon(IconNames.HEART, color=RED, interval_ms=800)
+    await display.show_string("Hello!", color=GREEN, interval_ms=150)
     display.clear_screen()
 
 asyncio.run(main())
@@ -61,7 +61,7 @@ display.render_icon(IconNames.HEART, color=RED)
 
 | Method | Description |
 |--------|-------------|
-| `render_pattern(pattern, color_palette=WHITE)` | Render `#`/`.` pattern or palette dict to LEDs. |
+| `render_pattern(pattern, color=WHITE)` | Render `#`/`.` pattern or palette dict to LEDs. `color` accepts an RGB tuple (mono) or a palette dict. |
 | `render_icon(icon, color=WHITE)` | Render icon bitmap to LEDs. |
 | `render_arrow(direction, color=WHITE)` | Render arrow bitmap to LEDs. |
 | `clear_screen()` | All pixels off. Cancels ongoing animations. |
@@ -76,11 +76,11 @@ display.render_icon(IconNames.HEART, color=RED)
 
 | Method | Description |
 |--------|-------------|
-| `show_leds(pattern, color_palette=WHITE, interval=0)` | Render + hold. `color_palette`: tuple or dict. |
-| `show_icon(icon, color=WHITE, interval=0)` | Render icon + hold. |
-| `show_arrow(direction, color=WHITE, interval=0)` | Render arrow + hold. |
-| `show_string(text, color=WHITE, interval=150)` | Scroll text. interval = ms/column. |
-| `show_number(n, color=WHITE, interval=150)` | Single digit: centered. Multi-digit: scroll. |
+| `show_leds(pattern, color=WHITE, interval_ms=0)` | Render + hold. `color` accepts an RGB tuple (mono) or a palette dict. |
+| `show_icon(icon, color=WHITE, interval_ms=0)` | Render icon + hold. |
+| `show_arrow(direction, color=WHITE, interval_ms=0)` | Render arrow + hold. |
+| `show_string(text, color=WHITE, interval_ms=150)` | Scroll text. `interval_ms` = milliseconds per column step. |
+| `show_number(n, color=WHITE, interval_ms=150)` | Single digit: centered. Multi-digit: scroll. |
 | `pause(ms)` | Cancellable async sleep. |
 | `forever(callback)` | Sync convenience: while-True loop via asyncio. |
 
@@ -94,11 +94,11 @@ img = create_image("""
     . # . #
     # . # .
     . # . #
-""", color_palette=RED)
+""", color=RED)
 
-await img.show_image(offset=0, interval=500)
+await img.show_image(offset=0, interval_ms=500)
 img.recolor((0, 255, 0))
-await img.scroll_image(offset=1, interval=200)
+await img.scroll_image(offset=1, interval_ms=200)
 ```
 
 ### Color palette
@@ -126,7 +126,7 @@ palette = {
 await display.show_leds("""
     R . R . R . R .
     . B . B . B . B
-""", color_palette=palette, interval=2000)
+""", color=palette, interval_ms=2000)
 ```
 
 ### Coordinate system

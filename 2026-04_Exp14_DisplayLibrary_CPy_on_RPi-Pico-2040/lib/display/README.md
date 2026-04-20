@@ -27,7 +27,7 @@ with origin (0, 0) at top-left.
 **Tier 1 -- synchronous rendering primitives** (immediate writes to the
 NeoPixel buffer; no ``await``):
 
-- `render_pattern(pattern, color_palette=WHITE)` -- parse-and-render a
+- `render_pattern(pattern, color=WHITE)` -- parse-and-render a
   `#`/`.` grid string or palette dict.
 - `render_icon(icon, color=WHITE)` -- display an icon from `ICONS`.
 - `render_arrow(direction, color=WHITE)` -- display an arrow from `ARROWS`.
@@ -39,7 +39,7 @@ NeoPixel buffer; no ``await``):
 `await`, cancellable):
 
 - `show_leds` / `show_icon` / `show_arrow` -- render + hold.
-- `show_string(text, color, interval)` -- scroll text (single character
+- `show_string(text, color, interval_ms)` -- scroll text (single character
   displays centered).
 - `show_number(n, ...)` -- delegate to `show_string`.
 - `pause(ms)` -- cancellable async sleep.
