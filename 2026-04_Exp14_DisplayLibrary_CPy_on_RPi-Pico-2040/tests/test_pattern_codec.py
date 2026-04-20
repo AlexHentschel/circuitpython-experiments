@@ -65,7 +65,7 @@ def test_too_few_rows_raises():
 
 def test_too_many_rows_raises():
     pattern = "\n".join(["." * WIDTH] * (HEIGHT + 1))
-    with pytest.raises(ValueError, match="extra rows"):
+    with pytest.raises(ValueError, match="expected {}".format(HEIGHT)):
         pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT)
 
 

@@ -63,24 +63,26 @@ methods, and check `_cancelled(token)` on both sides of the await.
 
 ## Column-major bytes (monochrome bitmap format)
 
-Icons, arrows, font glyphs, and mono Images all share the same internal
-layout: one byte per column, where bit N of the byte indicates row N is
-lit (bit 0 = top). An 8x8 mono bitmap is therefore exactly 8 bytes.
+Icons, arrows, font glyphs, and mono Images all share the same internal layout: one byte per column
+(column 0 = leftmost). Within each byte, bit N has numeric value 2^N (so bit 0 is the least-significant bit)
+and indicates row N is lit (row 0 = top). An 8x8 mono bitmap is therefore exactly 8 bytes.
 
-Worked example -- `HEART`:
+For example, let's consider letter `F`:
 
 ```
-. # # . . # # .          col 0: . # # # . . . .  -> 0x0E
-# # # # # # # #          col 1: # # # # # . . .  -> 0x1F
-# # # # # # # #          col 2: # # # # # # . .  -> 0x3F
-# # # # # # # #          col 3: . # # # # # # .  -> 0x7E
-. # # # # # # .          col 4: . # # # # # # .  -> 0x7E
-. . # # # # . .          col 5: # # # # # # . .  -> 0x3F
-. . . # # . . .          col 6: # # # # # . . .  -> 0x1F
-. . . . . . . .          col 7: . # # # . . . .  -> 0x0E
+. # # # # # # .          col 0: . . . . . . . .  -> 0x00
+. # . . . . . .          col 1: # # # # # # # .  -> 0x7F
+. # . . . . . .          col 2: # . . # . . . .  -> 0x09
+. # # # # . . .          col 3: # . . # . . . .  -> 0x09
+. # . . . . . .          col 4: # . . # . . . .  -> 0x09
+. # . . . . . .          col 5: # . . . . . . .  -> 0x01
+. # . . . . . .          col 6: # . . . . . . .  -> 0x01
+. . . . . . . .          col 7: . . . . . . . .  -> 0x00
 ```
 
-Bytes: `0x0E 0x1F 0x3F 0x7E 0x7E 0x3F 0x1F 0x0E`.
+Bytes: `0x00 0x7F 0x09 0x09 0x09 0x01 0x01 0x00`.
+
+Reading the bytes back: col 1 = `0x7F` = bits 0-6 set = the vertical stem (lit rows 0-6, dark row 7). Cols 2-4 = `0x09` = bits 0 and 3 = the two horizontal bars' overlap with the stem's interior columns. Cols 5-6 = `0x01` = bit 0 only = where only the top bar extends. The duplicate-value columns (`0x09` thrice, `0x01` twice, `0x00` at both ends) are *expected* -- adjacent columns in a glyph typically share a bit pattern.
 
 Why column-major? It makes horizontal scrolling a window-slide over a
 contiguous byte array -- each frame is `buf[offset:offset+WIDTH]` with

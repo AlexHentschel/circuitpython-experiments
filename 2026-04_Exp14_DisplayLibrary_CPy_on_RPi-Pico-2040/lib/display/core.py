@@ -1,7 +1,7 @@
 """
 Runtime display engine for the 8x8 WS2812b NeoPixel matrix.
 
-Owns the live NeoPixel buffer, the coordinate LUT (populated via
+Owns the live NeoPixel buffer, the coordinate Look-Up Table [LUT] (populated via
 ``geometry.build_lut``), the PCF font (loaded from the sibling
 ``font_free_mono_8/`` directory via a ``__file__``-relative path), and
 the ``Display`` + ``Image`` classes.
@@ -39,9 +39,7 @@ from .icons import ICONS, ARROWS
 PIXEL_PIN = board.GP0
 BRIGHTNESS = 0.05
 
-_pixels = neopixel.NeoPixel(
-    PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False
-)
+_pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False)
 
 
 def color(r, g, b):
@@ -128,34 +126,35 @@ def _glyph_columns(ch):
 class Image:
     """Bitmap image for the 8-row LED matrix.
 
-    Monochrome images store column-major bytes + a single _color tuple.
+    Monochrome images store column-major bytes + a single color RGB-triple.
     Multi-color images store a flat tuple of per-pixel RGB tuples.
 
     Image async methods reference module globals (display, _LUT, _pixels)
-    directly -- coupling documented in the package README.
+    directly - for details on the coupling see the package's README.
     """
-    __slots__ = ('_data', '_width', '_multi', '_color')
 
-    def __init__(self, data, width, multi, col):
+    __slots__ = ("_data", "_width", "_multi", "_color")
+
+    def __init__(self, data, width, multi, color):
         self._data = data
         self._width = width
         self._multi = multi
-        self._color = col
+        self._color = color
 
     @staticmethod
-    def from_pattern(pattern_str, color_palette=None):
+    def from_pattern(pattern_str, color=None):
         """Parse a pattern string into an Image.
 
-        color_palette: RGB tuple (mono) or dict {char: RGB} (multi-color).
+        color: RGB tuple (mono) or dict {char: RGB} (multi-color).
         Mono images use column-major bytes; multi-color uses per-pixel tuple.
 
         Column-major conversion happens here (not at render time) because
         Image data persists for repeated show_image / scroll_image calls.
         """
-        if color_palette is None:
-            color_palette = WHITE
-        is_dict = isinstance(color_palette, dict)
-        lines = pattern_str.strip().split('\n')
+        if color is None:
+            color = WHITE
+        is_dict = isinstance(color, dict)
+        lines = pattern_str.strip().split("\n")
         rows = []
         for line in lines:
             stripped = line.strip()
@@ -171,7 +170,7 @@ class Image:
                 for y in range(HEIGHT):
                     if y < height and x < len(rows[y]):
                         ch = rows[y][x]
-                        pixels.append(color_palette.get(ch, OFF))
+                        pixels.append(color.get(ch, OFF))
                     else:
                         pixels.append(OFF)
             return Image(tuple(pixels), img_width, True, None)
@@ -181,10 +180,10 @@ class Image:
             for x in range(img_width):
                 col_byte = 0
                 for y in range(height):
-                    if x < len(rows[y]) and rows[y][x] == '#':
+                    if x < len(rows[y]) and rows[y][x] == "#":
                         col_byte |= 1 << y
                 cols[x] = col_byte
-            return Image(bytes(cols), img_width, False, color_palette)
+            return Image(bytes(cols), img_width, False, color)
 
     @property
     def width(self):
@@ -258,16 +257,16 @@ class Image:
             pos += offset
 
 
-def create_image(pattern_str, color_palette=None):
-    if color_palette is None:
-        color_palette = WHITE
-    return Image.from_pattern(pattern_str, color_palette)
+def create_image(pattern_str, color=None):
+    if color is None:
+        color = WHITE
+    return Image.from_pattern(pattern_str, color)
 
 
-def create_big_image(pattern_str, color_palette=None):
-    if color_palette is None:
-        color_palette = WHITE
-    return Image.from_pattern(pattern_str, color_palette)
+def create_big_image(pattern_str, color=None):
+    if color is None:
+        color = WHITE
+    return Image.from_pattern(pattern_str, color)
 
 
 # ---------------------------------------------------------------------------
@@ -296,25 +295,25 @@ class Display:
         return self._seq
 
     def _cancelled(self, token):
-        """True if a newer operation has superseded the given token."""
+        """Returns True if a newer operation has superseded the given token."""
         return self._seq != token
 
     # -- Tier 1: Synchronous rendering primitives ----------------------------
 
-    def render_pattern(self, pattern, color_palette=None):
+    def render_pattern(self, pattern, color=None):
         """Parse and render a pattern string directly to LEDs.
 
         Direct render via LUT -- no intermediate column-major buffer.
         Faster than create_image for one-shot display since it avoids
         building a persistent bitmap (one parse pass, immediate pixel writes).
 
-        color_palette: RGB tuple for mono ('#'/'.' mode) or dict for palette.
+        color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
         """
-        if color_palette is None:
-            color_palette = WHITE
+        if color is None:
+            color = WHITE
         self._acquire()
-        is_dict = isinstance(color_palette, dict)
-        lines = pattern.strip().split('\n')
+        is_dict = isinstance(color, dict)
+        lines = pattern.strip().split("\n")
         y = 0
         for line in lines:
             stripped = line.strip()
@@ -325,9 +324,9 @@ class Display:
             for x in range(cap):
                 ch = row[x]
                 if is_dict:
-                    _pixels[_LUT[x * HEIGHT + y]] = color_palette.get(ch, OFF)
+                    _pixels[_LUT[x * HEIGHT + y]] = color.get(ch, OFF)
                 else:
-                    _pixels[_LUT[x * HEIGHT + y]] = color_palette if ch == '#' else OFF
+                    _pixels[_LUT[x * HEIGHT + y]] = color if ch == "#" else OFF
             for x in range(cap, WIDTH):
                 _pixels[_LUT[x * HEIGHT + y]] = OFF
             y += 1
@@ -401,14 +400,14 @@ class Display:
 
     # -- Tier 2: Async MakeCode-compatible methods ---------------------------
 
-    async def show_leds(self, pattern, color_palette=None, interval=0):
+    async def show_leds(self, pattern, color=None, interval=0):
         """Render a pattern, then hold for interval ms (0 = return after render).
 
-        color_palette: RGB tuple (mono '#'/'.' mode) or dict (palette).
+        color: RGB tuple (mono '#'/'.' mode) or dict (palette).
         """
-        if color_palette is None:
-            color_palette = WHITE
-        self.render_pattern(pattern, color_palette)
+        if color is None:
+            color = WHITE
+        self.render_pattern(pattern, color)
         if interval > 0:
             await asyncio.sleep(interval / 1000)
 
@@ -486,12 +485,14 @@ class Display:
 
         For simple scripts that don't need custom async setup.
         """
+
         async def _loop():
             while True:
                 result = callback()
-                if hasattr(result, '__await__') or hasattr(result, 'send'):
+                if hasattr(result, "__await__") or hasattr(result, "send"):
                     await result
                 await asyncio.sleep(0)
+
         asyncio.run(_loop())
 
 
