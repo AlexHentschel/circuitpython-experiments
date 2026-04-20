@@ -2,11 +2,11 @@
 
 ## Current State (living summary)
 
-**Active focus**: Planning phase for a 3-phase Exp14 display library refactor on branch `alex/display-mvp`. Plan captured in `.cursor/plans/display_library_refactor_*.plan.md`. Execution not yet started.
+**Active focus**: Exp14 display library refactor on branch `alex/display-mvp`. Plan captured in `.cursor/plans/display_library_refactor_*.plan.md`. **Phase 1 complete** (commits `84e2d5f`…`6cc2c73`): API-hygiene renames (`interval`→`interval_ms`, `_cancelled`→`_is_cancelled`), immutable-defaults migration, cancellation-doc rewrite, `loop=False` addition to `show_string`/`show_number`, Phase-1 audit loop (6 findings fixed, 1 deferred to on-device), plus memory updates (TECHNICAL §Memory Management on CircuitPython, WORKING_STYLE three new directives). Tier 1 suite 78/78 green throughout. Awaiting user go-ahead for Phase 2 (core-logic changes).
 
 **Active experiment**: `[exp14]` — MakeCode-style display library for 8×8 WS2812b on YD-RP2040.
 
-**Phase**: Genesis (sessions 1–2).
+**Phase**: Execution — Phase 1 complete; Phase 2 pending.
 
 **Key references**: `CONTEXT_HANDOFF.md` (exp14 root), `.cursor/plans/display_library_refactor_*.plan.md`, `.cursor/rules/reference/` (on-demand reading material — concepts absorbed into own memory in self-contained form, not referenced from memory entries).
 
