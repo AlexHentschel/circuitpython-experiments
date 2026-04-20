@@ -1,8 +1,8 @@
 # Technical Domain Knowledge
 
-Last updated: 2026-04-17 (initial cold-start; no entries yet)
+Last updated: 2026-04-20 (session 3: dropped human-elevation language from the status-default rule; schema and tables unchanged — still cold-start, no content entries yet)
 
-Domain: CircuitPython multi-experiment workspace. Categories below are the authoritative schema (the domain rule file `02-domain-structure.mdc` just lists them; the intent notes for each category live here as HTML comments). All entries default to `unverified` until evidence is gathered; only the human elevates to `verified`. Tag every entry with experiment scope: `[expNN]`, `[tooling]`, `[cross-experiment]`, or `[universal]`.
+Domain: CircuitPython multi-experiment workspace. Categories below are the authoritative schema (the domain rule file `02-domain-structure.mdc` just lists them; the intent notes for each category live here as HTML comments). All entries default to `unverified` until evidence is gathered; promote to `evidence-supported` once corroborated by independent sources (datasheets, official CircuitPython docs, on-device behavior, or mechanical verification). No separate human-elevation tier — the user is project owner but not the CircuitPython domain authority. Tag every entry with experiment scope: `[expNN]`, `[tooling]`, `[cross-experiment]`, or `[universal]`.
 
 ## Terminology
 

@@ -1,5 +1,5 @@
 ---
-description: Persistent memory system — file architecture, retrieval, update rules, validation gate, maintenance
+description: Persistent memory system — file architecture, retrieval, update rules, evidence-status discipline, maintenance
 alwaysApply: true
 ---
 
@@ -13,8 +13,8 @@ Persistent learning across sessions lives in `memory/` (this directory's sibling
 |------|---------|------------------|
 | `memory/WORKING_STYLE.md` | Behavioral directive catalog (human-given + self-prescribed). Tracks reinforcement counts. | Agent (free) |
 | `memory/SESSION_LOG.md` | Per-session insights, artifacts, open questions. Living summary at top. | Agent (free) |
-| `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent records `unverified`; human elevates to `verified` |
-| `memory/CONCLUSIONS.md` | Cross-session validated/invalidated findings. | Agent records `unverified`/`evidence-supported`; human elevates to `verified` |
+| `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent (free); status tracks evidence sufficiency |
+| `memory/CONCLUSIONS.md` | Cross-session findings: `unverified` (noted) and `evidence-supported` (corroborated by independent sources); plus `disputed` / `invalidated`. | Agent (free); status tracks evidence sufficiency |
 | `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes. **Defer creation until first structural change.** | Agent (free) |
 
 ## Active Retrieval (at session start)
@@ -23,7 +23,7 @@ Memory files are **not** auto-injected. Read selectively:
 
 1. `SESSION_LOG.md` — living summary + last 1–2 entries + Open Questions
 2. `WORKING_STYLE.md` — scan for directives relevant to the current task
-3. `CONCLUSIONS.md` — only if validating or revisiting findings
+3. `CONCLUSIONS.md` — only if evaluating or revisiting findings
 4. `TECHNICAL.md` — only if doing technical work
 5. `CHANGELOG.md` — only during self-evaluation or compaction
 
@@ -36,10 +36,11 @@ After every substantive exchange, evaluate:
 1. New concept introduced? → `TECHNICAL.md` (mark `unverified`)
 2. Correction received? → mark prior understanding `invalidated`; record correction
 3. Working-style direction given? → `WORKING_STYLE.md` (new row or reinforcement increment)
-4. Conclusion validated/invalidated? → `CONCLUSIONS.md`
+4. Conclusion reached (with supporting evidence) or invalidated? → `CONCLUSIONS.md`
 5. Session produced insights/artifacts? → `SESSION_LOG.md`
 6. Takeaway stated in conversation but not written to file? → write it now. Conversation does not persist.
 7. Pattern emerging from repeated friction (3+ iterations)? → extract into `WORKING_STYLE.md` as new directive
+8. **New directive recorded?** → State its **goal** explicitly (the outcome the rule exists to achieve). Directives without a stated goal are unfalsifiable — there's no axis to evaluate effectiveness, detect drift, or decide on retirement.
 
 ### How
 
@@ -50,10 +51,20 @@ After every substantive exchange, evaluate:
 - Generalize appropriately: "at what level of generality does this still hold?"
 - Principles over recollections. State the rule; reference the case as example.
 
-## Validation Gate
+## Evidence-Status Discipline
 
-- **Technical conclusions** (findings about the system being built/analyzed): agent records at `unverified` or `evidence-supported`. Only the human elevates to `verified`. Proactively present when evidence is sufficient.
-- **Operational content** (working style, session logs, meta-rules): agent updates freely.
+Two-tier ladder for findings about the system being built/analyzed:
+
+| Status | Meaning | Promotion criterion |
+|--------|---------|---------------------|
+| `unverified` | Stated or extracted; not yet investigated | (entry-level default) |
+| `evidence-supported` | Corroborated by independent sources — datasheets, official CircuitPython docs, on-device behavior, mechanical verification (grep/AST/tests), or multiple concordant code references | Agent records when evidence is sufficient; flag explicitly in conversation when proactively presenting |
+| `disputed` | Conflicting evidence exists; needs resolution | Either side may set; record both positions per the *contradictions have no default winner* principle in `WORKING_STYLE.md` |
+| `invalidated` | Previously believed, now disproven; retain with correction history | Either side may set; never delete the entry |
+
+There is **no human-elevation gate** in this project — the human is project owner but not the CircuitPython domain authority, so promotion depends on independent corroboration, not user ratification. When the user *is* the authority (project conventions, design intent, what success means), the user-as-authority case follows the *contradictions have no default winner* adjudication path, not a status promotion.
+
+**Operational content** (working style, session logs, meta-rules, plans, working-docs): agent updates freely.
 
 ## Maintenance
 
@@ -82,7 +93,7 @@ Higher level = more stable = stronger evidence required to change.
 
 - Full rationale for this rule's directives: `reference/01-memory-system.md` (blueprint source)
 - Top-down architectural overview: `reference/00-overview.md`
-- Validation gate full treatment: `reference/04-evidence-and-validation.md`
+- Evidence-handling and presentation patterns: `reference/04-evidence-and-validation.md` (note: the human-elevation "validation gate" framing in that file does not apply on this project — see § Evidence-Status Discipline above)
 - Pattern extraction and self-reflection: `reference/03-self-improvement.md`
 - Compaction failure cases (read before any compaction): `reference/06-failure-modes.md` §§ F1, F8, F10
 - Bootstrapping (file templates, first-session protocol): `reference/08-bootstrapping.md`

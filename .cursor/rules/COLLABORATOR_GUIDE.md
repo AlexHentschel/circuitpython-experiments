@@ -17,10 +17,10 @@ A persistent learning framework for an AI agent. The agent accumulates calibrati
     ├── WORKING_STYLE.md   How the agent should behave with you
     ├── SESSION_LOG.md     What happened in each session
     ├── TECHNICAL.md       What the agent knows about CircuitPython here
-    └── CONCLUSIONS.md     What's been validated (or invalidated)
+    └── CONCLUSIONS.md     Cross-session findings about the system being built, with evidence status
 ```
 
-You can read any of these at any time. You can also edit them directly — e.g. to add a directive the agent has been missing, or to mark a finding as `verified` after you've checked it.
+You can read any of these at any time. You can also edit them directly — e.g. to add a directive the agent has been missing, or to promote a finding in `memory/CONCLUSIONS.md` to `evidence-supported` when you've independently confirmed it.
 
 ## The split between rule files and memory files
 
@@ -43,27 +43,27 @@ Three feedback signals the agent watches for:
 | Explicit negative | "don't do X" | Record correction; mark prior understanding invalidated |
 | Implicit (silence) | No comment on output | Treat as neutral; absence of correction = directive working |
 
-## Validation gate
+## Evidence-status discipline
 
 Two kinds of memory content:
 
-- **Technical conclusions** about CircuitPython (board behaviour, library APIs, wiring assumptions): the agent records at `unverified` or `evidence-supported`. **Only you** elevate to `verified`.
-- **Operational content** (working style, session logs, meta-rules): the agent updates freely.
+- **Technical conclusions** about CircuitPython (board behaviour, library APIs, wiring assumptions) live in `memory/CONCLUSIONS.md` with one of four statuses:
+  - `unverified` — stated, not yet investigated
+  - `evidence-supported` — corroborated by independent sources (datasheets, official CircuitPython docs, on-device behaviour, or mechanical verification such as pytest / grep / AST inspection)
+  - `disputed` — conflicting evidence; both positions retained
+  - `invalidated` — disproven; retained with correction history
+
+  There is **no separate human-elevation tier** on this workspace. You are the project owner but not the CircuitPython domain authority, so promotion to `evidence-supported` depends on independent corroboration, not on your ratification. When *you* are the authority (project conventions, design intent, what success means), the agent follows the *contradictions have no default winner* adjudication path from `memory/WORKING_STYLE.md`: present both sides, let you decide, record the losing side with rationale.
+
+- **Operational content** (working style, session logs, meta-rules, plans, working-docs): the agent updates freely.
 
 This prevents false confidence from propagating while keeping the agent autonomous on its own behaviour.
 
 ## Where this came from
 
-Generalized from a prior human-AI collaboration. Design rationale: `reference/00-overview.md` → `reference/08-bootstrapping.md`.
+Generalized from a prior human-AI collaboration on a different domain. Design rationale and broader context: `reference/00-overview.md` → `reference/08-bootstrapping.md` (on-demand reading).
 
-Phase expectations from `reference/08-bootstrapping.md`:
-
-| Sessions | What to expect |
-|----------|----------------|
-| 1–2 (Genesis) | Many corrections. Agent is calibrating. Memory infrastructure being populated. |
-| 3–6 (Calibration) | Most productive learning period. Working style stabilizes. |
-| 7–15 (Productive) | Lower correction rate. Agent drives technical work proactively. |
-| 15+ (Meta-refinement) | Agent and you co-evolve the system itself. |
+**Divergence note**: the prior project ran a "validation gate" where the human elevated technical findings to `verified`. That does not apply here — see § Evidence-status discipline above. Other framings in `reference/` may or may not transfer; the always-injected `.mdc` files under `.cursor/rules/` are authoritative for *this* workspace.
 
 ## What's deployed right now
 
@@ -99,7 +99,7 @@ Within the first real session on an attached experiment, listen for these three 
 
 1. **Cold-start self-awareness** — the agent acknowledges empty memory files and runs a bootstrap-style health check (`reference/08-bootstrapping.md § First Session Protocol`) rather than silently proceeding.
 2. **Scope tagging** — when it proposes adding any `TECHNICAL.md`, `SESSION_LOG.md`, or `CONCLUSIONS.md` entry, it tags the scope (`[exp14]`, `[tooling]`, `[cross-experiment]`, or `[universal]`). If it doesn't, the rule in `03-memory-update-triggers.mdc` isn't reaching it — check that `.mdc` files are actually being injected (right panel in Cursor → "Rules" should list them).
-3. **Validation-gate discipline** — any CircuitPython claim it produces is marked `unverified` or `evidence-supported`, never `verified`, unless you've confirmed it.
+3. **Evidence-status discipline** — any CircuitPython claim it produces is marked `unverified` by default, or `evidence-supported` only when accompanied by a cited independent source (datasheet, official CircuitPython doc, on-device observation, or mechanical verification). The agent should flag the status explicitly when proactively presenting a finding.
 
 If any of these fail in session 1–2 despite reminders, re-read `memory/WORKING_STYLE.md` and consider whether a directive was missed at cold start.
 
@@ -116,6 +116,6 @@ New mandates can be added as new files under `mandates/` with their own trigger 
 ## How you can intervene
 
 - **Add a directive directly**: edit `memory/WORKING_STYLE.md`, add a row with `Reinforcements: 1`. Agent will pick it up next session.
-- **Mark a conclusion verified**: edit `memory/CONCLUSIONS.md`, move the entry to the Validated table, fill in `Confirmed by: you` and date.
+- **Promote, dispute, or invalidate a conclusion**: edit `memory/CONCLUSIONS.md` and move the entry to the appropriate section — `## Evidence-Supported` (noting your corroboration source), `## Disputed` (with both positions retained), or `## Invalidated` (with correction history).
 - **Reset a section**: edit the file. The agent will notice the change at next session-start health check and ask if it was deliberate.
 - **Request maintenance**: just say "let's do a memory maintenance pass" — the agent has a documented protocol for it.

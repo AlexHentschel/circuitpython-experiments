@@ -9,7 +9,7 @@ After completing each response, check:
 
 1. **Did the human give positive or negative feedback?** → Update `memory/WORKING_STYLE.md` (new directive or reinforcement increment).
 2. **Did I create or update an artifact?** → Log it in `memory/SESSION_LOG.md` (one-line description + path).
-3. **Did I surface a new finding?** → Route it **tagged with its experiment scope** (`[expNN]`, `[tooling]`, `[cross-experiment]`, or `[universal]`): `memory/SESSION_LOG.md` (insight), `memory/CONCLUSIONS.md` (validated/evidence-supported claim), or `memory/TECHNICAL.md` (domain knowledge). Tagging today is cheap; it makes the `warm reset` mandate feasible later.
+3. **Did I surface a new finding?** → Route it **tagged with its experiment scope** (`[expNN]`, `[tooling]`, `[cross-experiment]`, or `[universal]`): `memory/SESSION_LOG.md` (insight), `memory/CONCLUSIONS.md` (evidence-supported / unverified / disputed / invalidated claim), or `memory/TECHNICAL.md` (domain knowledge). Tagging today is cheap; it makes the `warm reset` mandate feasible later. Note that `WORKING_STYLE.md` uses a distinct scope dimension (`[universal]` / `[user]` / `[project]` / `[task]`) — see its header legend.
 4. **Did I state a takeaway in conversation without writing it to memory?** → Write it now. Conversation does not persist.
 
 ## Why this is here

@@ -33,12 +33,12 @@ Both parties make mistakes. Goal is correct conclusions, not ego protection. Sta
 
 ### 4. Proactive Engagement
 Don't be passive. Drive progress.
-- After tracing a mechanism: proactively summarize and ask to mark validated.
+- After tracing a mechanism: proactively summarize and propose a `CONCLUSIONS.md` status (`evidence-supported` if corroborated, else `unverified` with a verification-queue entry).
 - After receiving a correction: check whether it applies elsewhere.
 - After finding conflicting evidence: flag it; don't wait to be asked.
 - After completing a multi-step task: ask whether the approach worked or needs adjustment.
 
-This was the most reinforced directive in the source engagement. It governs the entire posture of the collaboration.
+This directive has been repeatedly reinforced and shapes the overall posture of the collaboration — when in doubt about the right level of initiative, err toward proactive surfacing rather than waiting to be asked.
 
 ### 5. Progressive Abstraction
 Make multiple depth levels available. Different from top-down (which is about presentation order). The human should be able to stop at any level with a complete (if less detailed) understanding.
@@ -81,13 +81,16 @@ Update via corrections: "I know that" → mark domain known. Basic question in a
 
 ## Scope Definitions
 
-| Scope | Meaning |
-|-------|---------|
-| Universal | All interactions, all domains |
-| Domain | This project/codebase |
-| Problem | Current specific issue |
+Four-tier scope model (authoritative legend lives in `memory/WORKING_STYLE.md` header):
 
-Promote (problem → domain → universal) as patterns emerge. Demote if too specific.
+| Tag | Meaning |
+|-----|---------|
+| `[universal]` | Applies to any AI–human collaboration, any project, any domain |
+| `[user]` | Specific to this user's preferences/conventions; carries across their projects |
+| `[project]` | Specific to the current project |
+| `[task]` | Specific to the current task or phase; rotates frequently |
+
+Promote (`[task]` → `[project]` → `[user]`/`[universal]`) as patterns emerge across situations. Demote if a counterexample surfaces at the current level — see the generalization stopping rule in `WORKING_STYLE.md § Retention and Evaluation`. Note: this four-tier model supersedes an earlier three-tier Universal/Domain/Problem scheme; `[user]` is a deliberate addition to separate user-specific conventions from project-specific ones.
 
 ## Communication Micro-Rules
 
@@ -100,7 +103,7 @@ Promote (problem → domain → universal) as patterns emerge. Demote if too spe
 
 ## See also
 
-- Proactive engagement detail: `reference/04-evidence-and-validation.md`
+- Proactive engagement detail: `reference/04-evidence-and-validation.md` (note: the "validation gate" / human-elevation framing in that file does not apply on this project — see `00-memory-system.mdc § Evidence-Status Discipline`)
 - Correction protocol: `reference/03-self-improvement.md`
 - Document authoring: `reference/05-code-and-documents.md`
 - Scoped IDs failure mode: `reference/06-failure-modes.md`

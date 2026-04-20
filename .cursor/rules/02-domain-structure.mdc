@@ -23,7 +23,7 @@ When recording in `SESSION_LOG.md` or `TECHNICAL.md`, tag entries with the exper
 
 ## TECHNICAL.md Categories
 
-Seven sections, authoritative schema lives in `memory/TECHNICAL.md` itself (with per-section intent notes as HTML comments):
+Eight sections, authoritative schema lives in `memory/TECHNICAL.md` itself (with per-section intent notes as HTML comments):
 
 1. Terminology
 2. Boards & MCUs (+ pin maps as subsections per board)
@@ -38,12 +38,13 @@ Add subsections per experiment as needed. If a category outgrows its section, ap
 
 ## CONCLUSIONS.md Conventions
 
-Status tiers (per memory system rule):
-- `verified` — human-confirmed
-- `evidence-supported` — sufficient evidence, awaiting confirmation
+Status tiers (per `00-memory-system.mdc` § Evidence-Status Discipline):
 - `unverified` — stated but not investigated
-- `disputed` — conflicting evidence
-- `invalidated` — disproven
+- `evidence-supported` — corroborated by independent sources (datasheets, official CircuitPython docs, on-device behavior, mechanical verification — grep/AST/tests)
+- `disputed` — conflicting evidence; record both positions
+- `invalidated` — disproven; retain with correction history
+
+No separate human-elevation tier on this workspace — the user is project owner across experiments but not the CircuitPython domain authority. Promotion depends on independent corroboration. When the user *is* the authority (project conventions, design intent, what success means), use the *contradictions have no default winner* adjudication path in `WORKING_STYLE.md`.
 
 Tag every conclusion with its experiment scope: `[exp14]`, `[exp13]`, `[tooling]`, `[cross-experiment]`, `[universal]`.
 
@@ -66,7 +67,7 @@ When a finding holds across 2+ experiments, note it as `[cross-experiment]` and 
 | New peripheral wiring confirmed | `TECHNICAL.md` | Pin / Peripheral Assumptions |
 | Reusable hardware-interface idiom | `TECHNICAL.md` | Hardware-Interfacing Patterns |
 | Toolchain quirk / VS Code config behaviour | `TECHNICAL.md` | Toolchain |
-| Validated end-to-end behaviour of an experiment | `CONCLUSIONS.md` | Validated (with `[expNN]`) |
+| Validated end-to-end behaviour of an experiment | `CONCLUSIONS.md` | Evidence-Supported (with `[expNN]`) |
 | Pattern observed in 2+ experiments | `CONCLUSIONS.md` tagged `[cross-experiment]`, **and** consider directive promotion to `WORKING_STYLE.md` |
 | Behavioural correction from the human | `WORKING_STYLE.md` | matching section, increment reinforcement |
 | Open question that survives a session | `SESSION_LOG.md` § Open Questions |

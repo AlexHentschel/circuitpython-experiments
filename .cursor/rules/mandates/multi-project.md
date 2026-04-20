@@ -4,6 +4,17 @@
 **Explicit trigger**: the user saying **"warm reset"** initiates implementation (see § Warm Reset Protocol below).
 **Declared**: 2026-04-17, session 0 (pre-Genesis setup).
 
+## Pre-execution review (read before triggering)
+
+This mandate was declared 2026-04-17. Before executing, reconcile these divergences from the subsequent memory-architecture state (introduced 2026-04-20, session 3):
+
+- **M3 promotion ladder** retains `cross-project + human-confirmed ──▶ universal`. The current workspace has no human-elevation tier for technical findings (see `00-memory-system.mdc § Evidence-Status Discipline`): the user is project owner but not the CircuitPython domain authority, so technical-finding promotion depends on independent corroboration, not user ratification. For *working-style* content the user *is* the authority and a sign-off path remains appropriate. Decide at warm-reset time: split by content type, drop the human-confirmation step, or explicitly amend § Evidence-Status Discipline.
+- **Target Architecture — scope tiers** use a three-tier model: `[universal]` / `[family:<name>]` / `[project:<slug>]`. The current `WORKING_STYLE.md` uses a four-tier model: `[universal]` / `[user]` / `[project]` / `[task]`. These are not equivalent: `[family:]` captures project grouping (absent from the four-tier); `[user]` captures cross-project user preferences (absent from the three-tier). Decide at warm-reset time: merge the two with a documented mapping, keep them as orthogonal dimensions, or collapse to one.
+- **Warm Reset Protocol step 8** proposes adding item 5 to `03-memory-update-triggers.mdc` for cross-project retrieval. That file explicitly warns a fifth item degrades its brevity-based salience, and recommends creating a new always-injected file instead — which step 8's own parenthetical already allows (`Add 04-multi-project.mdc …`). Decide whether to inline or split; default to split unless a strong argument emerges for inline.
+- **Vocabulary**: any remaining `verified` / "validation gate" references inside this mandate refer to the superseded tier model. Treat as to-reconcile, not authoritative, during execution.
+
+A warm-reset executor should re-read `00-memory-system.mdc`, `01-interaction-style.mdc`, `02-domain-structure.mdc`, and `memory/WORKING_STYLE.md` in full before writing, and surface each divergence above to the user as an explicit decision before proceeding with any structural step in § Warm Reset Protocol.
+
 ## Motivation
 
 The deployed memory system (`memory/WORKING_STYLE.md`, `SESSION_LOG.md`, `TECHNICAL.md`, `CONCLUSIONS.md`) assumes **one domain, one timeline**. In reality, this persona will span:
