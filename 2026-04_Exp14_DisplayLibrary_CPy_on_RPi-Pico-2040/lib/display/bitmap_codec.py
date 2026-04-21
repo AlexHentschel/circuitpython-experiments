@@ -53,7 +53,7 @@ def pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT):
     cols = bytearray(width)
     row_idx = 0
     for raw in pattern.split("\n"):
-        row = "".join(raw.split())
+        row = "".join(raw.split())  # split treats any run of consecutive whitespace (spaces, tabs, newlines) as a single separator
         if not row:
             continue
         if row_idx >= height:
@@ -61,7 +61,7 @@ def pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT):
         if len(row) != width:
             raise ValueError(f'row {row_idx}: {len(row)} cells, expected {width}: "{row}"')
         # `|=` accumulates ON bits into `cols[col_idx]` without disturbing already-set rows. Overflow-safe because the upfront
-        # `_MAX_HEIGHT_PER_COLUMN_BYTE` guard caps `row_idx` at 7, so `1 << row_idx` always fits in one bytearray element.
+        # `_MAX_HEIGHT_PER_COLUMN_BYTE` check enforces that `row_idx` ≤ 7, so `1 << row_idx` always fits in one bytearray element.
         # CAUTION: increasing the row count is a format redesign, not a parameter tweak.
         for col_idx, ch in enumerate(row):
             if ch == "#":
@@ -90,6 +90,9 @@ def colmajor_to_pattern(data, width=None, height=HEIGHT):
         width = len(data)
     lines = []
     for row in range(height):
+        # Inverse of the encode step: right-shift the column byte by `row` so row N's bit lands at position 0, then `& 1` isolates it.
+        # CAUTION: widening the format past one byte per column invalidates this shift.
+        # For encoding details (top row = least significant bit), see the README.md file.
         row_cells = ["#" if (data[col] >> row) & 1 else "." for col in range(width)]
         lines.append(" ".join(row_cells))
     return "\n".join(lines)

@@ -390,7 +390,13 @@ class Display:
 
     @staticmethod
     def set_rotation(degrees):
-        """Rebuild coordinate LUT for 0/90/180/270 rotation. Does not cancel animations."""
+        """Rebuild coordinate LUT for 0/90/180/270 clockwise rotation. Does not cancel animations.
+
+        ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
+        ``-270``, ``-180``, ``-90``. Other values raise ``ValueError``. Out-of-range inputs (``360``,
+        ``-360``, ...) are rejected; normalise at the call site (e.g. ``set_rotation(d % 360)``) if wrap-around
+        is needed.
+        """
         # Mutate in place so any module reading _LUT sees the new mapping
         # without needing to re-import.
         _LUT[:] = build_lut(degrees)
