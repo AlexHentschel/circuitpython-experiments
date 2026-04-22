@@ -73,15 +73,24 @@ def _render_colmajor(data, offset, color_on):
     """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to ``_pixels``.
 
     Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
-    one column of the bitmap; bit ``y`` of the byte selects the pixel at display
-    row ``y``, with bit 0 = top row). LED indices are obtained via ``_LUT`` under
-    the x-major convention ``_LUT[x * HEIGHT + y]`` (i.e. the LUT is laid out
-    x-first, then y). Writes all ``WIDTH * HEIGHT`` pixels, then one ``show()``.
-    Hot path: called once per animation frame in ``show_string`` scroll.
+    one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
+    row ``y`` (with bit 0 = top row).
+    On the hardware level, the LED are addressed using a single index. The Look-Up Table
+    [``LUT`` ] translates from logical pixels (x, y) to the physical strip index. The ``LUT``
+    is organized using x-major convention, i.e. ``_LUT[x * HEIGHT + y]`` returns the physical
+    strip index for the logical pixel (x, y).
+    After all pixel values have been written, then we call ``show()`` once.
+
+    CAUTION: this function is part of the hot path and used to render many icons;
+    especially for scrolling this code is performance sensitive.
     """
     # Cache module globals into function-locals: LOAD_FAST (frame-slot access)
     # is cheaper than LOAD_GLOBAL (module-dict lookup) on every inner-loop
-    # reference -- standard MicroPython/CircuitPython optimisation pattern.
+    # reference -- standard MicroPython optimisation pattern, AI-confirmed
+    # to carry over to CircuitPython (same bytecode dispatch for name loads;
+    # MicroPython guidance is not guaranteed to apply otherwise -- the two
+    # runtimes diverge on native-code emitters, viper, and some built-in
+    # method dispatch).
     # Ref: docs.micropython.org/en/latest/reference/speed_python.html
     #      section "Caching object references".
     pixels = _pixels
