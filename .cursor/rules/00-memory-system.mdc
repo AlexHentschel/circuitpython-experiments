@@ -11,21 +11,23 @@ Persistent learning across sessions lives in `memory/` (this directory's sibling
 
 | File | Purpose | Update authority |
 |------|---------|------------------|
-| `memory/WORKING_STYLE.md` | Behavioral directive catalog (human-given + self-prescribed). Tracks reinforcement counts. | Agent (free) |
+| `memory/WORKING_STYLE.md` | Collaboration / behavioral directive catalog (communication posture, process, judgment, artifact conventions). Tracks reinforcement counts. | Agent (free) |
+| `memory/CODING_PRINCIPLES.md` | Coding-craft directive catalog — how *code itself* should be written (API shape, structure, correctness-argument hygiene, test construction, refactoring economics). Same schema as `WORKING_STYLE.md`; sibling not sub-file. | Agent (free) |
 | `memory/SESSION_LOG.md` | Per-session insights, artifacts, open questions. Living summary at top. | Agent (free) |
 | `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent (free); status tracks evidence sufficiency |
 | `memory/CONCLUSIONS.md` | Cross-session findings: `unverified` (noted) and `evidence-supported` (corroborated by independent sources); plus `disputed` / `invalidated`. | Agent (free); status tracks evidence sufficiency |
-| `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes. **Defer creation until first structural change.** | Agent (free) |
+| `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes (schema evolutions, splits, consolidations, new files). | Agent (free) | Agent (free) |
 
 ## Active Retrieval (at session start)
 
 Memory files are **not** auto-injected. Read selectively:
 
 1. `SESSION_LOG.md` — living summary + last 1–2 entries + Open Questions
-2. `WORKING_STYLE.md` — scan for directives relevant to the current task
-3. `CONCLUSIONS.md` — only if evaluating or revisiting findings
-4. `TECHNICAL.md` — only if doing technical work
-5. `CHANGELOG.md` — only during self-evaluation or compaction
+2. `WORKING_STYLE.md` — scan for directives relevant to the current task's collaboration posture
+3. `CODING_PRINCIPLES.md` — scan when doing code work (API design, refactoring, test construction)
+4. `CONCLUSIONS.md` — only if evaluating or revisiting findings
+5. `TECHNICAL.md` — only if doing technical work
+6. `CHANGELOG.md` — only during self-evaluation or compaction
 
 Run **health checks** alongside reading: anything unfamiliar? files unexpectedly large/small? stale entries? If any check raises concern, request a dedicated maintenance session — do not fix as a side effect.
 
