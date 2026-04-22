@@ -4,6 +4,27 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-04-21 — refine: re-placed two directives added in session 6
+
+**Change**: two directives added earlier in session 6 to `WORKING_STYLE.md § Document Authoring` were re-placed after a user-prompted review of placement criteria:
+
+1. ***Function and method docstrings should be self-contained*** — migrated to `CODING_PRINCIPLES.md § Core Principles`. Docstrings are part of the code artifact; directives that shape their content belong with other code-shape rules.
+2. ***Announce memory edits concisely; don't present them verbatim unless uncertainty warrants a check*** — moved within `WORKING_STYLE.md` from § Document Authoring → § Communication Style. Collaboration-posture directive about calibrating verbosity on memory surfacing, not a convention for how written artifacts look.
+
+**Preserved verbatim**: Direction, Scope, Reinforcements, Last Applied, Notes — both migrations copy columns without change. Added a terminal Notes sentence to each entry recording the re-placement and reason.
+
+**Trigger**: user question "what's your rationale for not placing these close to other coding conventions?" — placement had defaulted to proximity (existing § Document Authoring neighbors like *abbreviations on first use*, *line length 130*) rather than to the split criteria from the 2026-04-21 `CODING_PRINCIPLES.md` introduction.
+
+**Root cause**: placement-by-proximity is a weak signal when the candidate sections both contain entries touching similar-looking surface concerns (comments, docstrings). The boundary test from the earlier split entry — *"does this describe how code should look, or how I should collaborate / communicate / edit?"* — discriminates cleanly but must be applied explicitly at first-placement time to avoid the retroactive-migration overhead.
+
+**Propagated updates**:
+- `WORKING_STYLE.md` header: session-6 note captures the re-placement.
+- `WORKING_STYLE.md § Retention and Evaluation`: new bullet on placement discipline — apply split criteria at first-placement time, not retroactively.
+- `CODING_PRINCIPLES.md` header: session-6 note captures the migration-in.
+- `SESSION_LOG.md § Session 6`: updated to reflect the correction.
+
+**Meta-pattern**: this is a small-scale reinforcement of the pattern already flagged in the 2026-04-21 `split` entry above — *deferral rationales should be evaluated against their own cost model*. Placement rationales have the same property: "§ Document Authoring fits because the neighbors look similar" is a plausible-sounding framing whose actual discrimination against the split criteria is zero.
+
 ## 2026-04-21 — extend: introduced `CODING_PRINCIPLES.md`
 
 **Change**: created new memory file `CODING_PRINCIPLES.md` as sibling to `WORKING_STYLE.md`, seeded with six `(experimental)` directives.

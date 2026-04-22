@@ -74,15 +74,17 @@ When the same fact has to live in two places (rare; only when duplication serves
 
 - Artifacts updated:
   - `lib/display/core.py`: module docstring gained a § Bitmap encoding anchor defining *column byte* / *column-major*; `_render_colmajor` rewritten with local-binding of `_pixels` / `_LUT` / `OFF` (LOAD_FAST vs LOAD_GLOBAL), `x_base = x * HEIGHT` loop-invariant hoist matching `geometry.build_lut`'s slot-name convention, self-contained docstring with inline glosses (no cross-references), inline citation of the MPy speed-doc "Caching object references" section.
-  - `.cursor/rules/memory/WORKING_STYLE.md § Document Authoring`: two new `[user]`-scope entries captured `established` — *Function and method docstrings should be self-contained* (inline glosses > cross-refs); *Announce memory edits concisely; don't present them verbatim unless uncertainty warrants a check*.
+  - Memory directives added (placement revised mid-session after user-prompted review): *Function and method docstrings should be self-contained* landed in `CODING_PRINCIPLES.md § Core Principles` (code-shape rule — docstrings are code); *Announce memory edits concisely; don't present them verbatim unless uncertainty warrants a check* landed in `WORKING_STYLE.md § Communication Style` (collaboration-posture rule). Both `[user]`-scope, `established`. Initial placement both in `WORKING_STYLE.md § Document Authoring` was by-proximity, not by split criteria; user flagged and the two were re-placed. Full provenance in `CHANGELOG.md § 2026-04-21 — refine`. `WORKING_STYLE.md § Retention and Evaluation` gained a new bullet on *placement discipline at first-placement time*.
 - Patterns extracted:
   - **Cross-ref vs. inline-gloss cost asymmetry**: writing a gloss is a one-off author cost; following a cross-reference is paid per reader visit. When the gloss fits in one phrase/sentence, repetition strictly dominates cross-reference. Cross-refs earn their place only when the defined content is too large to inline without bloating the docstring.
   - **Standard VM-optimization pattern for CPy hot paths**: bind module globals (`_pixels`, `_LUT`, `OFF`, module-scope constants) into function-locals at the top of a hot function to use `LOAD_FAST` over `LOAD_GLOBAL`. Applies cleanly to CircuitPython (inherits the bytecode model from MicroPython; not in the GC/native/threshold divergence zone).
 - Process corrections received:
   - Cross-reference in `_render_colmajor` docstring → inline gloss. Captured as directive.
   - Verbose verbatim presentation of proposed memory entries for approval → concise announce-and-proceed posture. Captured as directive.
+  - Placement of the two new directives defaulted to proximity in `WORKING_STYLE.md § Document Authoring` rather than to the split criteria. User challenged; both re-placed (one migrated to `CODING_PRINCIPLES.md`, one moved within `WORKING_STYLE.md` § Document Authoring → § Communication Style). Root-cause captured as placement-discipline bullet in § Retention.
 - Open questions raised: none.
-- Handled-with-care log: none.
+- Handled-with-care log:
+  - The re-placement of two same-session directives is a multi-file edit across `WORKING_STYLE.md` (remove from § Document Authoring, insert in § Communication Style, update header, add § Retention bullet), `CODING_PRINCIPLES.md` (insert row, update header), `CHANGELOG.md` (new `refine` entry), and this file. Each StrReplace targeted an exact-match block; verbatim copy preserved Direction/Scope/Reinforcements/Last Applied/Notes for both migrations with only a terminal re-placement note appended to Notes. No prior content reworded; no rows dropped inadvertently.
 
 ---
 
