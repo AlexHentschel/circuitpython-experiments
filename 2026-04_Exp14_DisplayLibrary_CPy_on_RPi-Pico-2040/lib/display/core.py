@@ -21,6 +21,14 @@ running animation is not disturbed. Mechanism is private to this module — a
 monotonically-increasing sequence counter captured by each animation as a
 token and re-checked between frames; see ``_acquire`` and ``_is_cancelled``.
 
+Bitmap encoding (used throughout this module): monochrome icons, arrows,
+glyphs, and ``Image`` instances are stored as *column-major bytes* -- one
+byte per column, with bit ``y`` of the byte encoding the pixel at display
+row ``y`` (bit 0 = top row). A *column byte* is therefore one such byte,
+covering one column of up to ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (= 8)
+vertically-stacked pixels. Full format specification in ``bitmap_codec.py``
+and ``lib/display/README.md § Column-major bytes``.
+
 ``Image`` methods reference module globals (``display``, ``_LUT``, ``_pixels``)
 directly -- tight coupling acceptable for a single-display MCU library.
 """
@@ -62,16 +70,29 @@ _LUT = build_lut(0)
 # Monochrome column-major render helper
 # ---------------------------------------------------------------------------
 def _render_colmajor(data, offset, color_on):
-    """Render WIDTH columns of column-major bitmap data to _pixels.
+    """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to ``_pixels``.
 
-    data[offset+x] is one column byte; bit y = row y (0=top).
-    Uses _LUT for coordinate mapping. Writes all 64 pixels then shows.
+    Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
+    one column of the bitmap; bit ``y`` of the byte selects the pixel at display
+    row ``y``, with bit 0 = top row). LED indices are obtained via ``_LUT`` under
+    the x-major convention ``_LUT[x * HEIGHT + y]`` (i.e. the LUT is laid out
+    x-first, then y). Writes all ``WIDTH * HEIGHT`` pixels, then one ``show()``.
+    Hot path: called once per animation frame in ``show_string`` scroll.
     """
+    # Cache module globals into function-locals: LOAD_FAST (frame-slot access)
+    # is cheaper than LOAD_GLOBAL (module-dict lookup) on every inner-loop
+    # reference -- standard MicroPython/CircuitPython optimisation pattern.
+    # Ref: docs.micropython.org/en/latest/reference/speed_python.html
+    #      section "Caching object references".
+    pixels = _pixels
+    lut = _LUT
+    off = OFF
     for x in range(WIDTH):
         col_byte = data[offset + x]
+        x_base = x * HEIGHT  # matches `geometry.build_lut` slot-name convention
         for y in range(HEIGHT):
-            _pixels[_LUT[x * HEIGHT + y]] = color_on if (col_byte >> y) & 1 else OFF
-    _pixels.show()
+            pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+    pixels.show()
 
 
 # ---------------------------------------------------------------------------

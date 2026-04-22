@@ -70,6 +70,22 @@ When the same fact has to live in two places (rare; only when duplication serves
   - P1.7 memory digest: should the Researcher cross-reference existing `TECHNICAL.md`, or start clean?
   - Deferred Tier 2 tests: in scope to unblock, or all punted?
 
+## 2026-04-21: Session 6 — [exp14] (opportunistic `_render_colmajor` refactor)
+
+- Artifacts updated:
+  - `lib/display/core.py`: module docstring gained a § Bitmap encoding anchor defining *column byte* / *column-major*; `_render_colmajor` rewritten with local-binding of `_pixels` / `_LUT` / `OFF` (LOAD_FAST vs LOAD_GLOBAL), `x_base = x * HEIGHT` loop-invariant hoist matching `geometry.build_lut`'s slot-name convention, self-contained docstring with inline glosses (no cross-references), inline citation of the MPy speed-doc "Caching object references" section.
+  - `.cursor/rules/memory/WORKING_STYLE.md § Document Authoring`: two new `[user]`-scope entries captured `established` — *Function and method docstrings should be self-contained* (inline glosses > cross-refs); *Announce memory edits concisely; don't present them verbatim unless uncertainty warrants a check*.
+- Patterns extracted:
+  - **Cross-ref vs. inline-gloss cost asymmetry**: writing a gloss is a one-off author cost; following a cross-reference is paid per reader visit. When the gloss fits in one phrase/sentence, repetition strictly dominates cross-reference. Cross-refs earn their place only when the defined content is too large to inline without bloating the docstring.
+  - **Standard VM-optimization pattern for CPy hot paths**: bind module globals (`_pixels`, `_LUT`, `OFF`, module-scope constants) into function-locals at the top of a hot function to use `LOAD_FAST` over `LOAD_GLOBAL`. Applies cleanly to CircuitPython (inherits the bytecode model from MicroPython; not in the GC/native/threshold divergence zone).
+- Process corrections received:
+  - Cross-reference in `_render_colmajor` docstring → inline gloss. Captured as directive.
+  - Verbose verbatim presentation of proposed memory entries for approval → concise announce-and-proceed posture. Captured as directive.
+- Open questions raised: none.
+- Handled-with-care log: none.
+
+---
+
 ## 2026-04-21: Session 5 — [exp14] (build_lut retrospective + memory-architecture split)
 
 - Technical insights (all `[exp14]`-anchored but with universal implications — captured as directives in `CODING_PRINCIPLES.md`, not duplicated here):
