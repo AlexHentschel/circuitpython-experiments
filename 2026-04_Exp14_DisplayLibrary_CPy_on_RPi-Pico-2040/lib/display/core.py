@@ -84,14 +84,10 @@ def _render_colmajor(data, offset, color_on):
     CAUTION: this function is part of the hot path and used to render many icons;
     especially for scrolling this code is performance sensitive.
     """
-    # Cache module globals into function-locals. LOAD_FAST does one C array subscript on the VM stack frame's
-    # local-slot region; LOAD_GLOBAL does a qstr decode plus a hash-map lookup on the module's globals dict
-    # (with builtins-override and builtins fallbacks on miss). Binding `_pixels` / `_LUT` / `OFF` to function-
-    # locals once at entry shifts every inner-loop reference from the latter to the former. Source-verified
-    # for CircuitPython against `py/vm.c` (MP_BC_LOAD_FAST_N, MP_BC_LOAD_GLOBAL) and `py/runtime.c`
-    # (mp_load_global); the mechanism is inherited unchanged from MicroPython's VM. Grounded discussion with
-    # source line pointers: `.cursor/rules/memory/TECHNICAL.md` § "Name loading: LOAD_FAST vs LOAD_GLOBAL".
-    # High-level principle: `docs.micropython.org/en/latest/reference/speed_python.html` § "Caching object references".
+    # Cache module globals into function-locals: LOAD_FAST (frame-slot access) is cheaper than LOAD_GLOBAL (module-dict lookup).
+    # This is explained in more detail in MicroPython docs: `docs.micropython.org/en/latest/reference/speed_python.html` § "Caching object references".
+    # CircuitPython inherits this unchanged from MicroPython's VM: AI-verified sources are `py/vm.c` (MP_BC_LOAD_FAST_N, MP_BC_LOAD_GLOBAL) and `py/runtime.c`
+    # (mp_load_global);
     pixels = _pixels
     lut = _LUT
     off = OFF
