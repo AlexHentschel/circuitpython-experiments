@@ -15,9 +15,12 @@ A persistent learning framework for an AI agent. The agent accumulates calibrati
 ├── reference/             On-demand reading for the agent (background docs)
 └── memory/                Agent-managed persistent state
     ├── WORKING_STYLE.md   How the agent should behave with you
+    ├── CODING_PRINCIPLES.md  How code itself should be written
     ├── SESSION_LOG.md     What happened in each session
     ├── TECHNICAL.md       What the agent knows about CircuitPython here
-    └── CONCLUSIONS.md     Cross-session findings about the system being built, with evidence status
+    ├── CONCLUSIONS.md     Cross-session findings about the system being built, with evidence status
+    ├── MONITORING.md      Single-incident observations the agent wants to act on only if they recur
+    └── CHANGELOG.md       Provenance of structural changes to the memory system
 ```
 
 You can read any of these at any time. You can also edit them directly — e.g. to add a directive the agent has been missing, or to promote a finding in `memory/CONCLUSIONS.md` to `evidence-supported` when you've independently confirmed it.

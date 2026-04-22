@@ -1,0 +1,53 @@
+# Monitoring
+
+Last updated: 2026-04-21 (session 6: file seeded at first structural need. Two initial entries from this session.)
+
+## Purpose
+
+Short, cross-session register of *observations I want to act differently on if they recur*. Solves a specific gap in the stateless-retrieval memory architecture: a directive saying "watch for the next occurrence of X and then do Y" has no triggering mechanism — recurrence detection is not a primitive. Writing the observation down here creates an explicit, re-retrievable trigger.
+
+**What goes here:**
+
+- Single-incident observations where escalating to a full directive is premature (insufficient evidence, scope uncertain), but the pattern is worth noticing on recurrence.
+- Scope-lift candidates: directives currently at `[project]` or `[task]` scope that would plausibly generalize to `[universal]` after one more cross-domain incident.
+- Promotion triggers for unverified-but-plausible claims: "if claim X comes up again, source-verify and promote to `TECHNICAL.md`".
+- Meta-patterns noticed once (e.g. a failure mode in my own reasoning) that deserve attention rather than immediate codification.
+
+**What does not go here:**
+
+- Session-local open questions — those live in `SESSION_LOG.md § Open Questions`.
+- On-device verification items for CircuitPython claims — those live in `TECHNICAL.md § Verification Queue`.
+- Confirmed directives (any status, any reinforcement count) — those live in `WORKING_STYLE.md` or `CODING_PRINCIPLES.md` with their own retention rules.
+- Scratchpad / brainstorming — use an ephemeral note, not this file.
+
+## Entry schema
+
+Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
+
+- **Observation** (one phrase).
+- **Trigger** — the kind of recurrence that would warrant action.
+- **Action on trigger** — concrete: where the next incident should route (file + section + shape of edit).
+- **First observed** — date + session number.
+- **Scope** — `[universal]` / `[user]` / `[project]` / `[task]` per the usual memory scope tags.
+
+## Retention
+
+- **Lifecycle**: recurrence → action on trigger → remove entry from this file (the action handles it). If trigger never fires and the observation becomes stale (no recurrence in 3+ sessions of active work in the relevant domain), re-evaluate: either delete with note, or promote to a regular directive on the thinking "pattern is real even without a second incident."
+- **No silent drops**: per `WORKING_STYLE.md § Retention and Evaluation`, removals or promotions go through a stated reason and a `CHANGELOG.md` entry if structural.
+- **Cross-reference on promotion**: when an entry graduates to a full directive / `TECHNICAL.md` entry / `CONCLUSIONS.md` finding, cite this file as the original observation site in the promoted entry's Notes column so the provenance chain is preserved.
+
+## Entries
+
+- **Scope-lift candidate: *Cross-runtime citations require a grounding note***
+  - **Observation**: directive currently at `[project]` scope, phrased around MicroPython↔CircuitPython specifically.
+  - **Trigger**: any non-MicroPython cross-runtime citation incident (e.g. citing CPython docs from CircuitPython or PyPy code for a feature whose behavior may differ).
+  - **Action on trigger**: lift directive scope to `[universal]`, rename to remove MicroPython-specific framing, update the Notes column of the entry at `CODING_PRINCIPLES.md § Core Principles` with both incidents as evidence. If a second non-MicroPython incident accumulates, the abstraction-lifecycle rule from `WORKING_STYLE.md § Retention` is satisfied.
+  - **First observed**: 2026-04-21 (session 6).
+  - **Scope**: `[project]` → candidate for `[universal]`.
+
+- **Promotion trigger: MicroPython perf-guidance source-verification pattern**
+  - **Observation**: one `docs.micropython.org/reference/speed_python.html` claim (LOAD_FAST vs LOAD_GLOBAL) has been source-verified against CircuitPython's `py/vm.c` + `py/runtime.c` this session and promoted to `TECHNICAL.md § Name loading`. Other claims from the same doc — e.g. `const()` folding, buffer-protocol access, viper — have not been verified for this port.
+  - **Trigger**: a second `speed_python.html` claim becomes relevant to a hot path in this workspace.
+  - **Action on trigger**: source-verify against the CPy source tree (same method: fetch `py/vm.c` + the relevant `py/*.c`, grep for the opcode or function, confirm mechanism), then append to `TECHNICAL.md § Memory Management` as a sibling subsection to *Name loading: LOAD_FAST vs LOAD_GLOBAL*. Do not treat MicroPython docs as authoritative on this port without the verification step.
+  - **First observed**: 2026-04-21 (session 6).
+  - **Scope**: `[project]`.

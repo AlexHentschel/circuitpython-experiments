@@ -4,6 +4,39 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-04-21 — extend: introduced `MONITORING.md`
+
+**Change**: created new memory file `MONITORING.md` as sibling to `TECHNICAL.md` / `CONCLUSIONS.md` / `WORKING_STYLE.md`. Seeded with two entries from session 6 (scope-lift candidate for *Cross-runtime citations require a grounding note*; promotion trigger for further MicroPython perf-guidance source-verification).
+
+**Trigger**: user flagged a recurring pattern within this session — "I present a convincing argument that acting now is premature; user chooses to act pre-emptively anyway because the memory system has no way to notice deferred observations on recurrence". Two instances this session (the LOAD_FAST carry-over claim; the two-pass vocabulary-migration directive earlier). User directive: "add a bucket to note 'considerations under monitoring' where you very very briefly record aspects where we want to do something if it comes up again."
+
+**Problem this closes**: the stateless-retrieval memory architecture offers no primitive for detecting recurrence of a deferred observation across sessions. Writing down the observation *plus an explicit trigger + action-on-trigger* converts the recurrence-detection problem into a retrieval problem, which the system does handle: at session start, `MONITORING.md` is scanned, entries become resident, and when a potentially-triggering situation appears, recognition fires.
+
+**Rationale for separate file (not a section of an existing file)**:
+
+- Content shape is distinct — each entry is a *trigger registered against a hypothetical future situation*, not a directive (current posture), a finding (status-tagged claim), or a session insight (accretive record). Folding into `WORKING_STYLE.md` or `CODING_PRINCIPLES.md` would blur the triggered-action semantics; folding into `SESSION_LOG.md` would lose cross-session residency (session-local entries fall out of the active-retrieval window over time).
+- `TECHNICAL.md § Verification Queue` is the closest structural analog — a queue of items pending action — but is scoped to on-device verification of CircuitPython claims. `MONITORING.md` is broader: it can hold directive scope-lift candidates, meta-patterns, and non-technical observations.
+- Per `00-memory-system.mdc § Maintenance` — "prefer splitting over pruning. If a file grows large, create a topic file and reference it from the index."
+
+**Schema**: bulleted entries with Observation / Trigger / Action on trigger / First observed / Scope fields. Brief — user's framing "very very briefly". Retention: on recurrence → execute action → remove entry (action handles it). Stale entries (no recurrence in 3+ sessions of relevant work) trigger re-evaluation per file header.
+
+**Propagated updates** (workspace-level — shared across all four projects in `/Users/alex/Development/VsCode/CircuitPython/.cursor/`):
+
+- `00-memory-system.mdc § File Architecture`: new row for `MONITORING.md`.
+- `00-memory-system.mdc § Active Retrieval`: new step 4 — read `MONITORING.md` at session start whenever present (residency is necessary for recognition).
+- `00-memory-system.mdc § Update Rules`: new rule 9 — route single-incident + recurrence-gated observations here, with explicit guard against using it as a "later" bucket for items that should be acted on now.
+- `03-memory-update-triggers.mdc`: folded into existing step 3 (finding routing) rather than adding a 5th item — the file explicitly warns against growing past four items.
+- `COLLABORATOR_GUIDE.md` tree diagram: added MONITORING.md plus the two previously-missing files (`CODING_PRINCIPLES.md`, `CHANGELOG.md`).
+
+**Propagated updates** (per-project — this exp14 project only):
+
+- `SESSION_LOG.md § Source-of-truth map`: new row.
+- `SESSION_LOG.md § Session 6`: entry captures the architectural correction and seed entries.
+
+**Deferred items**: none — the bucket is itself the deferral mechanism, so there is no need to defer *this* change.
+
+**Verification**: mechanism test at next session start — if the LOAD_FAST scope-lift situation arises (e.g. a CPython-from-CircuitPython citation comes up), entry 1 of `MONITORING.md` should fire and route to the documented action. If it doesn't fire, the residency-at-session-start step was insufficient and the rule needs strengthening.
+
 ## 2026-04-21 — refine: re-placed two directives added in session 6
 
 **Change**: two directives added earlier in session 6 to `WORKING_STYLE.md § Document Authoring` were re-placed after a user-prompted review of placement criteria:

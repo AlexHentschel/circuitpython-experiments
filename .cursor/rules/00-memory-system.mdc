@@ -16,6 +16,7 @@ Persistent learning across sessions lives in `memory/` (this directory's sibling
 | `memory/SESSION_LOG.md` | Per-session insights, artifacts, open questions. Living summary at top. | Agent (free) |
 | `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent (free); status tracks evidence sufficiency |
 | `memory/CONCLUSIONS.md` | Cross-session findings: `unverified` (noted) and `evidence-supported` (corroborated by independent sources); plus `disputed` / `invalidated`. | Agent (free); status tracks evidence sufficiency |
+| `memory/MONITORING.md` | Observation register: single-incident observations I want to act differently on *if they recur*. Solves the stateless-retrieval gap — "watch for next occurrence of X" has no triggering mechanism, so the observation is written down explicitly. Bullets with Observation / Trigger / Action on trigger / First observed / Scope. Defer creation until first entry. | Agent (free) |
 | `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes (schema evolutions, splits, consolidations, new files). | Agent (free) | Agent (free) |
 
 ## Active Retrieval (at session start)
@@ -25,9 +26,10 @@ Memory files are **not** auto-injected. Read selectively:
 1. `SESSION_LOG.md` — living summary + last 1–2 entries + Open Questions
 2. `WORKING_STYLE.md` — scan for directives relevant to the current task's collaboration posture
 3. `CODING_PRINCIPLES.md` — scan when doing code work (API design, refactoring, test construction)
-4. `CONCLUSIONS.md` — only if evaluating or revisiting findings
-5. `TECHNICAL.md` — only if doing technical work
-6. `CHANGELOG.md` — only during self-evaluation or compaction
+4. `MONITORING.md` — scan at session start whenever the file exists; each entry is a cross-session trigger that only fires if you recognise its recurrence signal, so you must have the entries resident when the potentially-triggering situation appears
+5. `CONCLUSIONS.md` — only if evaluating or revisiting findings
+6. `TECHNICAL.md` — only if doing technical work
+7. `CHANGELOG.md` — only during self-evaluation or compaction
 
 Run **health checks** alongside reading: anything unfamiliar? files unexpectedly large/small? stale entries? If any check raises concern, request a dedicated maintenance session — do not fix as a side effect.
 
@@ -43,6 +45,7 @@ After every substantive exchange, evaluate:
 6. Takeaway stated in conversation but not written to file? → write it now. Conversation does not persist.
 7. Pattern emerging from repeated friction (3+ iterations)? → extract into `WORKING_STYLE.md` as new directive
 8. **New directive recorded?** → State its **goal** explicitly (the outcome the rule exists to achieve). Directives without a stated goal are unfalsifiable — there's no axis to evaluate effectiveness, detect drift, or decide on retirement.
+9. **Observation worth acting on *only if it recurs*?** → `MONITORING.md`. Use when evidence is single-incident but the pattern seems real, or when a claim/directive plausibly generalizes but the current evidence does not yet justify the lift. Include concrete trigger + action-on-trigger so a later session can execute without re-deriving the intent. Do *not* use `MONITORING.md` as a deferral mechanism for items that should be acted on *now*; recurrence-gated is a stricter posture than "later".
 
 ### How
 
