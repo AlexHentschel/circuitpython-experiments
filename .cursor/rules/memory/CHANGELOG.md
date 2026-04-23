@@ -4,6 +4,25 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-04-21 — extend: font-distortion investigation closure
+
+**Change**: added content-only entries across four files as closure for the font-distortion investigation (session 6 continuation). No schema changes, no file-structure changes. Logged here because the additions span four memory files and the coherence of the batch is load-bearing — reading any one entry in isolation without the others would lose the context chain.
+
+**Changes by file**:
+
+- `CODING_PRINCIPLES.md § Core Principles`: new `(experimental)` directive ***When localizing a bug in a pipeline, instrument stages before speculating***. `[universal]`. Derived from the font-distortion debugging cycle where analytical narrowing circled for multiple exchanges and was settled by two probe passes. Consolidates two candidate sub-directives (hypothesis-space-bounding to include input data; instrumentation-over-speculation) into one entry because the action is unitary.
+- `TECHNICAL.md § Fonts for pixel-accurate displays`: new section. `[cross-experiment]`-scoped domain fact on why outline fonts auto-rasterized at small pixel sizes fail structurally, with the mechanism argument, practical rule, candidate bitmap fonts, and rendering-code implication for exp14.
+- `MONITORING.md § Entries`: two new entries. (1) *Follow-up: font swap for pixel-accurate display on exp14* — deferred action with concrete trigger and replacement-font candidates. (2) *Status-promotion trigger* for the new pipeline-investigation directive, tracking the path from `(experimental)` → `established` at second cross-domain incident.
+- `SESSION_LOG.md § Session 6`: continuation sub-entry below the existing session-6 block capturing the font-distortion investigation.
+
+**Trigger**: font-distortion investigation closed with enough structure to be worth preserving as both a reproducer (in `working-docs/`) and a set of promoted learnings (across memory files). User direction: "collect and memorize learnings; consolidate and condense and generalize memories".
+
+**Consolidation vs enumeration discipline**: the investigation produced multiple candidate directives — bound the hypothesis space, instrument rather than speculate, validate third-party data independently, outline fonts are unsuitable at tiny sizes. Applied the abstraction-lifecycle rule from `WORKING_STYLE.md § Retention`: merged the first three into a single code-craft directive (their action is unitary — "write probes, let data decide") rather than three separate entries. The fourth is a domain fact, not a directive, and landed in `TECHNICAL.md` as such.
+
+**Propagated updates**: per-file header notes updated with session-6-continuation stamp pointing at this entry. No workspace-level (`.cursor/rules/*.mdc`) changes — this batch is content within existing schemas.
+
+**Verification**: the reproducer at `working-docs/font-distortion-probe.py` + writeup at `working-docs/font-distortion-findings.md` are the out-of-memory anchor for the content. `MONITORING.md` entries will self-verify on recurrence.
+
 ## 2026-04-21 — extend: introduced `MONITORING.md`
 
 **Change**: created new memory file `MONITORING.md` as sibling to `TECHNICAL.md` / `CONCLUSIONS.md` / `WORKING_STYLE.md`. Seeded with two entries from session 6 (scope-lift candidate for *Cross-runtime citations require a grounding note*; promotion trigger for further MicroPython perf-guidance source-verification).

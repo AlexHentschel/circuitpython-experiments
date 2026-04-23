@@ -1,6 +1,8 @@
 # Monitoring
 
-Last updated: 2026-04-21 (session 6: file seeded at first structural need. Two initial entries from this session.)
+Last updated: 2026-04-21 (session 6 continuation: added *Font swap for pixel-accurate display* follow-up. Also added *Pipeline-investigation scope-lift candidate* tracking the new `(experimental)` CODING_PRINCIPLES directive for cross-domain application.)
+
+Previous: 2026-04-21 (session 6: file seeded at first structural need. Two initial entries from this session.)
 
 ## Purpose
 
@@ -51,3 +53,17 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: source-verify against the CPy source tree (same method: fetch `py/vm.c` + the relevant `py/*.c`, grep for the opcode or function, confirm mechanism), then append to `TECHNICAL.md § Memory Management` as a sibling subsection to *Name loading: LOAD_FAST vs LOAD_GLOBAL*. Do not treat MicroPython docs as authoritative on this port without the verification step.
   - **First observed**: 2026-04-21 (session 6).
   - **Scope**: `[project]`.
+
+- **Follow-up: font swap for pixel-accurate display on exp14**
+  - **Observation**: current `lib/display/font_free_mono_8/font.pcf` is a FreeType auto-rasterization of `FreeMono.ttf` at `PIXEL_SIZE: 8` and renders illegibly on the 8x8 matrix (stroke structure lost at that pixel budget). Rendering code is exonerated — see `working-docs/font-distortion-findings.md`. The issue is well-contained but deferred from the Phase-2 refactor.
+  - **Trigger**: Phase 2 or Phase 3 work surfaces text-rendering as needing demonstration-quality output (e.g. on-device verification at P3.6, retrospective demos, documentation screenshots), OR the user requests text to be legible for any demo.
+  - **Action on trigger**: swap to a hand-designed bitmap font sized for the matrix (candidates named in `TECHNICAL.md § Fonts for pixel-accurate displays`: tom-thumb 3x5, scientifica 5x11, bitocra 6x10, creep, spleen, tewi). Drop new PCF into `lib/display/font_<name>/font.pcf`, update `_FONT_PATH` in `core.py`. Verify with `working-docs/font-distortion-probe.py` as A/B reference. No rendering-code change expected.
+  - **First observed**: 2026-04-21 (session 6).
+  - **Scope**: `[exp14]`.
+
+- **Status-promotion trigger: *When localizing a bug in a pipeline, instrument stages before speculating***
+  - **Observation**: directive tagged `[universal]` but currently `(experimental)` — single-incident evidence from the font-distortion investigation (rendering pipeline on CircuitPython). The posture applies to any multi-stage transform (parser, asset pipeline, sensor chain, compile pipeline, request-response flow); the evidence to date is domain-specific.
+  - **Trigger**: a second debugging incident where analytical narrowing circles for 2+ exchanges before probes settle it, in a pipeline outside the display/rendering domain.
+  - **Action on trigger**: update the Notes column of the entry at `CODING_PRINCIPLES.md § Core Principles` with the second incident as evidence, flip `(experimental)` → `established` per `WORKING_STYLE.md § Retention` ("at least two clean applications outside the originating incident"). If the second incident is in a qualitatively different pipeline class (e.g. async event chain vs batch transform), also evaluate whether the directive's phrasing needs generalization.
+  - **First observed**: 2026-04-21 (session 6).
+  - **Scope**: `[universal]`.
