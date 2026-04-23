@@ -42,7 +42,7 @@ from adafruit_bitmap_font import bitmap_font
 
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
 from .geometry import build_lut
-from .icons import ICONS, ARROWS
+from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +64,25 @@ def color(r, g, b):
 # Coordinate LUT -- mutated in-place on rotation so references stay valid.
 # ---------------------------------------------------------------------------
 _LUT = build_lut(0)
+
+
+# ---------------------------------------------------------------------------
+# Runtime pattern-row normalizer (shared by `Image.from_pattern` and
+# `Display.render_pattern`). Strict design-time validation lives in
+# ``bitmap_codec``; the runtime parsers are deliberately lenient.
+# ---------------------------------------------------------------------------
+def _iter_pattern_rows(pattern_str):
+    """Yield normalized non-blank rows from an ASCII-art pattern.
+
+    Each emitted string has all whitespace (spaces, tabs, etc.) collapsed
+    via ``"".join(raw.split())`` -- the same idiom used in
+    ``bitmap_codec.pattern_to_colmajor`` so both parsers treat whitespace
+    identically. Blank lines (any amount of whitespace) are skipped.
+    """
+    for raw in pattern_str.split("\n"):
+        row = "".join(raw.split())
+        if row:
+            yield row
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +170,65 @@ def _glyph_columns(ch):
 
 
 # ---------------------------------------------------------------------------
+# Scrolling-text helpers: ring-window renderer + one-column-at-a-time
+# glyph feeder. Used by ``Display.show_string``; see that method's
+# docstring for the ring-size derivation.
+# ---------------------------------------------------------------------------
+def _render_ring_window(ring, read_head, color_on):
+    """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``.
+
+    The ring holds exactly ``WIDTH`` column bytes; ``read_head`` is the index
+    of the leftmost visible column. Wrap is handled by a single subtract
+    instead of a per-pixel modulo (cheaper on the MCU VM).
+    """
+    pixels = _pixels
+    lut = _LUT
+    off = OFF
+    for x in range(WIDTH):
+        idx = read_head + x
+        if idx >= WIDTH:
+            idx -= WIDTH
+        col_byte = ring[idx]
+        x_base = x * HEIGHT
+        for y in range(HEIGHT):
+            pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+    pixels.show()
+
+
+class _GlyphColumnFeeder:
+    """Yield one glyph column byte at a time across a text string.
+
+    Materialises exactly one glyph's column buffer at a time (via
+    ``_glyph_columns``), then exposes its bytes one-by-one. ``next_column``
+    returns ``None`` once the text is exhausted -- callers substitute
+    blank columns (``0``) to pad the scroll-out tail.
+
+    Bounded memory: only the current glyph's cols plus a cursor live in
+    the feeder, regardless of how long the text is. This is the whole
+    point of the ring-buffer scroll path.
+    """
+
+    __slots__ = ("_text", "_char_idx", "_cols", "_col_idx")
+
+    def __init__(self, text):
+        self._text = text
+        self._char_idx = 0
+        self._cols = b""
+        self._col_idx = 0
+
+    def next_column(self):
+        while self._col_idx >= len(self._cols):
+            if self._char_idx >= len(self._text):
+                return None
+            self._cols = _glyph_columns(self._text[self._char_idx])
+            self._char_idx += 1
+            self._col_idx = 0
+        b = self._cols[self._col_idx]
+        self._col_idx += 1
+        return b
+
+
+# ---------------------------------------------------------------------------
 # Image class
 # ---------------------------------------------------------------------------
 class Image:
@@ -180,37 +258,30 @@ class Image:
 
         Column-major conversion happens here (not at render time) because
         Image data persists for repeated show_image / scroll_image calls.
+
+        Runtime parser is lenient: excess rows beyond HEIGHT are dropped,
+        short rows are padded with OFF, unknown chars in mono mode render
+        as OFF. Design-time strictness lives in ``bitmap_codec``.
         """
         is_dict = isinstance(color, dict)
-        lines = pattern_str.strip().split("\n")
-        rows = []
-        for line in lines:
-            stripped = line.strip()
-            if stripped:
-                rows.append(stripped.replace(" ", ""))
+        rows = list(_iter_pattern_rows(pattern_str))
         height = min(len(rows), HEIGHT)
-        img_width = max((len(r) for r in rows), default=WIDTH)
+        img_width = max((len(r) for r in rows[:height]), default=WIDTH)
 
         if is_dict:
-            # Multi-color: flat tuple of RGB, index = x * HEIGHT + y
-            pixels = []
-            for x in range(img_width):
-                for y in range(HEIGHT):
-                    if y < height and x < len(rows[y]):
-                        ch = rows[y][x]
-                        pixels.append(color.get(ch, OFF))
-                    else:
-                        pixels.append(OFF)
+            pixels = [OFF] * (img_width * HEIGHT)
+            for y in range(height):
+                row = rows[y]
+                for x in range(min(img_width, len(row))):
+                    pixels[x * HEIGHT + y] = color.get(row[x], OFF)
             return Image(tuple(pixels), img_width, True, None)
         else:
-            # Mono: column-major bytes, one byte per column
             cols = bytearray(img_width)
-            for x in range(img_width):
-                col_byte = 0
-                for y in range(height):
-                    if x < len(rows[y]) and rows[y][x] == "#":
-                        col_byte |= 1 << y
-                cols[x] = col_byte
+            for y in range(height):
+                row = rows[y]
+                for x in range(min(img_width, len(row))):
+                    if row[x] == "#":
+                        cols[x] |= 1 << y
             return Image(bytes(cols), img_width, False, color)
 
     @property
@@ -225,27 +296,7 @@ class Image:
     async def show_image(self, offset=0, interval_ms=0):
         """Render WIDTH columns starting at offset. Holds for interval_ms milliseconds."""
         display._acquire()
-        if self._multi:
-            # Multi-color: per-pixel lookup
-            for x in range(WIDTH):
-                src_x = offset + x
-                for y in range(HEIGHT):
-                    if 0 <= src_x < self._width:
-                        _pixels[_LUT[x * HEIGHT + y]] = self._data[src_x * HEIGHT + y]
-                    else:
-                        _pixels[_LUT[x * HEIGHT + y]] = OFF
-            _pixels.show()
-        else:
-            # Mono: column-major bytes
-            for x in range(WIDTH):
-                src_x = offset + x
-                if 0 <= src_x < self._width:
-                    col_byte = self._data[src_x]
-                else:
-                    col_byte = 0
-                for y in range(HEIGHT):
-                    _pixels[_LUT[x * HEIGHT + y]] = self._color if (col_byte >> y) & 1 else OFF
-            _pixels.show()
+        self._render_window(offset)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
@@ -263,34 +314,108 @@ class Image:
         while pos <= max_start:
             if display._is_cancelled(token):
                 return
-            if self._multi:
-                for x in range(WIDTH):
-                    src_x = pos + x
-                    for y in range(HEIGHT):
-                        if src_x < self._width:
-                            _pixels[_LUT[x * HEIGHT + y]] = self._data[src_x * HEIGHT + y]
-                        else:
-                            _pixels[_LUT[x * HEIGHT + y]] = OFF
-                _pixels.show()
-            else:
-                for x in range(WIDTH):
-                    src_x = pos + x
-                    col_byte = self._data[src_x] if src_x < self._width else 0
-                    for y in range(HEIGHT):
-                        _pixels[_LUT[x * HEIGHT + y]] = self._color if (col_byte >> y) & 1 else OFF
-                _pixels.show()
+            self._render_window(pos)
             await asyncio.sleep(interval_ms / 1000)
             if display._is_cancelled(token):
                 return
             pos += offset
 
+    def _render_window(self, offset):
+        """Render the WIDTH-column window starting at ``offset`` into ``_pixels`` and show().
+
+        Splits the display into three slices ahead of the per-pixel loop --
+        ``[0, x_min)`` and ``[x_max, WIDTH)`` render OFF (source is out of
+        bounds), ``[x_min, x_max)`` copies from ``self._data`` with no
+        per-iteration bounds check. This replaces an ``if 0 <= src_x < width``
+        check inside the ``WIDTH * HEIGHT`` = 64-iteration inner loop.
+
+        Negative ``offset`` is supported (image appears partially off the
+        left edge) via ``x_min = max(0, -offset)``.
+        """
+        pixels = _pixels
+        lut = _LUT
+        off = OFF
+        width = self._width
+        x_min = -offset
+        if x_min < 0:
+            x_min = 0
+        elif x_min > WIDTH:
+            x_min = WIDTH
+        x_max = width - offset
+        if x_max < x_min:
+            x_max = x_min
+        elif x_max > WIDTH:
+            x_max = WIDTH
+
+        if self._multi:
+            data = self._data
+            for x in range(x_min):
+                x_base = x * HEIGHT
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = off
+            for x in range(x_min, x_max):
+                x_base = x * HEIGHT
+                src_base = (offset + x) * HEIGHT
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = data[src_base + y]
+            for x in range(x_max, WIDTH):
+                x_base = x * HEIGHT
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = off
+        else:
+            data = self._data
+            color_on = self._color
+            for x in range(x_min):
+                x_base = x * HEIGHT
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = off
+            for x in range(x_min, x_max):
+                x_base = x * HEIGHT
+                col_byte = data[offset + x]
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+            for x in range(x_max, WIDTH):
+                x_base = x * HEIGHT
+                for y in range(HEIGHT):
+                    pixels[lut[x_base + y]] = off
+        pixels.show()
+
+
+# ---------------------------------------------------------------------------
+# Icons / Arrows -- Image instances backed by slices of the bulk ICONS /
+# ARROWS bytes. Constructed once at import; names/ordering come from
+# ``ICON_NAMES`` / ``ARROW_NAMES`` in ``icons.py`` (single source of truth).
+# Each Image's stored color is WHITE; ``render_icon`` / ``render_arrow``
+# accept a ``color`` kwarg that overrides it at render time.
+# ---------------------------------------------------------------------------
+def _build_image_namespace(names, data):
+    """Populate a bare class with Image instances indexed by name order."""
+    cls = type("_ImageNamespace", (), {})
+    for i, name in enumerate(names):
+        start = i * WIDTH
+        setattr(cls, name, Image(data[start:start + WIDTH], WIDTH, False, WHITE))
+    return cls
+
+
+Icons = _build_image_namespace(ICON_NAMES, ICONS)
+Arrows = _build_image_namespace(ARROW_NAMES, ARROWS)
+
 
 def create_image(pattern_str, color=WHITE):
-    return Image.from_pattern(pattern_str, color)
+    """Create an 8x8 Image; raises ValueError if the pattern is not WIDTH columns wide."""
+    img = Image.from_pattern(pattern_str, color)
+    if img.width != WIDTH:
+        raise ValueError(f"create_image requires a {WIDTH}-column pattern, got {img.width}")
+    return img
 
 
 def create_big_image(pattern_str, color=WHITE):
-    return Image.from_pattern(pattern_str, color)
+    """Create a 16-wide Image (scrollable); raises ValueError if width is not 2 * WIDTH."""
+    img = Image.from_pattern(pattern_str, color)
+    expected = 2 * WIDTH
+    if img.width != expected:
+        raise ValueError(f"create_big_image requires a {expected}-column pattern, got {img.width}")
+    return img
 
 
 # ---------------------------------------------------------------------------
@@ -340,16 +465,14 @@ class Display:
         building a persistent bitmap (one parse pass, immediate pixel writes).
 
         color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
+        Short rows are padded with OFF; rows past HEIGHT are ignored.
         """
         self._acquire()
         is_dict = isinstance(color, dict)
-        lines = pattern.strip().split("\n")
         y = 0
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            row = stripped.replace(" ", "")
+        for row in _iter_pattern_rows(pattern):
+            if y >= HEIGHT:
+                break
             cap = min(WIDTH, len(row))
             for x in range(cap):
                 ch = row[x]
@@ -360,8 +483,6 @@ class Display:
             for x in range(cap, WIDTH):
                 _pixels[_LUT[x * HEIGHT + y]] = OFF
             y += 1
-            if y >= HEIGHT:
-                break
         while y < HEIGHT:
             for x in range(WIDTH):
                 _pixels[_LUT[x * HEIGHT + y]] = OFF
@@ -369,14 +490,22 @@ class Display:
         _pixels.show()
 
     def render_icon(self, icon, color=WHITE):
-        """Render an icon bitmap (from ICONS) to the LEDs."""
-        self._acquire()
-        _render_colmajor(ICONS, icon * WIDTH, color)
+        """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
 
-    def render_arrow(self, direction, color=WHITE):
-        """Render an arrow bitmap (from ARROWS) to the LEDs."""
+        ``color`` is the mono render color and always overrides the icon's
+        stored color -- the icon is effectively a reusable bitmap shape.
+        """
         self._acquire()
-        _render_colmajor(ARROWS, direction * WIDTH, color)
+        _render_colmajor(icon._data, 0, color)
+
+    def render_arrow(self, arrow, color=WHITE):
+        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``) to the LEDs.
+
+        ``color`` is the mono render color and always overrides the arrow's
+        stored color.
+        """
+        self._acquire()
+        _render_colmajor(arrow._data, 0, color)
 
     def clear_screen(self):
         """Turn off all pixels. Cancels any ongoing animation."""
@@ -438,26 +567,37 @@ class Display:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_icon(self, icon, color=WHITE, interval_ms=0):
-        """Render icon, hold for interval_ms milliseconds."""
+        """Render an icon ``Image`` (e.g. ``Icons.HEART``), hold for interval_ms milliseconds."""
         self.render_icon(icon, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_arrow(self, direction, color=WHITE, interval_ms=0):
-        """Render arrow, hold for interval_ms milliseconds."""
-        self.render_arrow(direction, color)
+    async def show_arrow(self, arrow, color=WHITE, interval_ms=0):
+        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), hold for interval_ms milliseconds."""
+        self.render_arrow(arrow, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_string(self, text, color=WHITE, interval_ms=150, loop=False):
         """Scroll text across the display.
 
-        Builds a column-major buffer from font glyphs, then slides an
-        8-column window across it. interval_ms = milliseconds per column step.
-        Single character: display directly, hold for interval_ms * 5.
+        Fit-on-screen text (total glyph width <= WIDTH) is centered and held
+        for ``interval_ms * 5`` ms (or indefinitely if ``loop=True``).
+        Longer text scrolls one column per ``interval_ms`` step through a
+        ``WIDTH``-slot ring buffer, fed one column at a time from a
+        ``_GlyphColumnFeeder`` (see below) -- so memory is O(WIDTH)
+        regardless of text length.
 
-        loop: if True, keep scrolling indefinitely (or, for text that fits
-        on screen, hold indefinitely) until cancelled by another display
+        Ring sizing: the visible window is exactly ``WIDTH`` columns; each
+        newly arriving column overwrites the slot that just scrolled off
+        the left edge, so a single ``WIDTH``-byte ring is sufficient. The
+        initial all-zero ring serves as the scroll-in padding; scroll-out
+        is produced by feeding ``WIDTH`` trailing blanks once the feeder
+        drains. A non-looping scroll therefore ends exactly when the last
+        meaningful column has left the screen.
+
+        loop: if True, keep scrolling indefinitely (or, for fit-on-screen
+        text, hold indefinitely) until cancelled by another display
         operation. On the short-text hold path, cancellation is polled
         every ``interval_ms`` ms (or every 50 ms when ``interval_ms == 0``).
         """
@@ -465,19 +605,23 @@ class Display:
         text = str(text)
         if not text:
             return
-        buf = bytearray()
+        sleep_s = interval_ms / 1000
+
+        # Materialise glyphs only as far as needed to decide "fits on screen?".
+        fit_buf = bytearray()
         for ch in text:
-            buf.extend(_glyph_columns(ch))
-        if len(buf) <= WIDTH:
-            pad = (WIDTH - len(buf)) // 2
+            fit_buf.extend(_glyph_columns(ch))
+            if len(fit_buf) > WIDTH:
+                break
+
+        if len(fit_buf) <= WIDTH:
+            pad = (WIDTH - len(fit_buf)) // 2
             padded = bytearray(WIDTH)
-            for i in range(len(buf)):
-                if pad + i < WIDTH:
-                    padded[pad + i] = buf[i]
+            for i in range(len(fit_buf)):
+                padded[pad + i] = fit_buf[i]
             _render_colmajor(padded, 0, color)
             if loop:
-                # Hold indefinitely until cancelled.
-                poll_s = (interval_ms / 1000) if interval_ms > 0 else 0.05
+                poll_s = sleep_s if interval_ms > 0 else 0.05
                 while True:
                     if self._is_cancelled(token):
                         return
@@ -485,19 +629,29 @@ class Display:
             if interval_ms > 0:
                 await asyncio.sleep(interval_ms * 5 / 1000)
             return
-        # Scroll: slide window across buffer.
-        # Pad with blank columns at start and end for scroll-in/out effect.
-        padding = bytearray(WIDTH)
-        scroll_buf = padding + buf + padding
-        max_offset = len(scroll_buf) - WIDTH
+
         while True:
-            for offset in range(max_offset + 1):
+            feeder = _GlyphColumnFeeder(text)
+            ring = bytearray(WIDTH)
+            read_head = 0
+            trailing_blanks = 0
+            while True:
                 if self._is_cancelled(token):
                     return
-                _render_colmajor(scroll_buf, offset, color)
-                await asyncio.sleep(interval_ms / 1000)
+                _render_ring_window(ring, read_head, color)
+                await asyncio.sleep(sleep_s)
                 if self._is_cancelled(token):
                     return
+                col = feeder.next_column()
+                if col is None:
+                    col = 0
+                    trailing_blanks += 1
+                ring[read_head] = col
+                read_head += 1
+                if read_head == WIDTH:
+                    read_head = 0
+                if trailing_blanks >= WIDTH:
+                    break
             if not loop:
                 return
 

@@ -119,7 +119,7 @@ preferred over plumbing the singletons through every instance.
 | [`_constants.py`](_constants.py) | Dimensions, encoding-format limits, and color constants -- single source of truth, pure (no hardware imports). |
 | [`bitmap_codec.py`](bitmap_codec.py) | Design-time conversion between row-major ASCII art and column-major bytes. |
 | [`geometry.py`](geometry.py) | Pure `build_lut(rotation)` + `xy_to_index(x, y, lut)` -- no hardware dependency. |
-| [`icons.py`](icons.py) | Icon + arrow bitmap data and `IconNames` / `ArrowNames` enums (kept together so ordering cannot drift). |
+| [`icons.py`](icons.py) | Icon + arrow bitmap data and `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (kept together so slot ordering cannot drift). `Icons` / `Arrows` wrapper classes with `Image` attributes are built from these in `core.py` at import. |
 | [`core.py`](core.py) | `Display` + `Image` runtime: NeoPixel buffer, LUT, font, async methods. Only module that imports `board` / `neopixel`. |
 | [`__init__.py`](__init__.py) | Public-API re-exports; guarded core import lets host-side tests load pure sub-modules without a device. |
 

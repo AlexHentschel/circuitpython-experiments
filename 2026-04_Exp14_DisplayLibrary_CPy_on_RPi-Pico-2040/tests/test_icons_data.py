@@ -1,27 +1,19 @@
 """
-Shape, value-range, and enum-alignment tests for ``display.icons``.
+Shape, value-range, and name-alignment tests for ``display.icons``.
 
-These checks pin the contract between ``IconNames`` / ``ArrowNames``
-(integer values used as indices) and the ``ICONS`` / ``ARROWS`` byte
-arrays. Any mis-sized array or enum drift would silently corrupt every
-downstream icon lookup (``data[icon_id * WIDTH : (icon_id + 1) * WIDTH]``).
+These checks pin the contract between ``ICON_NAMES`` / ``ARROW_NAMES``
+(ordered string tuples) and the ``ICONS`` / ``ARROWS`` byte arrays.
+``core.py`` consumes both at import time to build the user-facing
+``Icons`` / ``Arrows`` wrapper classes, so a length mismatch here would
+silently corrupt every ``Icons.<NAME>`` lookup downstream.
 """
 
 from display._constants import WIDTH
-from display.icons import ICONS, ARROWS, IconNames, ArrowNames
+from display.icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 
 
 EXPECTED_ICON_COUNT = 40
 EXPECTED_ARROW_COUNT = 8
-
-
-def _enum_values(cls):
-    """Sorted integer values of a plain-class enum (non-dunder attributes)."""
-    return sorted(
-        getattr(cls, name)
-        for name in dir(cls)
-        if not name.startswith("_")
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -62,21 +54,39 @@ def test_arrows_byte_range():
 
 
 # ---------------------------------------------------------------------------
-# Enum <-> data alignment
+# Name-list <-> data alignment
 # ---------------------------------------------------------------------------
 
-def test_icon_names_count_matches_data():
-    assert len(_enum_values(IconNames)) == len(ICONS) // WIDTH == EXPECTED_ICON_COUNT
+def test_icon_names_is_tuple_of_strings():
+    assert isinstance(ICON_NAMES, tuple)
+    assert all(isinstance(n, str) for n in ICON_NAMES)
 
 
-def test_arrow_names_count_matches_data():
-    assert len(_enum_values(ArrowNames)) == len(ARROWS) // WIDTH == EXPECTED_ARROW_COUNT
+def test_arrow_names_is_tuple_of_strings():
+    assert isinstance(ARROW_NAMES, tuple)
+    assert all(isinstance(n, str) for n in ARROW_NAMES)
 
 
-def test_icon_names_are_contiguous_from_zero():
-    """Values must be 0..N-1 -- they index into ICONS by slicing."""
-    assert _enum_values(IconNames) == list(range(EXPECTED_ICON_COUNT))
+def test_icon_names_length_matches_data():
+    assert len(ICON_NAMES) == len(ICONS) // WIDTH == EXPECTED_ICON_COUNT
 
 
-def test_arrow_names_are_contiguous_from_zero():
-    assert _enum_values(ArrowNames) == list(range(EXPECTED_ARROW_COUNT))
+def test_arrow_names_length_matches_data():
+    assert len(ARROW_NAMES) == len(ARROWS) // WIDTH == EXPECTED_ARROW_COUNT
+
+
+def test_icon_names_unique():
+    assert len(set(ICON_NAMES)) == len(ICON_NAMES)
+
+
+def test_arrow_names_unique():
+    assert len(set(ARROW_NAMES)) == len(ARROW_NAMES)
+
+
+def test_icon_names_are_identifiers():
+    """Names become ``Icons`` class attributes -- must be valid Python identifiers."""
+    assert all(n.isidentifier() for n in ICON_NAMES)
+
+
+def test_arrow_names_are_identifiers():
+    assert all(n.isidentifier() for n in ARROW_NAMES)

@@ -38,10 +38,10 @@ package architecture and design rationale.
 
 ```python
 import asyncio
-from display import display, IconNames, RED, GREEN, create_image
+from display import display, Icons, RED, GREEN, create_image
 
 async def main():
-    await display.show_icon(IconNames.HEART, color=RED, interval_ms=800)
+    await display.show_icon(Icons.HEART, color=RED, interval_ms=800)
     await display.show_string("Hello!", color=GREEN, interval_ms=150)
     display.clear_screen()
 
@@ -51,9 +51,9 @@ asyncio.run(main())
 ### Quick start (sync, no multitasking)
 
 ```python
-from display import display, IconNames, RED
+from display import display, Icons, RED
 
-display.render_icon(IconNames.HEART, color=RED)
+display.render_icon(Icons.HEART, color=RED)
 # image persists on LEDs until next display call
 ```
 
@@ -181,7 +181,7 @@ any single character maps to a color. Spaces stripped.
 
 ## Icons and arrows
 
-40 built-in icons (`IconNames.*`) and 8 arrows (`ArrowNames.*`). See
+40 built-in icons (`Icons.*`) and 8 arrows (`Arrows.*`), each an `Image` instance. See
 [lib/display/icons.py](lib/display/icons.py) for the full list and
 ASCII art designs.
 
@@ -215,7 +215,7 @@ Use `circup` flags `--path <project-dir> --board-id vcc_gnd_yd_rp2040 --cpy-vers
 |   |   +-- _constants.py     Dimensions + encoding limit + colors (pure)
 |   |   +-- bitmap_codec.py   ASCII art <-> column-major bytes codec
 |   |   +-- geometry.py       Pure build_lut / xy_to_index
-|   |   +-- icons.py          ICONS, ARROWS, IconNames, ArrowNames
+|   |   +-- icons.py          ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 |   |   +-- core.py           Display + Image runtime (hardware-coupled)
 |   |   +-- font_free_mono_8/ PCF font (ships with package)
 |   |   +-- README.md         Package architecture + design rationale

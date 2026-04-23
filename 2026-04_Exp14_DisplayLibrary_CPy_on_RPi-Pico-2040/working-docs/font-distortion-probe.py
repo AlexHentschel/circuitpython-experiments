@@ -48,7 +48,9 @@ import asyncio
 import time
 from display import (
     display,
-    IconNames,
+    Icons,
+    Arrows,
+    ARROW_NAMES,
     create_image,
     create_big_image,
     color,
@@ -156,15 +158,15 @@ async def main():
     while True:
         # 1. Icon showcase
         print("Icons: HEART, HAPPY, SKULL, BUTTERFLY")
-        await display.show_icon(IconNames.HEART, color=RED, interval_ms=800)
-        await display.show_icon(IconNames.HAPPY, color=GREEN, interval_ms=800)
-        await display.show_icon(IconNames.SKULL, color=WHITE, interval_ms=800)
-        await display.show_icon(IconNames.BUTTERFLY, color=PURPLE, interval_ms=800)
+        await display.show_icon(Icons.HEART, color=RED, interval_ms=800)
+        await display.show_icon(Icons.HAPPY, color=GREEN, interval_ms=800)
+        await display.show_icon(Icons.SKULL, color=WHITE, interval_ms=800)
+        await display.show_icon(Icons.BUTTERFLY, color=PURPLE, interval_ms=800)
 
         # 2. Arrow cycle
         print("Arrow directions")
-        for d in range(8):
-            await display.show_arrow(d, color=CYAN, interval_ms=400)
+        for name in ARROW_NAMES:
+            await display.show_arrow(getattr(Arrows, name), color=CYAN, interval_ms=400)
 
         # 3. Text scrolling
         # PROBE 1 (diagnostic, temporary): static single-char render. If this renders a clean "H",
@@ -205,7 +207,7 @@ async def main():
 
         # 9. Tier 1 sync demo (works without await)
         print("Tier 1 sync: render_icon + clear")
-        display.render_icon(IconNames.GHOST, color=BLUE)
+        display.render_icon(Icons.GHOST, color=BLUE)
         await display.pause(1000)
         display.clear_screen()
         await display.pause(500)

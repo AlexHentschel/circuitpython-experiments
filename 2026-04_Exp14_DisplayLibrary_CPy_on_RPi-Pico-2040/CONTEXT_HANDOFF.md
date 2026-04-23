@@ -72,7 +72,7 @@ duplication that the earlier flat layout forced.
 | `_constants.py` | Dimensions, encoding-format limits, colors. Pure (no hardware imports). |
 | `bitmap_codec.py` | Row-major ASCII art <-> column-major bytes. Design-time authoring tool. |
 | `geometry.py` | Pure `build_lut(rotation)` + `xy_to_index(x, y, lut)`. |
-| `icons.py` | 40 icon + 8 arrow bitmap data plus `IconNames` / `ArrowNames` enums. |
+| `icons.py` | 40 icon + 8 arrow bitmap data plus `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (`Icons` / `Arrows` wrapper classes built in `core.py`). |
 | `core.py` | `Display` + `Image` runtime, NeoPixel buffer, font, async methods. Only module importing `board` / `neopixel`. |
 | `__init__.py` | Public-API re-exports; guards the core import so pure sub-modules remain importable on CPython without a device. |
 
@@ -132,8 +132,9 @@ color/palette parameter. Full design in the Phase 2 plan file.
 Restructure (Tier 1 tests): the library now lives in a package
 (`lib/display/`) split into `_constants` / `bitmap_codec` / `geometry` /
 `icons` / `core` sub-modules plus `__init__.py` re-exports. User-facing
-imports (`from display import display, IconNames, RED, ...`) are
-unchanged.
+imports (`from display import display, Icons, RED, ...`) are
+unchanged in shape; Phase 2 renamed `IconNames` / `ArrowNames` -> `Icons` / `Arrows`
+and the members are now `Image` instances rather than integer slot indices.
 
 ---
 
@@ -241,7 +242,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 | `_constants.py` | `WIDTH` (8), `HEIGHT` (8), `NUM_PIXELS` (64), `_MAX_HEIGHT_PER_COLUMN_BYTE` (8), full color palette. Pure -- no hardware imports. |
 | `bitmap_codec.py` | `pattern_to_colmajor` / `colmajor_to_pattern` design-time helpers. |
 | `geometry.py` | Pure `build_lut(rotation)` returning a fresh `bytearray` + `xy_to_index(x, y, lut)`. |
-| `icons.py` | `ICONS`, `ARROWS`, `IconNames`, `ArrowNames` (bytes + enums kept together so ordering cannot drift). |
+| `icons.py` | `ICONS`, `ARROWS` bytes + ordered name tuples `ICON_NAMES` / `ARROW_NAMES` (kept together so slot ordering cannot drift). |
 | `core.py` | `Display` + `Image` runtime, NeoPixel buffer, LUT, font, `PIXEL_PIN` (`board.GP0`), `BRIGHTNESS` (0.05). Only module importing `board` / `neopixel`. |
 | `__init__.py` | Public-API re-exports. Core import is guarded by a `board` presence check so host-side tests can load pure sub-modules without a device. |
 
@@ -286,7 +287,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 │   │   ├── _constants.py         Dimensions + encoding limit + colors (pure)
 │   │   ├── bitmap_codec.py       Design-time ASCII art <-> column-major bytes
 │   │   ├── geometry.py           Pure build_lut / xy_to_index
-│   │   ├── icons.py              ICONS, ARROWS, IconNames, ArrowNames
+│   │   ├── icons.py              ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 │   │   ├── core.py               Display + Image runtime, NeoPixel buffer, font
 │   │   ├── font_free_mono_8/     PCF font (ships with the package)
 │   │   └── README.md             Package architecture + design rationale

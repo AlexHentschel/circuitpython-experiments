@@ -4,8 +4,8 @@ Round-trip and negative-path tests for ``display.bitmap_codec``.
 Round trip: every ``WIDTH``-byte slice of ``ICONS`` / ``ARROWS`` must
 decode to a pattern string that re-encodes bit-for-bit to the original
 bytes. This covers all 48 authored bitmaps and transitively catches
-any corruption of ``IconNames`` / ``ArrowNames`` ordering (misordered
-indices would round-trip but flag via the icons-data test).
+any corruption of ``ICON_NAMES`` / ``ARROW_NAMES`` ordering (misordered
+slots would round-trip but flag via the icons-data test).
 """
 
 import pytest

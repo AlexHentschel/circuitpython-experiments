@@ -1,5 +1,5 @@
 """
-Icon and arrow bitmap data plus name enums for the 8x8 display.
+Icon and arrow bitmap data plus ordered name lists for the 8x8 display.
 
 Storage format: column-major bytes -- one byte per column, where bit N
 of each byte indicates row N is lit (bit 0 = top row). Each icon/arrow
@@ -12,78 +12,44 @@ Encoding-vs-geometry: the single-byte-per-column format caps height at
 display would need a different storage format, not just a parameter
 change. See ``_MAX_HEIGHT_PER_COLUMN_BYTE`` in ``_constants``.
 
-Lookup: ``ICONS[icon_id * WIDTH : (icon_id + 1) * WIDTH]`` yields the
-``WIDTH`` column bytes for icon ``icon_id``; same for ``ARROWS``.
+Lookup: ``ICONS[i * WIDTH : (i + 1) * WIDTH]`` yields the ``WIDTH``
+column bytes for the icon at position ``i``; same for ``ARROWS``.
 
-``IconNames`` / ``ArrowNames`` integer values index into ``ICONS`` /
-``ARROWS`` respectively; any ordering drift silently corrupts every
-icon, so the enums live beside the byte arrays in this module.
+Name lists ``ICON_NAMES`` and ``ARROW_NAMES`` are ordered tuples of
+strings that describe which icon/arrow lives at each slot. ``core.py``
+consumes these lists at import time to populate the user-facing
+``Icons`` / ``Arrows`` classes whose attributes are ``Image`` instances
+backed by the matching slice. Any name-vs-byte drift therefore surfaces
+as a single-place mismatch in this file, not as silent slot corruption
+across the API.
 """
 
 from ._constants import WIDTH  # noqa: F401 -- documents the lookup math
 
 
 # ---------------------------------------------------------------------------
-# IconNames / ArrowNames enums
+# Ordered name lists -- index = slot in ICONS / ARROWS.
 # ---------------------------------------------------------------------------
-class IconNames:
-    HEART = 0
-    SMALL_HEART = 1
-    YES = 2
-    NO = 3
-    HAPPY = 4
-    SAD = 5
-    CONFUSED = 6
-    ANGRY = 7
-    ASLEEP = 8
-    SURPRISED = 9
-    SILLY = 10
-    FABULOUS = 11
-    MEH = 12
-    TSHIRT = 13
-    ROLLERSKATE = 14
-    DUCK = 15
-    HOUSE = 16
-    TORTOISE = 17
-    BUTTERFLY = 18
-    STICK_FIGURE = 19
-    GHOST = 20
-    SWORD = 21
-    GIRAFFE = 22
-    SKULL = 23
-    UMBRELLA = 24
-    SNAKE = 25
-    RABBIT = 26
-    COW = 27
-    QUARTER_NOTE = 28
-    EIGHTH_NOTE = 29
-    PITCHFORK = 30
-    TARGET = 31
-    TRIANGLE = 32
-    LEFT_TRIANGLE = 33
-    CHESSBOARD = 34
-    DIAMOND = 35
-    SMALL_DIAMOND = 36
-    SQUARE = 37
-    SMALL_SQUARE = 38
-    SCISSORS = 39
+ICON_NAMES = (
+    "HEART", "SMALL_HEART", "YES", "NO", "HAPPY", "SAD", "CONFUSED", "ANGRY",
+    "ASLEEP", "SURPRISED", "SILLY", "FABULOUS", "MEH", "TSHIRT", "ROLLERSKATE",
+    "DUCK", "HOUSE", "TORTOISE", "BUTTERFLY", "STICK_FIGURE", "GHOST", "SWORD",
+    "GIRAFFE", "SKULL", "UMBRELLA", "SNAKE", "RABBIT", "COW", "QUARTER_NOTE",
+    "EIGHTH_NOTE", "PITCHFORK", "TARGET", "TRIANGLE", "LEFT_TRIANGLE",
+    "CHESSBOARD", "DIAMOND", "SMALL_DIAMOND", "SQUARE", "SMALL_SQUARE",
+    "SCISSORS",
+)
 
-
-class ArrowNames:
-    NORTH = 0
-    NORTH_EAST = 1
-    EAST = 2
-    SOUTH_EAST = 3
-    SOUTH = 4
-    SOUTH_WEST = 5
-    WEST = 6
-    NORTH_WEST = 7
+ARROW_NAMES = (
+    "NORTH", "NORTH_EAST", "EAST", "SOUTH_EAST",
+    "SOUTH", "SOUTH_WEST", "WEST", "NORTH_WEST",
+)
 
 
 # fmt: off
 
 # ---------------------------------------------------------------------------
-# 40 Icons -- 8 bytes each, column-major. Indices match IconNames values.
+# 40 Icons -- 8 bytes each, column-major. Ordering matches ICON_NAMES.
 # ---------------------------------------------------------------------------
 
 ICONS = bytes([
@@ -529,7 +495,7 @@ ICONS = bytes([
 ])
 
 # ---------------------------------------------------------------------------
-# 8 Arrows -- 8 bytes each, column-major. Indices match ArrowNames values.
+# 8 Arrows -- 8 bytes each, column-major. Ordering matches ARROW_NAMES.
 # ---------------------------------------------------------------------------
 
 ARROWS = bytes([
