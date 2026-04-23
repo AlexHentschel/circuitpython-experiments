@@ -256,7 +256,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 - **Tier 1 (sync)**: Immediate rendering to NeoPixel buffer. `render_pattern`, `render_icon`, `render_arrow`, `clear_screen`, `set_pixel`, `fill`, `set_brightness`, `set_rotation`, `get_pixel`. Display-mutating methods call `_acquire()` to cancel ongoing Tier 2 animations.
 - **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` and check `_is_cancelled(token)` between animation frames.
 
-**Bitmap format — column-major bytes**: Monochrome bitmaps (icons, arrows, font glyphs, mono `Image` data) are stored as one byte per column, where bit N of a column byte indicates whether row N is lit. This layout enables efficient horizontal scrolling by iterating contiguous column bytes. Icons use 40 × 8 bytes in `ICONS`; arrows use 8 × 8 bytes in `ARROWS`. Lookup: `ICONS[icon_id * WIDTH : (icon_id + 1) * WIDTH]`.
+**Bitmap format — column-major bytes**: Monochrome bitmaps (icons, arrows, font glyphs, mono `Image` data) are stored as one byte per column, where bit N of a column byte indicates whether row N is lit. This layout enables efficient horizontal scrolling by iterating contiguous column bytes. Icons use 40 × 8 bytes in `ICONS`; arrows use 8 × 8 bytes in `ARROWS`. User-facing access is by name via `Icons.<NAME>` / `Arrows.<NAME>` (each an `Image` instance); the bulk bytes are an internal storage detail used only by `core._build_image_namespace` at import to construct those instances in `ICON_NAMES` / `ARROW_NAMES` order.
 
 **Image class**: Column-major bytes (mono) or per-pixel tuple array (multi-color). `from_pattern()`, `recolor()`, async `show_image()` / `scroll_image()`. Module-level factories: `create_image()`, `create_big_image()`.
 
@@ -264,7 +264,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 
 **Coordinate system**: Origin (0, 0) at top-left. x → right, y → down.
 
-**Pattern string format**: 8 rows of 8 characters (`#` = ON, `.` = OFF, or palette chars when using a dict). Spaces are stripped. Missing rows/columns filled with OFF.
+**Pattern string format**: 8 rows of 8 characters (`#` = ON, `.` = OFF, or palette chars when using a dict). All whitespace (spaces, tabs, CRs) stripped; blank lines ignored. Missing rows/columns filled with OFF.
 
 ---
 

@@ -259,9 +259,15 @@ class Image:
         Column-major conversion happens here (not at render time) because
         Image data persists for repeated show_image / scroll_image calls.
 
-        Runtime parser is lenient: excess rows beyond HEIGHT are dropped,
-        short rows are padded with OFF, unknown chars in mono mode render
-        as OFF. Design-time strictness lives in ``bitmap_codec``.
+        Runtime parser is lenient: rows past ``HEIGHT`` are dropped and
+        do **not** contribute to the computed image width (widest of the
+        first ``HEIGHT`` rows only); short rows are padded with OFF;
+        unknown chars in mono mode render as OFF. Whitespace stripping
+        uses ``"".join(raw.split())`` -- spaces, tabs, CRs are all
+        collapsed (same behavior as ``bitmap_codec.pattern_to_colmajor``).
+        Design-time strictness lives in ``bitmap_codec``; fixed-size
+        constructors with author-time diagnostics live in
+        ``create_image`` / ``create_big_image``.
         """
         is_dict = isinstance(color, dict)
         rows = list(_iter_pattern_rows(pattern_str))
@@ -382,11 +388,21 @@ class Image:
 
 
 # ---------------------------------------------------------------------------
-# Icons / Arrows -- Image instances backed by slices of the bulk ICONS /
-# ARROWS bytes. Constructed once at import; names/ordering come from
-# ``ICON_NAMES`` / ``ARROW_NAMES`` in ``icons.py`` (single source of truth).
+# Icons / Arrows -- Image instances constructed once at import from the bulk
+# ``ICONS`` / ``ARROWS`` bytes; names/ordering come from ``ICON_NAMES`` /
+# ``ARROW_NAMES`` in ``icons.py`` (single source of truth). ``bytes``
+# slicing copies, so each Image owns its own 8-byte backing block -- the
+# bulk arrays exist for deterministic ordering, not byte-sharing.
 # Each Image's stored color is WHITE; ``render_icon`` / ``render_arrow``
 # accept a ``color`` kwarg that overrides it at render time.
+#
+# Sharing hazard: ``Icons.HEART`` / ``Arrows.NORTH`` are module-global
+# singletons. Calling ``.recolor(...)`` on one mutates the shared instance
+# for all callers (and persists across coroutine boundaries). Primary
+# callers (``render_icon`` / ``show_icon`` / ``render_arrow`` / ``show_arrow``)
+# already pass ``color`` as a render-time override, so staying on those is
+# the safe path. If you want a private, mutable copy of an icon bitmap,
+# build one via ``create_image`` from a pattern.
 # ---------------------------------------------------------------------------
 def _build_image_namespace(names, data):
     """Populate a bare class with Image instances indexed by name order."""
@@ -402,19 +418,34 @@ Arrows = _build_image_namespace(ARROW_NAMES, ARROWS)
 
 
 def create_image(pattern_str, color=WHITE):
-    """Create an 8x8 Image; raises ValueError if the pattern is not WIDTH columns wide."""
+    """Create an 8x8 Image.
+
+    Raises ``ValueError`` if the pattern is not exactly ``WIDTH`` columns
+    by ``HEIGHT`` rows (whitespace and blank lines ignored, see
+    ``_iter_pattern_rows``).
+    """
     img = Image.from_pattern(pattern_str, color)
-    if img.width != WIDTH:
-        raise ValueError(f"create_image requires a {WIDTH}-column pattern, got {img.width}")
+    row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
+    if img.width != WIDTH or row_count != HEIGHT:
+        raise ValueError(
+            "create_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(
+                h=HEIGHT, w=WIDTH, rh=row_count, rw=img.width))
     return img
 
 
 def create_big_image(pattern_str, color=WHITE):
-    """Create a 16-wide Image (scrollable); raises ValueError if width is not 2 * WIDTH."""
+    """Create a 16-wide Image (scrollable).
+
+    Raises ``ValueError`` if the pattern is not exactly ``2 * WIDTH``
+    columns by ``HEIGHT`` rows.
+    """
     img = Image.from_pattern(pattern_str, color)
-    expected = 2 * WIDTH
-    if img.width != expected:
-        raise ValueError(f"create_big_image requires a {expected}-column pattern, got {img.width}")
+    row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
+    expected_w = 2 * WIDTH
+    if img.width != expected_w or row_count != HEIGHT:
+        raise ValueError(
+            "create_big_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(
+                h=HEIGHT, w=expected_w, rh=row_count, rw=img.width))
     return img
 
 
@@ -581,20 +612,26 @@ class Display:
     async def show_string(self, text, color=WHITE, interval_ms=150, loop=False):
         """Scroll text across the display.
 
-        Fit-on-screen text (total glyph width <= WIDTH) is centered and held
-        for ``interval_ms * 5`` ms (or indefinitely if ``loop=True``).
+        Fit-on-screen text (total glyph-column width <= WIDTH) is centered
+        and held: for ``interval_ms * 5`` ms when ``interval_ms > 0``,
+        indefinitely when ``loop=True``, or returned immediately when
+        ``interval_ms == 0`` and ``loop=False`` (i.e. render-and-return,
+        the short-text counterpart to ``show_leds(pattern, interval_ms=0)``).
+
         Longer text scrolls one column per ``interval_ms`` step through a
         ``WIDTH``-slot ring buffer, fed one column at a time from a
-        ``_GlyphColumnFeeder`` (see below) -- so memory is O(WIDTH)
-        regardless of text length.
+        ``_GlyphColumnFeeder`` (see below) -- so scroll-loop memory is
+        O(WIDTH) *beyond the input text reference that the caller
+        already holds*.
 
         Ring sizing: the visible window is exactly ``WIDTH`` columns; each
         newly arriving column overwrites the slot that just scrolled off
         the left edge, so a single ``WIDTH``-byte ring is sufficient. The
         initial all-zero ring serves as the scroll-in padding; scroll-out
-        is produced by feeding ``WIDTH`` trailing blanks once the feeder
-        drains. A non-looping scroll therefore ends exactly when the last
-        meaningful column has left the screen.
+        is produced by feeding ``WIDTH + 1`` trailing blanks once the
+        feeder drains so the final fully-blank frame is actually
+        rendered. A non-looping scroll therefore ends exactly when the
+        last meaningful column has left the screen.
 
         loop: if True, keep scrolling indefinitely (or, for fit-on-screen
         text, hold indefinitely) until cancelled by another display
@@ -650,15 +687,21 @@ class Display:
                 read_head += 1
                 if read_head == WIDTH:
                     read_head = 0
-                if trailing_blanks >= WIDTH:
+                # `> WIDTH` (not `>=`) so the final fully-blank frame is
+                # actually rendered -- with `>=` the loop breaks while
+                # the last meaningful column is still at x=0.
+                if trailing_blanks > WIDTH:
                     break
             if not loop:
                 return
 
     async def show_number(self, n, color=WHITE, interval_ms=150, loop=False):
-        """Display a number. Single digit: centered. Multi-digit: scroll.
+        """Display a number via ``show_string(str(n))``.
 
-        Accepts ``loop=True`` (see ``show_string``).
+        Fit-on-screen numbers (total glyph width <= WIDTH -- typically
+        one digit in the bundled monospace font) are centered and held;
+        longer numbers scroll. See ``show_string`` for the full behavior
+        including ``loop=True``.
         """
         await self.show_string(str(n), color, interval_ms, loop)
 

@@ -62,8 +62,8 @@ display.render_icon(Icons.HEART, color=RED)
 | Method | Description |
 |--------|-------------|
 | `render_pattern(pattern, color=WHITE)` | Render `#`/`.` pattern or palette dict to LEDs. `color` accepts an RGB tuple (mono) or a palette dict. |
-| `render_icon(icon, color=WHITE)` | Render icon bitmap to LEDs. |
-| `render_arrow(direction, color=WHITE)` | Render arrow bitmap to LEDs. |
+| `render_icon(icon, color=WHITE)` | Render an icon `Image` (e.g. `Icons.HEART`) to LEDs. |
+| `render_arrow(arrow, color=WHITE)` | Render an arrow `Image` (e.g. `Arrows.NORTH`) to LEDs. |
 | `clear_screen()` | All pixels off. Cancels ongoing animations. |
 | `clear()` | Alias for `clear_screen()`. |
 | `set_pixel(x, y, color)` | Set one pixel. Cancels ongoing animations. |
@@ -77,8 +77,8 @@ display.render_icon(Icons.HEART, color=RED)
 | Method | Description |
 |--------|-------------|
 | `show_leds(pattern, color=WHITE, interval_ms=0)` | Render + hold. `color` accepts an RGB tuple (mono) or a palette dict. |
-| `show_icon(icon, color=WHITE, interval_ms=0)` | Render icon + hold. |
-| `show_arrow(direction, color=WHITE, interval_ms=0)` | Render arrow + hold. |
+| `show_icon(icon, color=WHITE, interval_ms=0)` | Render icon `Image` + hold. |
+| `show_arrow(arrow, color=WHITE, interval_ms=0)` | Render arrow `Image` + hold. |
 | `show_string(text, color=WHITE, interval_ms=150, loop=False)` | Scroll text. `interval_ms` = milliseconds per column step. `loop=True` keeps scrolling (or holding, for short text) until another display call cancels. |
 | `show_number(n, color=WHITE, interval_ms=150, loop=False)` | Single digit: centered. Multi-digit: scroll. Accepts `loop=True` (see `show_string`). |
 | `pause(ms)` | Cancellable async sleep. |
@@ -177,7 +177,8 @@ physical matrix is mounted.
 ### Pattern string format
 
 8 rows of 8 characters. `#` = ON, `.` = OFF (mono mode). With a dict palette,
-any single character maps to a color. Spaces stripped.
+any single character maps to a color. All whitespace (spaces, tabs, CRs)
+stripped; blank lines ignored.
 
 ## Icons and arrows
 
