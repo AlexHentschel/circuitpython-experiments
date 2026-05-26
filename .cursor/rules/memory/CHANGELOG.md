@@ -4,6 +4,16 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-04-26 — refine: placement-gate in always-injected trigger
+
+**Change**: strengthened `03-memory-update-triggers.mdc` item 1 with an explicit discriminator question ("Does this directive govern the shape of a code artifact?") as a mandatory placement gate before writing any new directive. Updated the placement-discipline bullet in `WORKING_STYLE.md § Retention and Evaluation` with the three-incident recurrence log and a pointer to the always-injected gate as the systemic fix.
+
+**Trigger**: third proximity-bias mis-placement incident (session 7: *Public contract, not private coupling* placed in `WORKING_STYLE.md § Document Authoring`, should have been `CODING_PRINCIPLES.md § Core Principles`). Same failure mode as session 6 (two incidents). The existing placement-discipline bullet described the correct procedure but lived in a retrospective section with insufficient salience at decision time. User asked: "reflect on what you would need to change to do it correctly right away next time."
+
+**Root-cause analysis**: the gate question ("code-shape vs. collaboration-posture?") was documented only in `WORKING_STYLE.md § Retention and Evaluation` — a reference section read during reviews, not during the placement act itself. `03-memory-update-triggers.mdc` item 1 said "pick by content domain" — a routing hint without a concrete discriminator. The fix moves the discriminator to the only file with guaranteed salience at decision time: the always-injected trigger.
+
+**Files changed**: `03-memory-update-triggers.mdc` (item 1 rewritten with gate question), `WORKING_STYLE.md § Retention and Evaluation` (placement-discipline bullet updated with recurrence log + systemic-fix pointer), this file.
+
 ## 2026-04-21 — extend: font-distortion investigation closure
 
 **Change**: added content-only entries across four files as closure for the font-distortion investigation (session 6 continuation). No schema changes, no file-structure changes. Logged here because the additions span four memory files and the coherence of the batch is load-bearing — reading any one entry in isolation without the others would lose the context chain.

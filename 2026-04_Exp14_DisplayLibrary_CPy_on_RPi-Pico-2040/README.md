@@ -29,9 +29,11 @@ GND          --> all GNDs (board, shifter, LED matrix, PSU)
 ## Library API -- `lib/display/` package
 
 The library is structured as a Python package (`lib/display/`) with six
-sub-modules. User-facing imports (`from display import ...`) are
-unchanged. See [lib/display/README.md](lib/display/README.md) for the
-package architecture and design rationale.
+sub-modules. Everything user-facing is re-exported at the top level, so
+callers import from `display` directly (e.g. `from display import
+display, Icons, Arrows, RED, create_image`). See
+[lib/display/README.md](lib/display/README.md) for the package
+architecture and design rationale.
 
 
 ### Quick start (async, recommended)
@@ -57,16 +59,54 @@ display.render_icon(Icons.HEART, color=RED)
 # image persists on LEDs until next display call
 ```
 
+### Core concepts
+
+The API tables below rely on three vocabulary items. Introducing them
+here so the tables can stay terse.
+
+A **pattern string** is an 8x8 grid of characters describing which
+pixels are on. In *monochrome* (or *mono*) mode, `#` = on and `.` =
+off, and every lit pixel shows the same color. Whitespace (spaces,
+tabs, carriage returns) is stripped and blank lines are ignored, so
+the grid can be indented freely inside a triple-quoted string:
+
+```python
+"""
+. # # # # # # .
+# . . . . . . #
+. # # # # # # .
+"""
+```
+
+**Colors**: every rendering call accepts a `color` argument. For a
+monochrome pattern, pass a named constant like `RED` or `GREEN`, or an RGB
+triple from `color(255, 128, 0)`; every `#` lights up in that color.
+For multi-color patterns, pass a *palette dict* mapping each character
+in the pattern to a color:
+
+```python
+palette = {'R': color(255, 0, 0), 'B': color(0, 0, 255), '.': OFF}
+```
+
+See [Color palette](#color-palette) below for the full list of named
+constants and helpers.
+
+**Images, icons, arrows** -- an `Image` is a pre-built 8x8 pattern with
+an embedded default color. `create_image("""...""")` builds an `Image` from a
+pattern string. 40 built-in icons and 8 arrows ship as ready-made
+`Image` instances: `Icons.HEART`, `Icons.HAPPY`, `Arrows.NORTH`, etc.
+Anywhere the API takes an icon or arrow, it takes any `Image`.
+
 ### Tier 1 -- Synchronous rendering (instant, no await)
 
 | Method | Description |
 |--------|-------------|
-| `render_pattern(pattern, color=WHITE)` | Render `#`/`.` pattern or palette dict to LEDs. `color` accepts an RGB tuple (mono) or a palette dict. |
-| `render_icon(icon, color=WHITE)` | Render an icon `Image` (e.g. `Icons.HEART`) to LEDs. |
-| `render_arrow(arrow, color=WHITE)` | Render an arrow `Image` (e.g. `Arrows.NORTH`) to LEDs. |
+| `render_pattern(pattern, color=WHITE)` | Render a pattern string to the LEDs. |
+| `render_icon(icon, color=WHITE)` | Render an icon (e.g. `Icons.HEART`). |
+| `render_arrow(arrow, color=WHITE)` | Render an arrow (e.g. `Arrows.NORTH`). |
 | `clear_screen()` | All pixels off. Cancels ongoing animations. |
 | `clear()` | Alias for `clear_screen()`. |
-| `set_pixel(x, y, color)` | Set one pixel. Cancels ongoing animations. |
+| `set_pixel(x, y, color)` | Overwrite pixel `(x, y)` with `color`; other pixels keep their current state. Cancels ongoing animations. |
 | `fill(color)` | Fill all pixels. Cancels ongoing animations. |
 | `get_pixel(x, y)` | Read buffered pixel color. |
 | `set_brightness(value)` | Adjust 0.0-1.0. Does not cancel animations. |
@@ -76,9 +116,9 @@ display.render_icon(Icons.HEART, color=RED)
 
 | Method | Description |
 |--------|-------------|
-| `show_leds(pattern, color=WHITE, interval_ms=0)` | Render + hold. `color` accepts an RGB tuple (mono) or a palette dict. |
-| `show_icon(icon, color=WHITE, interval_ms=0)` | Render icon `Image` + hold. |
-| `show_arrow(arrow, color=WHITE, interval_ms=0)` | Render arrow `Image` + hold. |
+| `show_leds(pattern, color=WHITE, interval_ms=0)` | Render a pattern and hold for `interval_ms`. |
+| `show_icon(icon, color=WHITE, interval_ms=0)` | Render an icon and hold. |
+| `show_arrow(arrow, color=WHITE, interval_ms=0)` | Render an arrow and hold. |
 | `show_string(text, color=WHITE, interval_ms=150, loop=False)` | Scroll text. `interval_ms` = milliseconds per column step. `loop=True` keeps scrolling (or holding, for short text) until another display call cancels. |
 | `show_number(n, color=WHITE, interval_ms=150, loop=False)` | Single digit: centered. Multi-digit: scroll. Accepts `loop=True` (see `show_string`). |
 | `pause(ms)` | Cancellable async sleep. |
@@ -111,7 +151,9 @@ await img.scroll_image(offset=1, interval_ms=200)
 
 **Aliases:** `OFF` = `BLACK`
 
-**Helpers:** `color(r, g, b)`, `colorwheel(pos)` (re-exported from `rainbowio`)
+**Helpers:** `color(r, g, b)`, `colorwheel(pos)` (re-exported from
+`rainbowio` -- see [Todbot's CircuitPython Tricks: NeoPixels / Dotstars](https://learn.adafruit.com/todbot-circuitpython-tricks/neopixels-dotstars)
+for usage patterns)
 
 ### Multi-color palette example
 
@@ -173,12 +215,6 @@ y=7    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)   bottom row (strip start)
 Display rotation (0/90/180/270 degrees via `set_rotation()`) is also baked
 into the LUT, so all rendering code stays the same regardless of how the
 physical matrix is mounted.
-
-### Pattern string format
-
-8 rows of 8 characters. `#` = ON, `.` = OFF (mono mode). With a dict palette,
-any single character maps to a color. All whitespace (spaces, tabs, CRs)
-stripped; blank lines ignored.
 
 ## Icons and arrows
 

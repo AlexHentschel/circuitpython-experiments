@@ -1,8 +1,8 @@
 # Monitoring
 
-Last updated: 2026-04-21 (session 6 continuation: added *Font swap for pixel-accurate display* follow-up. Also added *Pipeline-investigation scope-lift candidate* tracking the new `(experimental)` CODING_PRINCIPLES directive for cross-domain application.)
+Last updated: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
-Previous: 2026-04-21 (session 6: file seeded at first structural need. Two initial entries from this session.)
+Previous: 2026-04-21 (session 6 continuation: added *Font swap for pixel-accurate display* follow-up. Also added *Pipeline-investigation scope-lift candidate* tracking the new `(experimental)` CODING_PRINCIPLES directive for cross-domain application.)
 
 ## Purpose
 
@@ -67,3 +67,17 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: update the Notes column of the entry at `CODING_PRINCIPLES.md § Core Principles` with the second incident as evidence, flip `(experimental)` → `established` per `WORKING_STYLE.md § Retention` ("at least two clean applications outside the originating incident"). If the second incident is in a qualitatively different pipeline class (e.g. async event chain vs batch transform), also evaluate whether the directive's phrasing needs generalization.
   - **First observed**: 2026-04-21 (session 6).
   - **Scope**: `[universal]`.
+
+- **On-device verification: `str.translate(dict)` on CircuitPython for pattern parsing**
+  - **Observation**: `_iter_pattern_rows_fast` in `lib/display/core.py` was added to give `Display.render_pattern` a single-allocation hot-path whitespace stripper, replacing `"".join(raw.split())` (which allocates an intermediate list + final string) with `raw.translate(_HOTPATH_WS)` (single string allocation). Verified on CPython for parse correctness; not yet verified on the RP2040 device. Two open questions: (1) does CircuitPython's str.translate accept a dict argument with `None` values for deletion, and (2) does it actually outperform split+join on this workload, or is it merely allocation-fewer-but-cycle-equivalent.
+  - **Trigger**: next on-device run that exercises `Display.render_pattern` (Phase 3 smoke run is the natural occasion; any earlier debug or demo session would also do).
+  - **Action on trigger**: run a short A/B microbench on-device (`time.monotonic_ns()` around N iterations of each variant on a fixed pattern), record the result. If `str.translate` is unavailable or substantially slower, swap to chained `raw.replace(" ", "").replace("\t", "").replace("\r", "")` (three string allocations, no list, no dict-lookup overhead) — that's the documented fallback. If translate works and benefits, promote a finding to `TECHNICAL.md § Memory Management` documenting the allocation-count comparison with on-device numbers and `[CPy-src]` tag pointing at `py/objstr.c`.
+  - **First observed**: 2026-04-25 (session 7 continuation, this entry).
+  - **Scope**: `[exp14]` for the immediate code; `[project]` for any TECHNICAL.md finding produced.
+
+- **Promotion candidate: body-size threshold for *consolidate duplicated code in a shared function***
+  - **Observation**: the consolidation rule (P2.1 audit established it for the previously-shared `_iter_pattern_rows`) has a body-size threshold below which it stops carrying weight, plus an interaction with call-site-profile distinctness. For the `_iter_pattern_rows` case (4 lines of body, two distinct call-site profiles — cold parse-once vs hot parse-per-frame), the right answer turned out to be two specialised functions, not one shared function with a configuration knob. Single incident so far; pattern not yet promoted.
+  - **Trigger**: a second incident where the question "extract this duplicate into a shared helper, or keep two specialised copies" comes up on a code shape *other than* a pattern-row generator (e.g. a small render helper, a small validator, a small encoding step). The decision point is: does the body cross the drift-risk threshold, and how distinct are the call-site optimization profiles?
+  - **Action on trigger**: log the second incident's resolution against the shape of the code, then if the decision criteria match this one, write a `(experimental)` directive in `CODING_PRINCIPLES.md` covering the threshold and the call-site-distinctness factor. Until then, single-incident — keep here.
+  - **First observed**: 2026-04-25 (session 7 continuation, this entry).
+  - **Scope**: `[universal]` candidate (the calculation isn't language-specific or experiment-specific — just code-shape-specific).

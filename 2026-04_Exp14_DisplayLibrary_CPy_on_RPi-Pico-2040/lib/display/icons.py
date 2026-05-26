@@ -1,19 +1,22 @@
 """
 Icon and arrow bitmap data plus ordered name lists for the 8x8 display.
 
-Storage format: column-major bytes -- one byte per column, where bit N
-of each byte indicates row N is lit (bit 0 = top row). Each icon/arrow
-is ``WIDTH`` bytes (one per column of the ``WIDTH`` x ``HEIGHT`` grid).
-Designed as row-major ASCII art (# = on, . = off), then transposed to
-column-major at design time; see ``bitmap_codec``.
+Nomenclature and Convention:
+ • column-major bytes -- one byte per column, where bit N of each byte indicates
+   row N is lit (bit 0 = top row).  This convention requires that the display is
+   physically at most 8 bits high (see also comment below).
+ •Each icon/arrow is ``WIDTH`` bytes (one per column of the ``WIDTH`` x ``HEIGHT`` grid).
+  Designed as row-major ASCII art (# = on, . = off), then transposed to
+  column-major at design time; see ``bitmap_codec`` for details and examples.
 
 Encoding-vs-geometry: the single-byte-per-column format caps height at
 8 bits per byte. This is independent of display geometry -- a taller
 display would need a different storage format, not just a parameter
 change. See ``_MAX_HEIGHT_PER_COLUMN_BYTE`` in ``_constants``.
 
-Lookup: ``ICONS[i * WIDTH : (i + 1) * WIDTH]`` yields the ``WIDTH``
-column bytes for the icon at position ``i``; same for ``ARROWS``.
+Lookup: the slice ``ICONS[i * WIDTH : (i + 1) * WIDTH]`` represts the icon at position ``i``.
+Specifically, the icon is ``WIDTH`` bytes, each byte representing one column of the icon.
+Identical convention applies for ``ARROWS``.
 
 Name lists ``ICON_NAMES`` and ``ARROW_NAMES`` are ordered tuples of
 strings that describe which icon/arrow lives at each slot. ``core.py``
@@ -31,18 +34,57 @@ from ._constants import WIDTH  # noqa: F401 -- documents the lookup math
 # Ordered name lists -- index = slot in ICONS / ARROWS.
 # ---------------------------------------------------------------------------
 ICON_NAMES = (
-    "HEART", "SMALL_HEART", "YES", "NO", "HAPPY", "SAD", "CONFUSED", "ANGRY",
-    "ASLEEP", "SURPRISED", "SILLY", "FABULOUS", "MEH", "TSHIRT", "ROLLERSKATE",
-    "DUCK", "HOUSE", "TORTOISE", "BUTTERFLY", "STICK_FIGURE", "GHOST", "SWORD",
-    "GIRAFFE", "SKULL", "UMBRELLA", "SNAKE", "RABBIT", "COW", "QUARTER_NOTE",
-    "EIGHTH_NOTE", "PITCHFORK", "TARGET", "TRIANGLE", "LEFT_TRIANGLE",
-    "CHESSBOARD", "DIAMOND", "SMALL_DIAMOND", "SQUARE", "SMALL_SQUARE",
+    "HEART",
+    "SMALL_HEART",
+    "YES",
+    "NO",
+    "HAPPY",
+    "SAD",
+    "CONFUSED",
+    "ANGRY",
+    "ASLEEP",
+    "SURPRISED",
+    "SILLY",
+    "FABULOUS",
+    "MEH",
+    "TSHIRT",
+    "ROLLERSKATE",
+    "DUCK",
+    "HOUSE",
+    "TORTOISE",
+    "BUTTERFLY",
+    "STICK_FIGURE",
+    "GHOST",
+    "SWORD",
+    "GIRAFFE",
+    "SKULL",
+    "UMBRELLA",
+    "SNAKE",
+    "RABBIT",
+    "COW",
+    "QUARTER_NOTE",
+    "EIGHTH_NOTE",
+    "PITCHFORK",
+    "TARGET",
+    "TRIANGLE",
+    "LEFT_TRIANGLE",
+    "CHESSBOARD",
+    "DIAMOND",
+    "SMALL_DIAMOND",
+    "SQUARE",
+    "SMALL_SQUARE",
     "SCISSORS",
 )
 
 ARROW_NAMES = (
-    "NORTH", "NORTH_EAST", "EAST", "SOUTH_EAST",
-    "SOUTH", "SOUTH_WEST", "WEST", "NORTH_WEST",
+    "NORTH",
+    "NORTH_EAST",
+    "EAST",
+    "SOUTH_EAST",
+    "SOUTH",
+    "SOUTH_WEST",
+    "WEST",
+    "NORTH_WEST",
 )
 
 

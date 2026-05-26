@@ -129,12 +129,12 @@ async MakeCode-compatible methods), Image class with scrolling, font rendering
 via `adafruit_bitmap_font`, 40 hand-designed 8×8 icons, 8 arrows, unified
 color/palette parameter. Full design in the Phase 2 plan file.
 
-Restructure (Tier 1 tests): the library now lives in a package
-(`lib/display/`) split into `_constants` / `bitmap_codec` / `geometry` /
-`icons` / `core` sub-modules plus `__init__.py` re-exports. User-facing
-imports (`from display import display, Icons, RED, ...`) are
-unchanged in shape; Phase 2 renamed `IconNames` / `ArrowNames` -> `Icons` / `Arrows`
-and the members are now `Image` instances rather than integer slot indices.
+Package layout: the library lives in `lib/display/` split across
+`_constants` / `bitmap_codec` / `geometry` / `icons` / `core`
+sub-modules, with `__init__.py` re-exporting everything user-facing at
+the top level (`from display import display, Icons, Arrows, RED, ...`).
+`Icons.<NAME>` / `Arrows.<NAME>` are `Image` instances; ordering comes
+from the `ICON_NAMES` / `ARROW_NAMES` tuples in `icons.py`.
 
 ---
 

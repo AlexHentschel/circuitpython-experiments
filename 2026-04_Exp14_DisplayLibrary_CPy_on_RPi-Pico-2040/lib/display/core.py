@@ -12,14 +12,14 @@ Two-tier API:
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
 
-Cancellation policy: calling any display-mutating method cancels any Tier 2
-animation currently in progress, and starting a new Tier 2 animation likewise
-cancels any earlier one. The non-cancelling methods are ``get_pixel`` (pure
-read), ``set_brightness``, and ``set_rotation`` — the latter two do update
-pixel output but deliberately leave the cancellation counter unchanged so a
-running animation is not disturbed. Mechanism is private to this module — a
-monotonically-increasing sequence counter captured by each animation as a
-token and re-checked between frames; see ``_acquire`` and ``_is_cancelled``.
+Cancellation policy: any display-mutating method cancels an in-progress
+Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
+one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
+``set_rotation`` -- deliberately non-cancelling so a running animation is
+not disturbed when the user dims the matrix or rotates the frame.
+Mechanism: a private, monotonically-increasing sequence counter, captured
+by each animation as a token and re-checked between frames; see
+``_acquire`` and ``_is_cancelled``.
 
 Bitmap encoding (used throughout this module): monochrome icons, arrows,
 glyphs, and ``Image`` instances are stored as *column-major bytes* -- one
@@ -67,17 +67,41 @@ _LUT = build_lut(0)
 
 
 # ---------------------------------------------------------------------------
-# Runtime pattern-row normalizer (shared by `Image.from_pattern` and
-# `Display.render_pattern`). Strict design-time validation lives in
-# ``bitmap_codec``; the runtime parsers are deliberately lenient.
+# Runtime pattern-row parsers. Two specialised helpers, one per call-site
+# profile:
+#   - ``_iter_pattern_rows`` -- cold path. Used by ``Image.from_pattern``,
+#     ``create_image``, ``create_big_image``. Lenient: collapses *all* Python
+#     whitespace via ``"".join(raw.split())`` (matches the design-time idiom
+#     in ``bitmap_codec.pattern_to_colmajor``). Allocations are not
+#     performance-critical here.
+#   - ``_iter_pattern_rows_fast`` -- hot path. Used by ``Display.render_pattern``,
+#     called per Tier 2 frame. Single string allocation per row via
+#     ``str.translate`` (no intermediate list, unlike ``split``+``join``).
+#     Whitespace tolerance is deliberately narrower: only space, tab, CR
+#     are stripped -- the only characters that realistically appear in a
+#     human-typed pattern string.
+# For strict design-time pattern validation, use
+# ``bitmap_codec.pattern_to_colmajor`` (raises on shape and unknown-cell
+# errors instead of silently dropping or padding).
 # ---------------------------------------------------------------------------
-def _iter_pattern_rows(pattern_str):
-    """Yield normalized non-blank rows from an ASCII-art pattern.
 
-    Each emitted string has all whitespace (spaces, tabs, etc.) collapsed
-    via ``"".join(raw.split())`` -- the same idiom used in
-    ``bitmap_codec.pattern_to_colmajor`` so both parsers treat whitespace
-    identically. Blank lines (any amount of whitespace) are skipped.
+# Translation table for ``_iter_pattern_rows_fast``. Maps the three
+# realistically-occurring whitespace ordinals (space, tab, CR) to ``None``,
+# which ``str.translate`` interprets as deletion. Built once at import time.
+_HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
+
+
+def _iter_pattern_rows(pattern_str):
+    """Yield normalized non-blank rows from a pattern -- *cold-path* parser.
+
+    Each emitted string has all Python whitespace (spaces, tabs, CRs, FFs,
+    VTs) collapsed via ``"".join(raw.split())``, mirroring the design-time
+    idiom in ``bitmap_codec.pattern_to_colmajor``. Blank lines (any amount
+    of whitespace) are skipped.
+
+    Cold-path callers: ``Image.from_pattern``, ``create_image``,
+    ``create_big_image``. For per-frame parsing in render code, use
+    ``_iter_pattern_rows_fast``.
     """
     for raw in pattern_str.split("\n"):
         row = "".join(raw.split())
@@ -85,10 +109,129 @@ def _iter_pattern_rows(pattern_str):
             yield row
 
 
+def _iter_pattern_rows_fast(pattern_str):
+    """Yield non-blank rows from a pattern -- *hot-path* parser.
+
+    Optimised for per-frame use in ``Display.render_pattern``: one string
+    allocation per row via ``str.translate(_HOTPATH_WS)`` -- no list
+    allocation as ``"".join(raw.split())`` would induce. Strips only space,
+    tab, CR; other whitespace (``\\v``, ``\\f``) is left in the row and would
+    render as ``OFF`` (unknown char) in mono mode. This is acceptable because
+    those code points do not appear in human-typed pattern strings.
+
+    Compared to the cold-path ``_iter_pattern_rows`` this parser is *less*
+    whitespace-lenient: it strips only space/tab/CR, not every Python
+    whitespace character. The render path is still lenient compared to
+    ``bitmap_codec.pattern_to_colmajor`` because unknown row characters are
+    not validation errors -- they simply render as ``OFF`` in mono mode or
+    as the palette default in multi-color mode.
+
+    The payoff is fewer allocations per row and lower fragmentation pressure
+    on CircuitPython's non-compacting GC.
+    """
+    for raw in pattern_str.split("\n"):
+        row = raw.translate(_HOTPATH_WS)
+        if row:
+            yield row
+
+
+def _write_pattern_on_the_fly(pattern, color, pixels, lut, off, width, height):
+    """Candidate replacement for ``_iter_pattern_rows_fast`` in ``render_pattern``.
+
+    Intentionally unused for now. Sketches the fully-fused hot-path version:
+    scan the source string once, skip only space / tab / CR, write each cell
+    directly to the NeoPixel buffer, ignore columns past ``width``, ignore
+    rows past ``height``, pad short / missing rows with ``off``. Avoids both
+    the per-row string allocation of ``_iter_pattern_rows_fast`` and
+    generator-yield overhead.
+
+    Does NOT call ``pixels.show()`` -- caller is responsible for flushing
+    the buffer to the display after invocation.
+
+    The mono / dict shape of ``color`` is hoisted to a top-level branch so
+    the per-cell write has no shape check per cell. The two branches share
+    the same state-machine structure with one differing line (cell write);
+    closure / callback indirection at the cell-write site would re-introduce
+    per-cell call overhead and defeat the hoist.
+    """
+    x = 0
+    y = 0
+    row_has_cell = False
+
+    if isinstance(color, dict):
+        for ch in pattern:
+            if ch == "\n":
+                if row_has_cell:
+                    while x < width:  # fill remaining positions in the row with Off
+                        pixels[lut[x * height + y]] = off
+                        x += 1
+                    y += 1
+                    if y >= height:
+                        return
+                    x = 0
+                    row_has_cell = False
+                continue
+            if ch == " " or ch == "\t" or ch == "\r":
+                continue
+
+            row_has_cell = True
+            if x < width:
+                pixels[lut[x * height + y]] = color.get(ch, off)
+                x += 1
+        # reaching the following rows lines means that we have parsed less than height rows
+        # up to the tailing newline (otherwise check `if y >= height` above would have returned).
+        # EDGE case: row with index heigh has missing newline
+
+        if row_has_cell and y < height:
+            while x < width:
+                pixels[lut[x * height + y]] = off
+                x += 1
+            y += 1
+
+        while y < height:
+            for xi in range(width):
+                pixels[lut[xi * height + y]] = off
+            y += 1
+    else:
+        for ch in pattern:
+            if ch == "\n":
+                if row_has_cell:
+                    while x < width:  # fill remaining positions in the row with Off
+                        pixels[lut[x * height + y]] = off
+                        x += 1
+                    y += 1
+                    if y >= height:
+                        return
+                    x = 0
+                    row_has_cell = False
+                continue
+            if ch == " " or ch == "\t" or ch == "\r":
+                continue
+
+            row_has_cell = True
+            if x < width:
+                pixels[lut[x * height + y]] = color if ch == "#" else off
+                x += 1
+        # reaching the following rows lines means that we have parsed less than height rows
+        # up to the tailing newline (otherwise check `if y >= height` above would have returned).
+        # EDGE case: row with index heigh has missing newline
+
+        if row_has_cell and y < height:
+            while x < width:
+                pixels[lut[x * height + y]] = off
+                x += 1
+            y += 1
+
+        while y < height:
+            for xi in range(width):
+                pixels[lut[xi * height + y]] = off
+            y += 1
+
+
 # ---------------------------------------------------------------------------
 # Monochrome column-major render helper
 # ---------------------------------------------------------------------------
-def _render_colmajor(data, offset, color_on):
+def _render_colmajor(data, offset, color):
     """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to ``_pixels``.
 
     Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
@@ -114,7 +257,7 @@ def _render_colmajor(data, offset, color_on):
         col_byte = data[offset + x]
         x_base = x * HEIGHT  # matches `geometry.build_lut` slot-name convention
         for y in range(HEIGHT):
-            pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+            pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
     pixels.show()
 
 
@@ -136,25 +279,26 @@ def _glyph_columns(ch):
     Bit N of each byte = row N (0 = top).
 
     Font metric terms (from fontio.Glyph / PCF):
-      ascent:  rows from baseline to top of tallest glyph (= display row 0).
-      dy:      rows from baseline to bottom edge of this glyph's bitmap.
-      dx:      columns from pen position to left edge of this glyph's bitmap.
-      shift_x: advance width (columns the pen moves right after this glyph).
+      ascent:       rows from baseline to top of tallest glyph (= display row 0).
+      dy:           rows from baseline to bottom edge of this glyph's bitmap.
+      dx:           columns from current text position to left edge of this glyph's bitmap.
+      glyph.height: the height of the glyph's bitmap in pixels
+      shift_x:      advance width (columns the current text position moves right after this glyph).
       width/height: pixel dimensions of the glyph's actual bitmap.
 
     Coordinate mapping from glyph bitmap (cx, cy) to display:
       display_row = ascent - height - dy + cy
         (glyph top edge at font-y = dy + height; display row 0 = ascent)
       display_col = cx + dx
-        (dx = horizontal bearing from pen to bitmap left edge)
+        (dx = horizontal offset from current text position to bitmap left edge)
     """
     glyph = _font.get_glyph(ord(ch))
     if glyph is None:
         return bytes(WIDTH)
     bm = glyph.bitmap
-    ascent = _font.ascent
+    ascent = _font.ascent  # the maximum vertical distance from the baseline to the top of the tallest glyphs
     cols = bytearray(glyph.shift_x)
-    # top row of glyph bitmap in display coords (loop-invariant)
+    # row_origin is the top row of glyph bitmap in display coordinates (loop-invariant)
     row_origin = ascent - glyph.height - glyph.dy
     for cx in range(glyph.width):
         col_byte = 0
@@ -162,7 +306,7 @@ def _glyph_columns(ch):
             display_row = row_origin + cy
             if 0 <= display_row < HEIGHT and bm[cx + cy * glyph.width]:
                 col_byte |= 1 << display_row
-        # dx = horizontal bearing: pen position -> bitmap left edge
+        # dx = horizontal offset: current text position -> bitmap left edge
         bx = cx + glyph.dx
         if 0 <= bx < len(cols):
             cols[bx] = col_byte
@@ -184,12 +328,13 @@ def _render_ring_window(ring, read_head, color_on):
     pixels = _pixels
     lut = _LUT
     off = OFF
+    x_base = 0
     for x in range(WIDTH):
         idx = read_head + x
         if idx >= WIDTH:
             idx -= WIDTH
         col_byte = ring[idx]
-        x_base = x * HEIGHT
+        x_base += HEIGHT  # light weight way of calulating x_base = x * HEIGHT
         for y in range(HEIGHT):
             pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
     pixels.show()
@@ -217,12 +362,15 @@ class _GlyphColumnFeeder:
         self._col_idx = 0
 
     def next_column(self):
+        # Load the next glyph whenever the current glyph's columns are exhausted;
+        # `while` condition initially succeeds because `_cols` is empty and `_col_idx = 0`.
+        # Usage of `while` here (instead of `if`) skips any zero-width glyphs.
         while self._col_idx >= len(self._cols):
             if self._char_idx >= len(self._text):
                 return None
-            self._cols = _glyph_columns(self._text[self._char_idx])
+            self._cols = _glyph_columns(self._text[self._char_idx])  # load glyph
             self._char_idx += 1
-            self._col_idx = 0
+            self._col_idx = 0  # for the new glyph, we start at column with index 0
         b = self._cols[self._col_idx]
         self._col_idx += 1
         return b
@@ -235,10 +383,7 @@ class Image:
     """Bitmap image for the 8-row LED matrix.
 
     Monochrome images store column-major bytes + a single color RGB-triple.
-    Multi-color images store a flat tuple of per-pixel RGB tuples.
-
-    Image async methods reference module globals (display, _LUT, _pixels)
-    directly - for details on the coupling see the package's README.
+    Multi-color images store a flat sequence of per-pixel RGB tuples (one per pixel).
     """
 
     __slots__ = ("_data", "_width", "_multi", "_color")
@@ -254,23 +399,21 @@ class Image:
         """Parse a pattern string into an Image.
 
         color: RGB tuple (mono) or dict {char: RGB} (multi-color).
-        Mono images use column-major bytes; multi-color uses per-pixel tuple.
+        The returned Image is reusable across multiple ``show_image`` /
+        ``scroll_image`` calls.
 
-        Column-major conversion happens here (not at render time) because
-        Image data persists for repeated show_image / scroll_image calls.
-
-        Runtime parser is lenient: rows past ``HEIGHT`` are dropped and
-        do **not** contribute to the computed image width (widest of the
-        first ``HEIGHT`` rows only); short rows are padded with OFF;
-        unknown chars in mono mode render as OFF. Whitespace stripping
-        uses ``"".join(raw.split())`` -- spaces, tabs, CRs are all
-        collapsed (same behavior as ``bitmap_codec.pattern_to_colmajor``).
-        Design-time strictness lives in ``bitmap_codec``; fixed-size
-        constructors with author-time diagnostics live in
-        ``create_image`` / ``create_big_image``.
+        Rows past ``HEIGHT`` are dropped; short rows are padded with OFF.
+        Image width is the widest of the kept rows. Unknown chars in mono
+        mode render as OFF. Whitespace (spaces, tabs, CRs) in the pattern
+        is ignored. For strict size validation, use ``create_image`` or
+        ``create_big_image``.
         """
+        # Internal encoding: mono images store column-major bytes (one byte
+        # per column, bit y = row y counted from top); multi-color stores a flat
+        # tuple of per-pixel RGB tuples. Conversion happens here so render methods
+        # do not re-parse on each call.
         is_dict = isinstance(color, dict)
-        rows = list(_iter_pattern_rows(pattern_str))
+        rows = list[str](_iter_pattern_rows(pattern_str))
         height = min(len(rows), HEIGHT)
         img_width = max((len(r) for r in rows[:height]), default=WIDTH)
 
@@ -409,7 +552,7 @@ def _build_image_namespace(names, data):
     cls = type("_ImageNamespace", (), {})
     for i, name in enumerate(names):
         start = i * WIDTH
-        setattr(cls, name, Image(data[start:start + WIDTH], WIDTH, False, WHITE))
+        setattr(cls, name, Image(data[start : start + WIDTH], WIDTH, False, WHITE))
     return cls
 
 
@@ -427,9 +570,7 @@ def create_image(pattern_str, color=WHITE):
     img = Image.from_pattern(pattern_str, color)
     row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
     if img.width != WIDTH or row_count != HEIGHT:
-        raise ValueError(
-            "create_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(
-                h=HEIGHT, w=WIDTH, rh=row_count, rw=img.width))
+        raise ValueError("create_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(h=HEIGHT, w=WIDTH, rh=row_count, rw=img.width))
     return img
 
 
@@ -443,9 +584,7 @@ def create_big_image(pattern_str, color=WHITE):
     row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
     expected_w = 2 * WIDTH
     if img.width != expected_w or row_count != HEIGHT:
-        raise ValueError(
-            "create_big_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(
-                h=HEIGHT, w=expected_w, rh=row_count, rw=img.width))
+        raise ValueError("create_big_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(h=HEIGHT, w=expected_w, rh=row_count, rw=img.width))
     return img
 
 
@@ -499,26 +638,35 @@ class Display:
         Short rows are padded with OFF; rows past HEIGHT are ignored.
         """
         self._acquire()
+        # Cache module globals as function-locals so the inner WIDTH * HEIGHT
+        # pixel-write loop hits LOAD_FAST instead of LOAD_GLOBAL. Same idiom
+        # as ``_render_colmajor``; rationale and CPy/MicroPython VM sources
+        # documented there and in ``TECHNICAL.md § Name loading``.
+        pixels = _pixels
+        lut = _LUT
+        off = OFF
+        width = WIDTH
+        height = HEIGHT
         is_dict = isinstance(color, dict)
         y = 0
-        for row in _iter_pattern_rows(pattern):
-            if y >= HEIGHT:
+        for row in _iter_pattern_rows_fast(pattern):
+            if y >= height:
                 break
-            cap = min(WIDTH, len(row))
+            cap = min(width, len(row))
             for x in range(cap):
                 ch = row[x]
                 if is_dict:
-                    _pixels[_LUT[x * HEIGHT + y]] = color.get(ch, OFF)
+                    pixels[lut[x * height + y]] = color.get(ch, off)
                 else:
-                    _pixels[_LUT[x * HEIGHT + y]] = color if ch == "#" else OFF
-            for x in range(cap, WIDTH):
-                _pixels[_LUT[x * HEIGHT + y]] = OFF
+                    pixels[lut[x * height + y]] = color if ch == "#" else off
+            for x in range(cap, width):
+                pixels[lut[x * height + y]] = off
             y += 1
-        while y < HEIGHT:
-            for x in range(WIDTH):
-                _pixels[_LUT[x * HEIGHT + y]] = OFF
+        while y < height:
+            for x in range(width):
+                pixels[lut[x * height + y]] = off
             y += 1
-        _pixels.show()
+        pixels.show()
 
     def render_icon(self, icon, color=WHITE):
         """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
