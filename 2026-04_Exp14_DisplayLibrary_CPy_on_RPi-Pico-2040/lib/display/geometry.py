@@ -8,8 +8,8 @@ in ``core.py`` delegates here and mutates the module-level LUT in place.
 Indexing convention: the LUT is a flat ``bytearray`` of ``WIDTH * HEIGHT``
 entries indexed as ``lut[x * HEIGHT + y]`` -- x is the outer stride, y the
 inner. This is x-major, not the row-major ``[row][col]`` convention common
-in NumPy / OpenCV; it matches the column-major bitmap layout used elsewhere
-in the package (one byte per column; see ``bitmap_codec``). The 1D layout
+in NumPy / OpenCV; it matches the column-major bitmap layout used by the
+Microbit (one byte per column; see ``bitmap_codec``). The 1D layout
 is deliberate on this MCU target: one heap allocation, native single
 ``bytearray`` subscript in the render hot path, and isomorphic to the
 downstream 1D NeoPixel strip -- see the architecture notes in ``README.md``
@@ -19,7 +19,7 @@ for the full rationale.
 from ._constants import WIDTH, HEIGHT
 
 
-def build_lut(rotation=0):
+def build_lut(rotation: int = 0) -> bytearray:
     """Return a fresh ``bytearray`` of ``WIDTH * HEIGHT`` bytes.
 
     ``result[x * HEIGHT + y]`` is the NeoPixel strip index for logical
@@ -106,6 +106,6 @@ def build_lut(rotation=0):
     return lut
 
 
-def xy_to_index(x, y, lut):
+def xy_to_index(x: int, y: int, lut: bytearray) -> int:
     """Map logical (x, y) to NeoPixel strip index via the given LUT."""
     return lut[x * HEIGHT + y]

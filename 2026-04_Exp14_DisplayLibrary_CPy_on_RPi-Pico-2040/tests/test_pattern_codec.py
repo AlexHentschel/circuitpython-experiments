@@ -85,3 +85,35 @@ def test_height_above_encoding_limit_raises():
             width=WIDTH,
             height=_MAX_HEIGHT_PER_COLUMN_BYTE + 1,
         )
+
+
+def test_negative_height_raises_in_encoder():
+    with pytest.raises(ValueError, match="must be non-negative"):
+        pattern_to_colmajor(_valid_pattern(), width=WIDTH, height=-1)
+
+
+def test_negative_width_raises_in_encoder():
+    with pytest.raises(ValueError, match="must be non-negative"):
+        pattern_to_colmajor(_valid_pattern(), width=-1, height=HEIGHT)
+
+
+# ---------------------------------------------------------------------------
+# Decoder negative paths -- symmetric with the encoder. `height > 8` would
+# silently produce extra blank rows beyond row 7 (since `byte >> 8 == 0`);
+# negative `width` / `height` would silently produce truncated / empty output.
+# Both are silent-wrong failure modes that violate the format spec.
+# ---------------------------------------------------------------------------
+
+def test_height_above_encoding_limit_raises_in_decoder():
+    with pytest.raises(ValueError, match="exceeds column-major encoding limit"):
+        colmajor_to_pattern(bytes(WIDTH), width=WIDTH, height=_MAX_HEIGHT_PER_COLUMN_BYTE + 1)
+
+
+def test_negative_height_raises_in_decoder():
+    with pytest.raises(ValueError, match="must be non-negative"):
+        colmajor_to_pattern(bytes(WIDTH), width=WIDTH, height=-1)
+
+
+def test_negative_width_raises_in_decoder():
+    with pytest.raises(ValueError, match="must be non-negative"):
+        colmajor_to_pattern(bytes(WIDTH), width=-1, height=HEIGHT)

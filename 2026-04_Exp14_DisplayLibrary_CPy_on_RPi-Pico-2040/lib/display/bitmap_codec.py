@@ -1,36 +1,33 @@
 """
 Design-time conversion between ASCII-art patterns and column-major bytes.
 
-Column-major format: one byte per column (column 0 = leftmost); within each byte, bit N has numeric value 2**N (bit 0 = least-significant
-bit) and indicates row N is lit (row 0 = top). Each ``WIDTH``-column grid therefore serialises to ``WIDTH`` bytes. The format caps height
-at ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (8) bits per byte; see ``_constants`` for the encoding-vs-geometry distinction.
+Column-major format (see `README.md` and `geometry.py` for encoding and layout details):
+we use one byte per column (column 0 = leftmost); within each byte, bit N has numeric value 2**N (bit 0 = least-significant
+bit) and indicates row N is lit (row 0 = top). Each ``WIDTH``-column grid therefore serialises to ``WIDTH`` bytes. The format
+caps height at ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (8) bits per byte; see ``_constants`` for the encoding-vs-geometry distinction.
 
-These helpers are authoring tools, not a runtime hot path: strict
-validation surfaces typos in hard-coded icon definitions rather than
-silently padding or truncating.
+These helpers are authoring tools, *not* optimized runtime speed: strict validation surfaces typos in hard-coded icon
+definitions rather than silently padding or truncating.
 """
 
 from ._constants import WIDTH, HEIGHT, _MAX_HEIGHT_PER_COLUMN_BYTE
 
 
-def pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT):
+def pattern_to_colmajor(pattern: str, width: int = WIDTH, height: int = HEIGHT) -> bytes:
     """Convert monochrome ASCII art to column-major bytes.
 
-    Input: multiline string of `#` (on) / `.` (off) cells. Each non-blank
-    line is treated as one row. All whitespace within a line is collapsed,
-    so `# # . .`, `##..`, and `#\t# . .` all parse identically. Blank
-    lines (any amount of whitespace) are skipped.
+    Input: multiline string of `#` (On) or `.` (Off) cells. Each non-blank line is treated as one row. All whitespace
+    within a line is collapsed, so `# # . .`, `##..`, and `#\t# . .` all parse identically. Blank lines (any amount of
+    whitespace) are skipped.
 
     Output: `bytes` of length `width`. Bit N of byte `c` (value 2**N) = row N of column `c` (bit 0 = least-significant bit = row 0 = top).
     `height` is capped by the encoding format limit of `_MAX_HEIGHT_PER_COLUMN_BYTE` bits per column-byte.
 
-    Validation is strict (design-time authoring tool): raises `ValueError`
-    with row/column locators for short rows, long rows, wrong row counts,
-    or unknown cell characters. This surfaces typos in hard-coded icon
-    definitions rather than silently padding/truncating.
+    Validation is strict (design-time authoring tool): raises `ValueError` with row/column locators for short rows,
+    long rows, wrong row counts, or unknown cell characters. This surfaces typos in hard-coded icon definitions rather
+    than silently padding/truncating.
 
-    Use case: author a new icon as ASCII art, convert once, paste the hex
-    bytes into ICONS.
+    Use case: author a new icon as ASCII art, convert once, paste the hex bytes into ICONS. Example:
 
         >>> pattern_to_colmajor('''
         ... . # # . . # # .
@@ -46,6 +43,10 @@ def pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT):
     """
     if height > _MAX_HEIGHT_PER_COLUMN_BYTE:
         raise ValueError(f"height={height} exceeds column-major encoding limit of {_MAX_HEIGHT_PER_COLUMN_BYTE} (one byte per column)")
+    if height < 0:
+        raise ValueError(f"height={height} must be non-negative")
+    if width < 0:
+        raise ValueError(f"width={width} must be non-negative")
 
     # Single pass: normalize each line (collapse all whitespace via split()/join), skip blanks, validate, and encode into `cols`.
     # `"".join(raw.split())` handles spaces, tabs, carriage returns (\r from CRLF line endings), form feeds, etc. uniformly --
@@ -77,7 +78,7 @@ def pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT):
     return bytes(cols)
 
 
-def colmajor_to_pattern(data, width=None, height=HEIGHT):
+def colmajor_to_pattern(data: bytes, width: int | None = None, height: int = HEIGHT) -> str:
     """Inverse of `pattern_to_colmajor`: render icon in column-major byte representation as to ASCII art (string).
 
     Input: `data` bytes in column-major layout, `width` columns (default `len(data)`), `height` rows.
@@ -86,8 +87,14 @@ def colmajor_to_pattern(data, width=None, height=HEIGHT):
 
     Use case: inspect existing ICONS / ARROWS bytes or verify a round trip.
     """
+    if height > _MAX_HEIGHT_PER_COLUMN_BYTE:
+        raise ValueError(f"height={height} exceeds column-major encoding limit of {_MAX_HEIGHT_PER_COLUMN_BYTE} (one byte per column)")
+    if height < 0:
+        raise ValueError(f"height={height} must be non-negative")
     if width is None:
         width = len(data)
+    elif width < 0:
+        raise ValueError(f"width={width} must be non-negative")
     lines = []
     for row in range(height):
         # Inverse of the encode step: right-shift the column byte by `row` so row N's bit lands at position 0, then `& 1` isolates it.

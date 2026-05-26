@@ -51,6 +51,27 @@ When the same fact has to live in two places (rare; only when duplication serves
 - Open questions raised:
 -->
 
+## 2026-05-25: Session 8 — [exp14] (Phase 3 start: type hints + codec validation)
+
+- Technical insights:
+  - Confirmed CircuitPython 10 type-hint support: syntax accepted by parser; annotations evaluated at `def` time and stored in `__annotations__`; `typing` module unavailable on-device (must be import-guarded with `try/except ImportError`); PEP 604 unions (`int | None`) evaluate at def-time to `types.UnionType` and work on MicroPython ≥ 1.22, so they qualify as Pattern A (no `typing` import). Sources: Adafruit's [typing-information guide](https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information) and the in-production [NTP issue #18 + PR #19](https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18) (device-tested on CP 7.x SAMD51).
+  - **Subscript-on-builtin (`enumerate[str](row)`) is not a meaningful type annotation at a call site.** Two failure modes: (1) MicroPython/CircuitPython has very partial PEP 585 support and `enumerate` likely lacks `__class_getitem__`, so the expression would likely raise `TypeError` at runtime on-device; (2) even where it works (CPython 3.13 confirmed locally), it's a no-op with overhead — `enumerate[str]` is a `types.GenericAlias` whose `__call__` forwards to `enumerate.__call__`; the `[str]` is stored in `.__args__` but never used at runtime, and type checkers only honor PEP 585 subscripts in annotation contexts (`x: list[int]`), not at call sites. Type inference from `pattern: str` → `row: str` → `ch: str` is the right mechanism. Sources: [PEP 585](https://peps.python.org/pep-0585/) and [MicroPython builtin types docs](https://docs.micropython.org/en/latest/genrst/builtin_types.html).
+- Artifacts updated:
+  - `lib/display/bitmap_codec.py`:
+    - Signatures of `pattern_to_colmajor` and `colmajor_to_pattern` annotated with builtins (`str`, `int`, `bytes`, `int | None`). First type-hint application in the project — Pattern A only.
+    - Symmetric validation added to both functions: `height > _MAX_HEIGHT_PER_COLUMN_BYTE` (new on decoder side — silent-wrong otherwise since `byte >> 8 == 0`); `height < 0` and `width < 0` on both functions (silent-wrong / cryptic-error otherwise). Encoder and decoder now reject the same domain.
+  - `lib/display/geometry.py`: `build_lut(rotation: int = 0) -> bytearray` and `xy_to_index(x: int, y: int, lut: bytearray) -> int`. Pattern A throughout. Phase 3 type-hint sweep continues — `core.py` + `__init__.py` remain.
+  - `tests/test_pattern_codec.py`: 5 new tests covering the new validation paths (3 decoder, 2 encoder). Full suite: 128/128 green (was 123).
+  - `CODING_PRINCIPLES.md § Core Principles`: new `[user]`-scope directive *Type-annotate public function signatures; prefer builtin types, guard `typing` imports* (Pattern A default, Pattern B fallback for non-builtins with the two Adafruit URLs pinned in the directive body so they propagate into every Pattern B guard comment). Status `established` from the start (stated preference).
+- Patterns extracted:
+  - **URL references pinned in directives propagate to every application site.** Putting the two Adafruit URLs into the directive body (not into a one-time comment) means every future Pattern B guard block will carry the rationale comment, without future me re-deriving why the guard exists. Same principle as the *Function and method docstrings should be self-contained* directive — push canonical context to the site of reading.
+  - **Symmetric encoder/decoder pairs should reject the same domain.** Decoder silent-wrong on `height > 8` (extra blank rows) was tolerated for a long time because the encoder's check made round-trip use safe. But a one-sided check breaks the format-spec coherence — readers can no longer learn the constraint from either function alone, and a decoder-first caller (load bytes, render to ASCII) gets no error. Apply the *strict input validation on cold call sites* principle symmetrically. **Promoted same session**: user endorsed the pattern as broadly applicable beyond this codec; now lives at `CODING_PRINCIPLES.md § Core Principles` as `[universal]`-scope *Validate symmetrically across paired transformations* (status `established`). Recurrence trigger closed.
+- Process corrections received: none.
+- Open questions raised:
+  - Phase 3 sweep: when extending type hints to `core.py`, `geometry.py`, `__init__.py`, does the user want one big commit per file, or grouped by API surface (e.g. `Display` class + helpers in one commit, `Image` class + helpers in another)? Defer until we get there.
+  - `colmajor_to_pattern` accepts `bytearray` at runtime but the annotation says `bytes` only — Pattern A can't express the union without `circuitpython_typing.ReadableBuffer`. Defer the widening to Phase 3 when Pattern B lands.
+  - `width > len(data)` on decoder still raises only the cryptic `IndexError: bytes index out of range`. User explicitly scoped this session to negative-input cases; not addressed. Defer.
+
 ## 2026-04-17: Session 2 — [exp14] (planning)
 
 - Technical insights:
