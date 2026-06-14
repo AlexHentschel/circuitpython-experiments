@@ -71,7 +71,7 @@ duplication that the earlier flat layout forced.
 |--------|----------------|
 | `_constants.py` | Dimensions, encoding-format limits, colors. Pure (no hardware imports). |
 | `bitmap_codec.py` | Row-major ASCII art <-> column-major bytes. Design-time authoring tool. |
-| `geometry.py` | Pure `build_lut(rotation)` + `xy_to_index(x, y, lut)`. |
+| `geometry.py` | Pure `build_lut(rotation, dest=None)` + `xy_to_index(x, y, lut)`. |
 | `icons.py` | 40 icon + 8 arrow bitmap data plus `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (`Icons` / `Arrows` wrapper classes built in `core.py`). |
 | `core.py` | `Display` + `Image` runtime, NeoPixel buffer, font, async methods. Only module importing `board` / `neopixel`. |
 | `__init__.py` | Public-API re-exports; guards the core import so pure sub-modules remain importable on CPython without a device. |
@@ -241,7 +241,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 |--------|----------------|
 | `_constants.py` | `WIDTH` (8), `HEIGHT` (8), `NUM_PIXELS` (64), `_MAX_HEIGHT_PER_COLUMN_BYTE` (8), full color palette. Pure -- no hardware imports. |
 | `bitmap_codec.py` | `pattern_to_colmajor` / `colmajor_to_pattern` design-time helpers. |
-| `geometry.py` | Pure `build_lut(rotation)` returning a fresh `bytearray` + `xy_to_index(x, y, lut)`. |
+| `geometry.py` | Pure `build_lut(rotation, dest=None)` (fresh `bytearray`, or writes into `dest` in place) + `xy_to_index(x, y, lut)`. |
 | `icons.py` | `ICONS`, `ARROWS` bytes + ordered name tuples `ICON_NAMES` / `ARROW_NAMES` (kept together so slot ordering cannot drift). |
 | `core.py` | `Display` + `Image` runtime, NeoPixel buffer, LUT, font, `PIXEL_PIN` (`board.GP0`), `BRIGHTNESS` (0.05). Only module importing `board` / `neopixel`. |
 | `__init__.py` | Public-API re-exports. Core import is guarded by a `board` presence check so host-side tests can load pure sub-modules without a device. |
@@ -255,6 +255,7 @@ Core deliverable. Phase 2 is implemented (hardware test pending). The library is
 **Two-tier API**:
 - **Tier 1 (sync)**: Immediate rendering to NeoPixel buffer. `render_pattern`, `render_icon`, `render_arrow`, `clear_screen`, `set_pixel`, `fill`, `set_brightness`, `set_rotation`, `get_pixel`. Display-mutating methods call `_acquire()` to cancel ongoing Tier 2 animations.
 - **Tier 2 (async)**: MakeCode-compatible convenience methods with `await`. `show_leds`, `show_icon`, `show_arrow`, `show_string`, `show_number`, `pause`. Use `await asyncio.sleep()` and check `_is_cancelled(token)` between animation frames.
+- **Lifecycle**: `deinit()` cancels any ongoing animation (calls `_acquire()`), then calls `_pixels.deinit()` to release the PIO state machine and the GP0 data pin. No re-init path -- the singleton is spent afterwards. Singleton-over-multi-instance design rationale documented in `lib/display/README.md`.
 
 **Bitmap format — column-major bytes**: Monochrome bitmaps (icons, arrows, font glyphs, mono `Image` data) are stored as one byte per column, where bit N of a column byte indicates whether row N is lit. This layout enables efficient horizontal scrolling by iterating contiguous column bytes. Icons use 40 × 8 bytes in `ICONS`; arrows use 8 × 8 bytes in `ARROWS`. User-facing access is by name via `Icons.<NAME>` / `Arrows.<NAME>` (each an `Image` instance); the bulk bytes are an internal storage detail used only by `core._build_image_namespace` at import to construct those instances in `ICON_NAMES` / `ARROW_NAMES` order.
 

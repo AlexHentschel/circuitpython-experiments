@@ -11,6 +11,8 @@ Two-tier API:
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
+  Lifecycle:      deinit -- releases the data pin / PIO; the singleton is
+                   unusable afterwards (no re-init path).
 
 Cancellation policy: any display-mutating method cancels an in-progress
 Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
@@ -32,6 +34,21 @@ and ``lib/display/README.md § Column-major bytes``.
 ``Image`` methods reference module globals (``display``, ``_LUT``, ``_pixels``)
 directly -- tight coupling acceptable for a single-display MCU library.
 """
+
+# PEP 563: defer all annotation evaluation, so PEP 585 subscripts
+# (e.g. ``dict[str, tuple[int, int, int]]``) and forward references work
+# uniformly without per-annotation string-quoting and incur zero on-device
+# evaluation cost. Required for this file because the typing-guarded
+# ``Callable`` import below is unbound at runtime on device.
+from __future__ import annotations
+
+# Type hints only -- not loaded at runtime on device. See:
+# https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information
+# https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18
+try:
+    from typing import Callable
+except ImportError:
+    pass
 
 import asyncio
 import board
@@ -55,7 +72,7 @@ BRIGHTNESS = 0.05
 _pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False)
 
 
-def color(r, g, b):
+def color(r: int, g: int, b: int) -> tuple[int, int, int]:
     """Convenience constructor mirroring Adafruit NeoMatrix's matrix.Color()."""
     return (r, g, b)
 
@@ -85,13 +102,8 @@ _LUT = build_lut(0)
 # errors instead of silently dropping or padding).
 # ---------------------------------------------------------------------------
 
-# Translation table for ``_iter_pattern_rows_fast``. Maps the three
-# realistically-occurring whitespace ordinals (space, tab, CR) to ``None``,
-# which ``str.translate`` interprets as deletion. Built once at import time.
-_HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
 
-
-def _iter_pattern_rows(pattern_str):
+def _iter_pattern_rows(pattern_str: str):
     """Yield normalized non-blank rows from a pattern -- *cold-path* parser.
 
     Each emitted string has all Python whitespace (spaces, tabs, CRs, FFs,
@@ -109,7 +121,13 @@ def _iter_pattern_rows(pattern_str):
             yield row
 
 
-def _iter_pattern_rows_fast(pattern_str):
+# Translation table for ``_iter_pattern_rows_fast``. Maps the three
+# realistically-occurring whitespace ordinals (space, tab, CR) to ``None``,
+# which ``str.translate`` interprets as deletion. Built once at import time.
+_HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
+
+
+def _iter_pattern_rows_fast(pattern_str: str):
     """Yield non-blank rows from a pattern -- *hot-path* parser.
 
     Optimised for per-frame use in ``Display.render_pattern``: one string
@@ -135,7 +153,15 @@ def _iter_pattern_rows_fast(pattern_str):
             yield row
 
 
-def _write_pattern_on_the_fly(pattern, color, pixels, lut, off, width, height):
+def _write_pattern_on_the_fly(
+    pattern: str,
+    color: tuple[int, int, int] | dict[str, tuple[int, int, int]],
+    pixels: neopixel.NeoPixel,
+    lut: bytearray,
+    off: tuple[int, int, int],
+    width: int,
+    height: int,
+) -> None:
     """Candidate replacement for ``_iter_pattern_rows_fast`` in ``render_pattern``.
 
     Intentionally unused for now. Sketches the fully-fused hot-path version:
@@ -182,7 +208,7 @@ def _write_pattern_on_the_fly(pattern, color, pixels, lut, off, width, height):
         # up to the tailing newline (otherwise check `if y >= height` above would have returned).
         # EDGE case: row with index heigh has missing newline
 
-        if row_has_cell and y < height:
+        if row_has_cell and y < height:  # completing last row if partially-filled
             while x < width:
                 pixels[lut[x * height + y]] = off
                 x += 1
@@ -216,7 +242,7 @@ def _write_pattern_on_the_fly(pattern, color, pixels, lut, off, width, height):
         # up to the tailing newline (otherwise check `if y >= height` above would have returned).
         # EDGE case: row with index heigh has missing newline
 
-        if row_has_cell and y < height:
+        if row_has_cell and y < height:  # completing last row if partially-filled
             while x < width:
                 pixels[lut[x * height + y]] = off
                 x += 1
@@ -231,13 +257,13 @@ def _write_pattern_on_the_fly(pattern, color, pixels, lut, off, width, height):
 # ---------------------------------------------------------------------------
 # Monochrome column-major render helper
 # ---------------------------------------------------------------------------
-def _render_colmajor(data, offset, color):
+def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> None:
     """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to ``_pixels``.
 
     Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
     one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
     row ``y`` (with bit 0 = top row).
-    On the hardware level, the LED are addressed using a single index. The Look-Up Table
+    On the hardware level, the LEDs are addressed using a single index. The Look-Up Table
     [``LUT`` ] translates from logical pixels (x, y) to the physical strip index. The ``LUT``
     is organized using x-major convention, i.e. ``_LUT[x * HEIGHT + y]`` returns the physical
     strip index for the logical pixel (x, y).
@@ -246,10 +272,9 @@ def _render_colmajor(data, offset, color):
     CAUTION: this function is part of the hot path and used to render many icons;
     especially for scrolling this code is performance sensitive.
     """
-    # Cache module globals into function-locals: LOAD_FAST (frame-slot access) is cheaper than LOAD_GLOBAL (module-dict lookup).
-    # This is explained in more detail in MicroPython docs: `docs.micropython.org/en/latest/reference/speed_python.html` § "Caching object references".
-    # CircuitPython inherits this unchanged from MicroPython's VM: AI-verified sources are `py/vm.c` (MP_BC_LOAD_FAST_N, MP_BC_LOAD_GLOBAL) and `py/runtime.c`
-    # (mp_load_global);
+    # Cache module globals into function-locals: LOAD_FAST (frame-slot access) is cheaper than LOAD_GLOBAL (module-dict lookup). This is explained in
+    # more detail in MicroPython docs: `docs.micropython.org/en/latest/reference/speed_python.html` § "Caching object references". CircuitPython inherits
+    # this unchanged from MicroPython's VM: AI-verified sources are `py/vm.c` (MP_BC_LOAD_FAST_N, MP_BC_LOAD_GLOBAL) and `py/runtime.c` (mp_load_global);
     pixels = _pixels
     lut = _LUT
     off = OFF
@@ -272,11 +297,11 @@ _font = bitmap_font.load_font(_FONT_PATH)
 _font.load_glyphs(range(32, 127))  # preload printable ASCII at import time
 
 
-def _glyph_columns(ch):
+def _glyph_columns(ch: str) -> bytes:
     """Convert a font glyph to column-major bytes for the 8-row LED matrix.
 
     Returns one byte per column spanning the glyph's advance width.
-    Bit N of each byte = row N (0 = top).
+    Bit N of each byte = row N (with row 0 = top).
 
     Font metric terms (from fontio.Glyph / PCF):
       ascent:       rows from baseline to top of tallest glyph (= display row 0).
@@ -286,7 +311,18 @@ def _glyph_columns(ch):
       shift_x:      advance width (columns the current text position moves right after this glyph).
       width/height: pixel dimensions of the glyph's actual bitmap.
 
-    Coordinate mapping from glyph bitmap (cx, cy) to display:
+    Coordinate systems (formal 2D handedness with +z out of the screen towards the observer;
+    x points right in both, so only the y-axis direction differs). IMPORTANT: glyph properties
+    are defined in the right-handed system, while the glyph bitmap is in the left-handed system.
+      right-handed -- y UP from the baseline:    ``ascent``, ``dy`` (metric offsets).
+      left-handed  -- y DOWN from the top:       ``cx``/``cy``, ``display_row``/``col`` (bitmap rasters).
+      magnitudes are coordinate system agnostic: ``height``, ``width`` (glyph extent).
+    Only the vertical placement crosses coordinate systems: ``dy + height`` is the glyph's top edge in the
+    right-handed system (bottom left pixel being the origin). The transformation ``ascent - (dy + height)``
+    flips it into the left-handed display coordinate system (top left pixel being the origin).
+
+    Coordinate mapping from glyph bitmap (cx, cy) to display (x,y). Note: the glyph bitmap rastering is already stored
+    in the left-handed coordinate system, which happens to be aligned with the display; hence ``cy`` is not fliped:
       display_row = ascent - height - dy + cy
         (glyph top edge at font-y = dy + height; display row 0 = ascent)
       display_col = cx + dx
@@ -303,13 +339,13 @@ def _glyph_columns(ch):
     for cx in range(glyph.width):
         col_byte = 0
         for cy in range(glyph.height):
-            display_row = row_origin + cy
-            if 0 <= display_row < HEIGHT and bm[cx + cy * glyph.width]:
-                col_byte |= 1 << display_row
+            y = row_origin + cy
+            if 0 <= y < HEIGHT and bm[cx + cy * glyph.width]:
+                col_byte |= 1 << y
         # dx = horizontal offset: current text position -> bitmap left edge
-        bx = cx + glyph.dx
-        if 0 <= bx < len(cols):
-            cols[bx] = col_byte
+        x = cx + glyph.dx
+        if 0 <= x < len(cols):
+            cols[x] = col_byte
     return bytes(cols)
 
 
@@ -318,7 +354,7 @@ def _glyph_columns(ch):
 # glyph feeder. Used by ``Display.show_string``; see that method's
 # docstring for the ring-size derivation.
 # ---------------------------------------------------------------------------
-def _render_ring_window(ring, read_head, color_on):
+def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, int, int]) -> None:
     """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``.
 
     The ring holds exactly ``WIDTH`` column bytes; ``read_head`` is the index
@@ -355,13 +391,13 @@ class _GlyphColumnFeeder:
 
     __slots__ = ("_text", "_char_idx", "_cols", "_col_idx")
 
-    def __init__(self, text):
+    def __init__(self, text: str) -> None:
         self._text = text
         self._char_idx = 0
         self._cols = b""
         self._col_idx = 0
 
-    def next_column(self):
+    def next_column(self) -> int | None:
         # Load the next glyph whenever the current glyph's columns are exhausted;
         # `while` condition initially succeeds because `_cols` is empty and `_col_idx = 0`.
         # Usage of `while` here (instead of `if`) skips any zero-width glyphs.
@@ -388,14 +424,23 @@ class Image:
 
     __slots__ = ("_data", "_width", "_multi", "_color")
 
-    def __init__(self, data, width, multi, color):
+    def __init__(
+        self,
+        data: bytes | tuple,
+        width: int,
+        multi: bool,
+        color: tuple[int, int, int] | None,
+    ) -> None:
         self._data = data
         self._width = width
         self._multi = multi
         self._color = color
 
     @staticmethod
-    def from_pattern(pattern_str, color=WHITE):
+    def from_pattern(
+        pattern_str: str,
+        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+    ) -> Image:
         """Parse a pattern string into an Image.
 
         color: RGB tuple (mono) or dict {char: RGB} (multi-color).
@@ -413,7 +458,7 @@ class Image:
         # tuple of per-pixel RGB tuples. Conversion happens here so render methods
         # do not re-parse on each call.
         is_dict = isinstance(color, dict)
-        rows = list[str](_iter_pattern_rows(pattern_str))
+        rows = list(_iter_pattern_rows(pattern_str))
         height = min(len(rows), HEIGHT)
         img_width = max((len(r) for r in rows[:height]), default=WIDTH)
 
@@ -434,22 +479,22 @@ class Image:
             return Image(bytes(cols), img_width, False, color)
 
     @property
-    def width(self):
+    def width(self) -> int:
         return self._width
 
-    def recolor(self, new_color):
+    def recolor(self, new_color: tuple[int, int, int]) -> None:
         """Change a mono Image's display color in place. No-op for multi-color."""
         if not self._multi:
             self._color = new_color
 
-    async def show_image(self, offset=0, interval_ms=0):
+    async def show_image(self, offset: int = 0, interval_ms: int = 0) -> None:
         """Render WIDTH columns starting at offset. Holds for interval_ms milliseconds."""
         display._acquire()
         self._render_window(offset)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def scroll_image(self, offset=1, interval_ms=200):
+    async def scroll_image(self, offset: int = 1, interval_ms: int = 200) -> None:
         """Scroll through the image, advancing `offset` columns per frame, with `interval_ms` milliseconds between frames.
 
         Cancellable: any newer display operation causes this coroutine to
@@ -469,7 +514,7 @@ class Image:
                 return
             pos += offset
 
-    def _render_window(self, offset):
+    def _render_window(self, offset: int) -> None:
         """Render the WIDTH-column window starting at ``offset`` into ``_pixels`` and show().
 
         Splits the display into three slices ahead of the per-pixel loop --
@@ -547,7 +592,7 @@ class Image:
 # the safe path. If you want a private, mutable copy of an icon bitmap,
 # build one via ``create_image`` from a pattern.
 # ---------------------------------------------------------------------------
-def _build_image_namespace(names, data):
+def _build_image_namespace(names: tuple[str, ...], data: bytes) -> type:
     """Populate a bare class with Image instances indexed by name order."""
     cls = type("_ImageNamespace", (), {})
     for i, name in enumerate(names):
@@ -560,7 +605,10 @@ Icons = _build_image_namespace(ICON_NAMES, ICONS)
 Arrows = _build_image_namespace(ARROW_NAMES, ARROWS)
 
 
-def create_image(pattern_str, color=WHITE):
+def create_image(
+    pattern_str: str,
+    color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+) -> Image:
     """Create an 8x8 Image.
 
     Raises ``ValueError`` if the pattern is not exactly ``WIDTH`` columns
@@ -574,7 +622,10 @@ def create_image(pattern_str, color=WHITE):
     return img
 
 
-def create_big_image(pattern_str, color=WHITE):
+def create_big_image(
+    pattern_str: str,
+    color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+) -> Image:
     """Create a 16-wide Image (scrollable).
 
     Raises ``ValueError`` if the pattern is not exactly ``2 * WIDTH``
@@ -600,12 +651,12 @@ class Display:
     module docstring for the full cancellation policy.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._seq = 0
 
     # -- Cancellation token --------------------------------------------------
 
-    def _acquire(self):
+    def _acquire(self) -> int:
         """Start a new display-operation generation.
 
         Increments the sequence counter and returns the new value as a
@@ -617,7 +668,7 @@ class Display:
         self._seq += 1
         return self._seq
 
-    def _is_cancelled(self, token):
+    def _is_cancelled(self, token: int) -> bool:
         """True if a display operation newer than ``token`` has started.
 
         Tier 2 animations check this between frames -- on both sides of an
@@ -627,7 +678,11 @@ class Display:
 
     # -- Tier 1: Synchronous rendering primitives ----------------------------
 
-    def render_pattern(self, pattern, color=WHITE):
+    def render_pattern(
+        self,
+        pattern: str,
+        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+    ) -> None:
         """Parse and render a pattern string directly to LEDs.
 
         Direct render via LUT -- no intermediate column-major buffer.
@@ -668,7 +723,7 @@ class Display:
             y += 1
         pixels.show()
 
-    def render_icon(self, icon, color=WHITE):
+    def render_icon(self, icon: Image, color: tuple[int, int, int] = WHITE) -> None:
         """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
 
         ``color`` is the mono render color and always overrides the icon's
@@ -677,7 +732,7 @@ class Display:
         self._acquire()
         _render_colmajor(icon._data, 0, color)
 
-    def render_arrow(self, arrow, color=WHITE):
+    def render_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE) -> None:
         """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``) to the LEDs.
 
         ``color`` is the mono render color and always overrides the arrow's
@@ -686,43 +741,43 @@ class Display:
         self._acquire()
         _render_colmajor(arrow._data, 0, color)
 
-    def clear_screen(self):
+    def clear_screen(self) -> None:
         """Turn off all pixels. Cancels any ongoing animation."""
         self._acquire()
         _pixels.fill(OFF)
         _pixels.show()
 
-    def clear(self):
+    def clear(self) -> None:
         """Alias for clear_screen()."""
         self.clear_screen()
 
-    def set_pixel(self, x, y, color=WHITE):
+    def set_pixel(self, x: int, y: int, color: tuple[int, int, int] = WHITE) -> None:
         """Set one pixel and update the display. Cancels ongoing animations."""
         self._acquire()
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             _pixels[_LUT[x * HEIGHT + y]] = color
             _pixels.show()
 
-    def fill(self, color=WHITE):
+    def fill(self, color: tuple[int, int, int] = WHITE) -> None:
         """Fill all pixels. Cancels ongoing animations."""
         self._acquire()
         _pixels.fill(color)
         _pixels.show()
 
-    def get_pixel(self, x, y):
+    def get_pixel(self, x: int, y: int) -> tuple[int, int, int]:
         """Read the buffered pixel color at (x, y). Read-only; does not cancel ongoing animations."""
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             return _pixels[_LUT[x * HEIGHT + y]]
         return OFF
 
     @staticmethod
-    def set_brightness(value):
+    def set_brightness(value: float) -> None:
         """Adjust global brightness (0.0-1.0). Does not cancel animations."""
         _pixels.brightness = value
         _pixels.show()
 
     @staticmethod
-    def set_rotation(degrees):
+    def set_rotation(degrees: int) -> None:
         """Rebuild coordinate LUT for 0/90/180/270 clockwise rotation. Does not cancel animations.
 
         ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
@@ -731,12 +786,35 @@ class Display:
         is needed.
         """
         # Mutate in place so any module reading _LUT sees the new mapping
-        # without needing to re-import.
-        _LUT[:] = build_lut(degrees)
+        # without needing to re-import. Passing dest=_LUT writes the new table
+        # directly into the live buffer -- no fresh bytearray + slice-copy.
+        build_lut(degrees, dest=_LUT)
+
+    # -- Lifecycle -----------------------------------------------------------
+
+    def deinit(self) -> None:
+        """Release the NeoPixel hardware (PIO state machine + data pin).
+
+        Cancels any ongoing animation, then deinitializes the underlying
+        NeoPixel buffer. After this call the ``display`` singleton is unusable
+        -- any further render call raises. There is no re-init path; this is a
+        teardown hook for code that wants to free the data pin / PIO for other
+        use (e.g. before a soft reboot, or to hand the pin to a different
+        peripheral). See ``lib/display/README.md`` for why this library exposes
+        a single module-level ``display`` instead of supporting multiple
+        ``Display`` instances.
+        """
+        self._acquire()
+        _pixels.deinit()
 
     # -- Tier 2: Async MakeCode-compatible methods ---------------------------
 
-    async def show_leds(self, pattern, color=WHITE, interval_ms=0):
+    async def show_leds(
+        self,
+        pattern: str,
+        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+        interval_ms: int = 0,
+    ) -> None:
         """Render a pattern, then hold for interval_ms milliseconds (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
@@ -745,19 +823,25 @@ class Display:
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_icon(self, icon, color=WHITE, interval_ms=0):
+    async def show_icon(self, icon: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
         """Render an icon ``Image`` (e.g. ``Icons.HEART``), hold for interval_ms milliseconds."""
         self.render_icon(icon, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_arrow(self, arrow, color=WHITE, interval_ms=0):
+    async def show_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
         """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), hold for interval_ms milliseconds."""
         self.render_arrow(arrow, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_string(self, text, color=WHITE, interval_ms=150, loop=False):
+    async def show_string(
+        self,
+        text: str,
+        color: tuple[int, int, int] = WHITE,
+        interval_ms: int = 150,
+        loop: bool = False,
+    ) -> None:
         """Scroll text across the display.
 
         Fit-on-screen text (total glyph-column width <= WIDTH) is centered
@@ -843,7 +927,13 @@ class Display:
             if not loop:
                 return
 
-    async def show_number(self, n, color=WHITE, interval_ms=150, loop=False):
+    async def show_number(
+        self,
+        n: int,
+        color: tuple[int, int, int] = WHITE,
+        interval_ms: int = 150,
+        loop: bool = False,
+    ) -> None:
         """Display a number via ``show_string(str(n))``.
 
         Fit-on-screen numbers (total glyph width <= WIDTH -- typically
@@ -853,13 +943,13 @@ class Display:
         """
         await self.show_string(str(n), color, interval_ms, loop)
 
-    async def pause(self, ms):
+    async def pause(self, ms: int) -> None:
         """Cancellable async sleep for ms milliseconds."""
         self._acquire()
         await asyncio.sleep(ms / 1000)
 
     @staticmethod
-    def forever(callback):
+    def forever(callback: Callable[[], object]) -> None:
         """Sync convenience: run callback in a while-True loop via asyncio.
 
         For simple scripts that don't need custom async setup.

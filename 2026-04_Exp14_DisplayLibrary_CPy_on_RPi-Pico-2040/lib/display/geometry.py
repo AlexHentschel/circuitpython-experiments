@@ -3,7 +3,8 @@ Pure coordinate mapping for the LED matrix.
 
 Separates the (x, y) -> strip-index transform from the hardware layer so
 it can be exercised on CPython without a device. ``Display.set_rotation``
-in ``core.py`` delegates here and mutates the module-level LUT in place.
+in ``core.py`` delegates here and mutates the module-level Look-Up Table
+[LUT] in place.
 
 Indexing convention: the LUT is a flat ``bytearray`` of ``WIDTH * HEIGHT``
 entries indexed as ``lut[x * HEIGHT + y]`` -- x is the outer stride, y the
@@ -19,11 +20,19 @@ for the full rationale.
 from ._constants import WIDTH, HEIGHT
 
 
-def build_lut(rotation: int = 0) -> bytearray:
-    """Return a fresh ``bytearray`` of ``WIDTH * HEIGHT`` bytes.
+def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
+    """Build the coordinate LUT, returning a ``WIDTH * HEIGHT``-byte ``bytearray``.
 
     ``result[x * HEIGHT + y]`` is the NeoPixel strip index for logical
     pixel ``(x, y)`` at the given rotation.
+
+    ``dest``: optional pre-allocated target buffer. When ``None`` (default) a
+    fresh ``bytearray`` is allocated and returned. When supplied it must be
+    exactly ``WIDTH * HEIGHT`` bytes; the table is written into it in place and
+    the same object is returned -- this lets ``Display.set_rotation`` rebuild the
+    live LUT without a fresh allocation (avoids per-rotation heap churn). On an
+    invalid ``rotation`` the function raises before writing, so ``dest`` is left
+    unmodified; an invalid ``dest`` length raises before any writes as well.
 
     Two-stage coordinate transform:
       1. Rotation: logical (x, y) -> physical (px, py).
@@ -59,7 +68,12 @@ def build_lut(rotation: int = 0) -> bytearray:
     y=6    ( 8)  ( 9)  (10)  (11)  (12)  (13)  (14)  (15)
     y=7    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)  -> bottom row (strip start)
     """
-    lut = bytearray(WIDTH * HEIGHT)
+    if dest is None:
+        lut = bytearray(WIDTH * HEIGHT)
+    else:
+        if len(dest) != WIDTH * HEIGHT:
+            raise ValueError(f"dest must be exactly {WIDTH * HEIGHT} bytes; got {len(dest)}")
+        lut = dest
     if rotation == 0:
         # px, py = x, y
         #   =>  idx  =  (HEIGHT - 1 - y) * WIDTH + x  =  (HEIGHT - 1) * WIDTH + x - y * WIDTH

@@ -99,6 +99,46 @@ def test_build_lut_returns_fresh_instance():
 
 
 # ---------------------------------------------------------------------------
+# In-place destination buffer (dest=) -- lets Display.set_rotation rebuild the
+# live LUT without a fresh allocation. Contract: writes into dest, returns the
+# same object, result is identical to the freshly-allocated form. Invalid
+# rotation or wrong-length dest raises before any writes (dest left intact).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+def test_build_lut_dest_writes_in_place_and_returns_same_object(rotation):
+    """``dest`` is written in place, returned as-is, and matches the allocating form."""
+    dest = bytearray(NUM_PIXELS)
+    result = build_lut(rotation, dest=dest)
+    assert result is dest
+    assert result == build_lut(rotation)
+
+
+def test_build_lut_dest_reuse_overwrites_previous_rotation():
+    """Reusing one buffer across rotations leaves no stale entries from the prior fill."""
+    dest = bytearray(NUM_PIXELS)
+    build_lut(0, dest=dest)
+    build_lut(90, dest=dest)
+    assert dest == build_lut(90)
+
+
+@pytest.mark.parametrize("bad_len", [0, NUM_PIXELS - 1, NUM_PIXELS + 1])
+def test_build_lut_rejects_wrong_length_dest(bad_len):
+    """A ``dest`` that is not exactly ``NUM_PIXELS`` bytes raises ``ValueError``."""
+    with pytest.raises(ValueError):
+        build_lut(0, dest=bytearray(bad_len))
+
+
+def test_build_lut_invalid_rotation_leaves_dest_unmodified():
+    """An invalid rotation raises before any writes, so a pre-filled ``dest`` is untouched."""
+    dest = build_lut(0)  # valid, fully populated
+    snapshot = bytes(dest)
+    with pytest.raises(ValueError):
+        build_lut(45, dest=dest)
+    assert bytes(dest) == snapshot
+
+
+# ---------------------------------------------------------------------------
 # Input-domain contract: accept {0, 90, 180, 270} and their counter-clockwise
 # equivalents {-270, -180, -90}; reject everything else (including out-of-range
 # multiples of 90 like 360 or -360). Callers normalise at their own site.

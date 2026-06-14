@@ -112,6 +112,12 @@ Anywhere the API takes an icon or arrow, it takes any `Image`.
 | `set_brightness(value)` | Adjust 0.0-1.0. Does not cancel animations. |
 | `set_rotation(degrees)` | Rebuild LUT for 0/90/180/270. |
 
+### Lifecycle
+
+| Method | Description |
+|--------|-------------|
+| `deinit()` | Release the data pin / PIO state machine. Cancels any ongoing animation, then frees the NeoPixel hardware; the `display` singleton is unusable afterwards (no re-init path). Use before a soft reboot or to hand GP0 to another peripheral. |
+
 ### Tier 2 -- Async (require `await`)
 
 | Method | Description |
