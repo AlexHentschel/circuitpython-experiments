@@ -7,45 +7,51 @@ alwaysApply: true
 
 Persistent learning across sessions lives in `memory/` (this directory's sibling). Without it, every session re-derives the same conclusions and re-calibrates to the same preferences.
 
+> **Layout: unified multi-project memory (since the 2026-06-14 warm reset).** ONE persona memory, shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future), reachable from every workspace via the `.cursor/rules` symlink (C4). Central = high-level only; project folders link to in-repo technical artifacts, never copy them (C8). Multi-project mechanics — active-project detection (M1), scope tagging (M2), promotion ladder (M3), **attention scoping / session-start read order (M5)**, demotion (M6), and the **placement gate** — live in `04-multi-project.mdc` (the single source of truth for routing + read order; this file does not duplicate it). See `universal/CHANGELOG.md § 2026-06-14 warm reset` for the migration record. The whole layout is currently marked **provisional** — see `concepts/_INDEX.md` / `projects/_INDEX.md` headers for the confirm/refute watch-for.
+
 ## File Architecture
+
+Central (`memory/…`), behavioral catalog under `universal/`:
 
 | File | Purpose | Update authority |
 |------|---------|------------------|
-| `memory/WORKING_STYLE.md` | Collaboration / behavioral directive catalog (communication posture, process, judgment, artifact conventions). Tracks reinforcement counts. | Agent (free) |
-| `memory/CODING_PRINCIPLES.md` | Coding-craft directive catalog — how *code itself* should be written (API shape, structure, correctness-argument hygiene, test construction, refactoring economics). Same schema as `WORKING_STYLE.md`; sibling not sub-file. | Agent (free) |
-| `memory/SESSION_LOG.md` | Per-session insights, artifacts, open questions. Living summary at top. | Agent (free) |
-| `memory/TECHNICAL.md` | Domain knowledge (terminology, formulas, algorithms, code map). Every entry has a status. | Agent (free); status tracks evidence sufficiency |
-| `memory/CONCLUSIONS.md` | Cross-session findings: `unverified` (noted) and `evidence-supported` (corroborated by independent sources); plus `disputed` / `invalidated`. | Agent (free); status tracks evidence sufficiency |
-| `memory/MONITORING.md` | Observation register: single-incident observations I want to act differently on *if they recur*. Solves the stateless-retrieval gap — "watch for next occurrence of X" has no triggering mechanism, so the observation is written down explicitly. Bullets with Observation / Trigger / Action on trigger / First observed / Scope. Defer creation until first entry. | Agent (free) |
-| `memory/CHANGELOG.md` | Provenance of directive lifecycle and structural changes (schema evolutions, splits, consolidations, new files). | Agent (free) | Agent (free) |
+| `memory/universal/WORKING_STYLE.md` | Collaboration / behavioral directive catalog (communication posture, process, judgment, artifact conventions). Tracks reinforcement counts. Scope tags `[universal]`/`[user]`/`[project]`/`[task]`. | Agent (free) |
+| `memory/universal/CODING_PRINCIPLES.md` | Coding-craft directive catalog — how *code itself* should be written (API shape, structure, correctness-argument hygiene, test construction, refactoring economics). Same schema as `WORKING_STYLE.md`; sibling not sub-file. | Agent (free) |
+| `memory/universal/PATTERNS.md` | Generalized cross-project patterns (technique/process) promoted off `crossref/BY_PATTERN.md` at the 2-project trigger. | Agent (free) |
+| `memory/universal/MONITORING.md` | Observation register: single-incident observations to act on *if they recur*. Bullets with Observation / Trigger / Action on trigger / First observed / Scope. | Agent (free) |
+| `memory/universal/CHANGELOG.md` | Provenance of directive lifecycle and structural changes (schema evolutions, splits, consolidations, new files, the warm reset). | Agent (free) |
+| `memory/SESSION_LOG.md` | **Central** cross-project / tooling session log + living summary + Source-of-Truth map. Per-project session detail lives in `projects/<slug>/SESSION_LOG.md`. | Agent (free) |
+| `memory/projects/_INDEX.md` | Project roster + **path-globs for active-project detection (M1)** + new-project heuristic. Always read at session start. | Agent (free) |
+| `memory/projects/<slug>/CONTEXT.md` | Per-project digest: what it is, status, resumption point, entry-points linking into the project repo (not copied — C8). | Agent (free) |
+| `memory/projects/<slug>/SESSION_LOG.md` | Per-project session insights, artifacts, open questions. | Agent (free) |
+| `memory/projects/<slug>/CONCLUSIONS.md` | Per-project findings with evidence status (`unverified`/`evidence-supported`/`disputed`/`invalidated`). | Agent (free); status tracks evidence sufficiency |
+| `memory/concepts/_INDEX.md` | Always-read concept skeleton: one line per concept, domain-indexed (one-hop topic→concept retrieval). | Agent (free) |
+| `memory/concepts/_RELATIONS.md` | Typed concept↔concept edge list (lateral traversal). | Agent (free) |
+| `memory/concepts/<domain>.md` | Domain knowledge as concept entries (replaces the old monolithic `TECHNICAL.md`). One `### concept` per concept; status per entry. | Agent (free); status tracks evidence sufficiency |
+| `memory/crossref/BY_TOPIC.md` | Cross-*project* index: which projects touched a topic (prior-art retrieval). | Agent (free) |
+| `memory/crossref/BY_PATTERN.md` | Promotion-ladder working surface: candidate cross-project patterns + occurrence counts. | Agent (free) |
+
+Project repos hold the heavy technical artifacts (code, working-docs, diagrams), **linked** from `projects/<slug>/CONTEXT.md`. The pre-reset snapshot is at `memory-pre-warm-reset-<ts>/` (rollback reference).
 
 ## Active Retrieval (at session start)
 
-Memory files are **not** auto-injected. Read selectively:
-
-1. `SESSION_LOG.md` — living summary + last 1–2 entries + Open Questions
-2. `WORKING_STYLE.md` — scan for directives relevant to the current task's collaboration posture
-3. `CODING_PRINCIPLES.md` — scan when doing code work (API design, refactoring, test construction)
-4. `MONITORING.md` — scan at session start whenever the file exists; each entry is a cross-session trigger that only fires if you recognise its recurrence signal, so you must have the entries resident when the potentially-triggering situation appears
-5. `CONCLUSIONS.md` — only if evaluating or revisiting findings
-6. `TECHNICAL.md` — only if doing technical work
-7. `CHANGELOG.md` — only during self-evaluation or compaction
+Memory files are **not** auto-injected. The **session-start read order is project-scoped and prescribed in `04-multi-project.mdc § Attention scoping (M5)`** — that is the single source of truth; this file does not restate it (avoids two files prescribing conflicting orders — the F8/F10 hazard). In brief: detect the active project (M1) → always read `universal/{WORKING_STYLE,CODING_PRINCIPLES,MONITORING}.md` + `projects/_INDEX.md` + `concepts/_INDEX.md` + central `SESSION_LOG.md` living summary → read only the **active** project's `projects/<slug>/{CONTEXT,SESSION_LOG,CONCLUSIONS}.md`; reach other projects only via `crossref/`. Pull a `concepts/<domain>.md` or `_RELATIONS.md` on demand; `universal/CHANGELOG.md` only during self-evaluation or compaction.
 
 Run **health checks** alongside reading: anything unfamiliar? files unexpectedly large/small? stale entries? If any check raises concern, request a dedicated maintenance session — do not fix as a side effect.
 
 ## Update Rules
 
-After every substantive exchange, evaluate:
+After every substantive exchange, evaluate (route every write through **`04-multi-project.mdc § Placement gate`** — it names the exact destination file given scope; the targets below are the post-warm-reset homes):
 
-1. New concept introduced? → `TECHNICAL.md` (mark `unverified`)
+1. New concept introduced? → `concepts/<domain>.md` as a `### concept` (mark `unverified`); add its `concepts/_INDEX.md` line. Seed a new domain only on evidence (C7).
 2. Correction received? → mark prior understanding `invalidated`; record correction
-3. Working-style direction given? → `WORKING_STYLE.md` (new row or reinforcement increment)
-4. Conclusion reached (with supporting evidence) or invalidated? → `CONCLUSIONS.md`
-5. Session produced insights/artifacts? → `SESSION_LOG.md`
+3. Working-style direction given? → `universal/WORKING_STYLE.md` (new row or reinforcement increment)
+4. Conclusion reached (with supporting evidence) or invalidated? → active `projects/<slug>/CONCLUSIONS.md`
+5. Session produced insights/artifacts? → active `projects/<slug>/SESSION_LOG.md` (cross-project/tooling → central `SESSION_LOG.md`)
 6. Takeaway stated in conversation but not written to file? → write it now. Conversation does not persist.
-7. Pattern emerging from repeated friction (3+ iterations)? → extract into `WORKING_STYLE.md` as new directive
+7. Pattern emerging from repeated friction (3+ iterations)? → extract into `universal/WORKING_STYLE.md` as new directive; cross-project technique/process candidate → `crossref/BY_PATTERN.md` (promote to `universal/PATTERNS.md` at the 2-project trigger, M3)
 8. **New directive recorded?** → State its **goal** explicitly (the outcome the rule exists to achieve). Directives without a stated goal are unfalsifiable — there's no axis to evaluate effectiveness, detect drift, or decide on retirement.
-9. **Observation worth acting on *only if it recurs*?** → `MONITORING.md`. Use when evidence is single-incident but the pattern seems real, or when a claim/directive plausibly generalizes but the current evidence does not yet justify the lift. Include concrete trigger + action-on-trigger so a later session can execute without re-deriving the intent. Do *not* use `MONITORING.md` as a deferral mechanism for items that should be acted on *now*; recurrence-gated is a stricter posture than "later".
+9. **Observation worth acting on *only if it recurs*?** → `universal/MONITORING.md`. Use when evidence is single-incident but the pattern seems real, or when a claim/directive plausibly generalizes but the current evidence does not yet justify the lift. Include concrete trigger + action-on-trigger so a later session can execute without re-deriving the intent. Do *not* use `MONITORING.md` as a deferral mechanism for items that should be acted on *now*; recurrence-gated is a stricter posture than "later".
 
 ### How
 
@@ -64,20 +70,21 @@ Two-tier ladder for findings about the system being built/analyzed:
 |--------|---------|---------------------|
 | `unverified` | Stated or extracted; not yet investigated | (entry-level default) |
 | `evidence-supported` | Corroborated by independent sources — datasheets, official CircuitPython docs, on-device behavior, mechanical verification (grep/AST/tests), or multiple concordant code references | Agent records when evidence is sufficient; flag explicitly in conversation when proactively presenting |
-| `disputed` | Conflicting evidence exists; needs resolution | Either side may set; record both positions per the *contradictions have no default winner* principle in `WORKING_STYLE.md` |
+| `disputed` | Conflicting evidence exists; needs resolution | Either side may set; record both positions per the *contradictions have no default winner* principle in `universal/WORKING_STYLE.md` |
 | `invalidated` | Previously believed, now disproven; retain with correction history | Either side may set; never delete the entry |
 
-There is **no human-elevation gate** in this project — the human is project owner but not the CircuitPython domain authority, so promotion depends on independent corroboration, not user ratification. When the user *is* the authority (project conventions, design intent, what success means), the user-as-authority case follows the *contradictions have no default winner* adjudication path, not a status promotion.
+There is **no human-elevation gate** in this project — the human is project owner but not the CircuitPython domain authority, so promotion depends on independent corroboration, not user ratification. When the user *is* the authority (project conventions, design intent, what success means), the user-as-authority case follows the *contradictions have no default winner* adjudication path in `universal/WORKING_STYLE.md`, not a status promotion.
 
 **Operational content** (working style, session logs, meta-rules, plans, working-docs): agent updates freely.
 
 ## Maintenance
 
 1. Compaction is **always deliberate** — never a side effect of another edit.
-2. Read `CHANGELOG.md` first; recall past compaction failures.
+2. Read `universal/CHANGELOG.md` first; recall past compaction failures.
 3. Before removing/merging any entry: state what, why, verify it isn't the sole record of tracking metadata.
-4. Prefer **splitting over pruning**. If a file grows large, create a topic file and reference it from the index.
-5. Log every maintenance action in `CHANGELOG.md`.
+4. Prefer **splitting over pruning**. If a file grows large, create a topic file and reference it from the index. Categories form by *accumulate-then-split* — seed on the first instance, split hierarchically as instances accumulate, cross-link overlapping categories rather than forcing a clean partition (see `universal/WORKING_STYLE.md § Core Principles`). For `concepts/`, this is the D8 graduation rule: one `concepts/<domain>.md` per domain, split to per-concept files only when a domain grows unwieldy.
+5. **Batch heavy restructuring into deliberate, user-gated *memory-lifecycle iterations*.** When a split/merge/re-tag/reorg is more than a trivial inline edit, append it to a maintenance backlog (`memory/MAINTENANCE_BACKLOG.md`, created on first entry) for the next iteration instead of doing it mid-task. Running an iteration is user-gated like compaction; proactively *recommend* one when the backlog grows or retrieval degrades.
+6. Log every maintenance action in `universal/CHANGELOG.md`.
 
 ### Evolution vocabulary (use in CHANGELOG entries)
 

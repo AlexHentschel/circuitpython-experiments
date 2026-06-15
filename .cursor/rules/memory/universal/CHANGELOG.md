@@ -4,6 +4,99 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-06-15 — extend: seeded `concepts/i2c.md` + `concepts/power.md`; `fuel-gauge`/`sensors` taxonomy decision
+
+**Change**: first concept-domain seeding since the warm reset (user-gated; Alex approved I2C, then power). Two new domain files, both `[cross-experiment]` `evidence-supported`, populated from the Bamboo-Lamp standby thread but written as **general** domain knowledge (lamp = illustration only). Each claim verified this session against ≥2 independent/authority sources before being marked evidence-supported (Alex's standing instruction).
+
+- **`concepts/i2c.md`** (6 concepts): open-drain/wired-AND · ratiometric logic levels · pull-up sizing (Rp min/max, modes, Cb) · 7-bit addressing/reserved/conflict-resolution · clock stretching · back-feeding (ESD-diode). Sources: NXP UM10204, TI SLVA689/SLVA704/SBAA565/SCDA015, Nexperia AN90044, Microchip, Sofics, Broadcom.
+- **`concepts/power.md`** (6 concepts): self-discharge floor · standby budgeting · power-domain isolation & Ioff · power gating & fail-off · fuel gauge MAX17048 (voltage-based ModelGauge + mode ladder) · COTS-LED standby heuristic. Sources: 5 battery refs (self-discharge), MAX17048 datasheet Rev.7 (+3 mirrors), TI SCDA015/szza030, Pololu 2808 page.
+
+**Taxonomy decisions (Level-2, Alex-gated)**:
+- **`fuel-gauge` is NOT a separate domain** — folded into `power` (MAX17048's reusable knowledge is energy/SoC management; a per-device domain stays near-empty; D8 graduation = seed coarse, split when unwieldy).
+- **`sensors` deferred** — power-*measurement* devices (fuel gauge, current/voltage monitor) live in `power`; **environmental/physical** sensors (temperature LM75A, motion, light) → a future `sensors` domain seeded on first concrete sensing concept (seed-on-evidence C7; none yet — LM75A is address-only so far).
+- **Cross-domain components** live in their primary domain + are cross-referenced (MAX17048 → `power`, cross-ref `i2c`).
+
+**Cross-records updated**: `concepts/_INDEX.md` (added both domain blocks; rewrote candidate-domains note: removed `power`/`i2c`/`fuel-gauge`, recorded the sensors taxonomy); `concepts/_RELATIONS.md` (3 realized i2c↔power edges, replacing the anticipated ones); `crossref/BY_TOPIC.md` (I2C-bus, power, and fuel-gauge rows now point at the seeded concept files); `projects/bamboo-lamp/SESSION_LOG.md` (Session-3 addendum). Digest §6/§9/§10 promotion-flags now satisfied.
+
+**Refinement surfaced during verification**: LiPo self-discharge corroborated at **~2–5 %/mo** (premium 1–3 %), refining the digest's earlier "3–5 %"; conclusion (dominates µA electronics) unchanged. Recorded in `power.md`.
+
+## 2026-06-14 — refine/extend: post-warm-reset maintenance iteration (consistency sweep + distilled learnings)
+
+**Change**: first lifecycle iteration after the warm reset (user-gated; Alex: "refine your memory ... consistency, conciseness, cross-records, distill learnings"). Three actions, all additive/refining — no structural reorg, no entry dropped.
+
+- **Consistency (refine)**: re-pointed the residual **active forward-routing** `TECHNICAL.md` pointers → `concepts/<domain>.md`. The Phase-7 dead-path grep had only swept `.mdc` rule files, not the memory *data*; `MONITORING.md` (4 spots: the "what does/doesn't go here" routing lines, the cross-ref-on-promotion line, and the MicroPython-perf + font-swap + `str.translate` action-on-trigger pointers) and `CODING_PRINCIPLES.md` (the domain-knowledge routing line + the *Cross-runtime citations* directive's promote-to and "now lives in" pointers) still told a future session to write to the retired file. **Historical** `TECHNICAL.md` mentions (this changelog's warm-reset entry, exp14 `SESSION_LOG.md` narrative, the `concepts/*` "reshaped from" provenance notes) were left intact — they correctly describe past state.
+- **Distilled learning → directive (generalize)**: `WORKING_STYLE.md § Workflow & Artifacts` *Prefer the file-edit tools over shell for file mutations; hand off an unavoidable shell file-op rather than let it hang* `[user]` `(experimental)`. Evidence = 3 approval-gate stalls during the warm-reset execution (`cp -R` snapshot, `sed` range-append, `ln -s` symlink) — non-allowlisted file-mutating shell commands stall the whole turn rather than erroring. Generalizable core: prefer `Write`/`StrReplace`/`Delete`; elevate or hand off unavoidable shell file-ops.
+- **Distilled learning → maintenance discipline (generalize)**: `WORKING_STYLE.md § Retention and Evaluation` new bullet *Verify no-loss by claims-coverage, not line-diff, when restructuring* — lifts the warm-reset C1/R-8/S2 no-loss invariant to a persona-wide restructuring rule.
+
+**Headers/cross-records updated**: `WORKING_STYLE.md` Last-updated line; central `SESSION_LOG.md` gained **Session 11 (warm-reset EXECUTION + this maintenance)** — the execution narrative the Session-10 handoff anticipated but which only this changelog had captured.
+
+**Not done (deliberate)**: no compaction (memory is fresh, no redundancy); `PATTERNS.md` stays empty (still only 1 project with substantial content — correct); `MAINTENANCE_BACKLOG.md` still uncreated (backlog empty). No further lifecycle iteration recommended now.
+
+## 2026-06-14 — split/generalize: WARM RESET — flat memory/ → unified multi-project layout (`status: warm-reset-completed`)
+
+**Change**: executed the `warm reset` mandate (`mandates/multi-project.md`). Reorganized the flat single-project `memory/` into a single **unified, multi-project** persona memory — one memory home, reachable from every project workspace, NOT federated. This is a **Level 2–3 structural change**, run as one deliberate, Alex-gated maintenance session (trigger: Alex's exact phrase "warm reset" + go-ahead, 2026-06-14). Governing plan: `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md`; judgment calls: `risk-register.md` (same folder). Decisions D1–D8 closed by Alex 2026-06-14 (see plan §3).
+
+**New layout** (`.cursor/rules/memory/`):
+- `universal/` — behavioral / cross-project memory: `WORKING_STYLE.md`, `CODING_PRINCIPLES.md`, `MONITORING.md`, `CHANGELOG.md` (this file), `PATTERNS.md` (new, empty — cross-project generalized patterns, seeded on evidence). *(DV1: moved more than the mandate's `WORKING_STYLE.md`-only step 4 — the other three postdate the 2026-04-17 mandate and are behavioral, so they belong with it.)*
+- `concepts/` — domain-knowledge concept graph (D8 = (c) graduated): `_INDEX.md` (always-read skeleton), `_RELATIONS.md` (typed edge list), one `concepts/<domain>.md` per evidenced domain — today `circuitpython-runtime.md`, `fonts.md`. *(R-9: the two populated `TECHNICAL.md` sections were reshaped — prose → concept entries — an explicitly Alex-approved exception to the mandate's "no content rewrite" anti-goal, scoped to those two sections only.)*
+- `projects/` — per-project digests + entry-points: `_INDEX.md` (roster + path-globs for active-project detection, M1), `circuitpython-exp14-display/`, `circuitpython-exp15-microbit/` (stub), `bamboo-lamp/`. Each holds `CONTEXT.md` (links into the project repo's technical artifacts, never copies them — C8), `SESSION_LOG.md`, and `CONCLUSIONS.md` where content exists.
+- `crossref/` — `BY_TOPIC.md` + `BY_PATTERN.md` (header-only at reset — cross-project patterns need ≥2 projects with content; expected, not a C7 violation).
+
+**Content disposition** (C1 no-loss, verified by **claims-coverage** S2, not a line diff — R-8):
+- Behavioral files: moved unchanged into `universal/`.
+- `SESSION_LOG.md`: split by project (move, verbatim) — exp14 sessions 1–8 → `projects/circuitpython-exp14-display/SESSION_LOG.md`; exp15 session 9 → `projects/circuitpython-exp15-microbit/SESSION_LOG.md`; the `[tooling]` warm-reset session 10 + the cross-project living summary/SoT map → central `memory/SESSION_LOG.md` (living summary rewritten to the unified layout — a status/structure update, not a findings rewrite).
+- `TECHNICAL.md`: 2 populated sections reshaped → `concepts/` (R-9); 8 empty schema sections **retired** (zero claims; superseded by the placement gate + concept-graph; the pre-reset snapshot retains them).
+- `CONCLUSIONS.md`: the one `[exp14]` finding → `projects/circuitpython-exp14-display/CONCLUSIONS.md`.
+
+**Adaptations of the mandate-template (it is an adaptable prior, not a rigid source of truth — plan header)**: DV1 (universal/ holds 4 files, logged above); DV2 (`reference/` left in place — moving it would orphan ~15+ path refs for zero retrieval gain); DV3 = D8 concept-graph (Alex-approved structural deviation). Low-stakes adaptation made this run: seeded 2 concept domains, not the plan's illustrative 3 — `display` would be near-empty, so the glyph-coordinate concept folds into `fonts.md` (C7 seed-on-evidence; accumulate-then-split later).
+
+**Rule-file updates**: `00-memory-system.mdc` (paths + M5 read order defers to `04`); `02-domain-structure.mdc` (Active-Experiment-Detection → M1 active-project identifier); `01-interaction-style.mdc` + `03-memory-update-triggers.mdc` (path refs); new `04-multi-project.mdc` (M2 scope tagging, M3 promotion ladder, M5 attention scoping, M6 demotion, the placement gate); `mandates/multi-project.md` (D5: stale `verified`/human-elevation/validation-gate vocabulary **superseded via a document-wide "EXECUTED" banner** — the historical protocol text is retained beneath it as provenance, not deleted line-by-line); `COLLABORATOR_GUIDE.md` (new layout).
+
+**Cross-workspace reachability (D6, unified)**: central tree stays at `.cursor/rules/` in the CircuitPython workspace; `exp14/.cursor/rules` symlink resolves; **`Bamboo-Lamp/.cursor/rules` → canonical tree CREATED + verified resolving 2026-06-14** (Alex ran `mkdir`+`ln -s`; `realpath` = `/Users/alex/Development/VsCode/CircuitPython/.cursor/rules`; reaches all 5 `*.mdc` + `memory/projects/bamboo-lamp/CONTEXT.md`). Filesystem reachability (S5) ✅ for exp14 / base / Bamboo-Lamp. **R-6 fully CLOSED — standalone-open test PASSED 2026-06-14** (`evidence-supported`, on-device/observed): Alex opened Bamboo-Lamp alone (CircuitPython workspace NOT attached) and the Cursor Rules panel listed `00`–`04`, confirming Cursor's rule loader follows the cross-tree `.cursor/rules` symlink standalone. The user-level-root fallback is therefore **not needed**. S4 (cold-AI start) + S5 now pass unconditionally for all three workspaces; no open reachability items remain.
+
+**Provisional marker (C7)**: the new structure is tagged `provisional (as of 2026-06-14)` with a cold-AI-testable watch-for (in `concepts/_INDEX.md` + `projects/_INDEX.md`). Confirm = a real query resolves one-hop; refute = needs multi-file/speculative search or a finding has no deterministic placement-gate home; trigger = re-evaluate after ~5 real memory additions or next maintenance session.
+
+**Rollback** (exact, from the CircuitPython workspace root unless noted):
+1. `rm -rf .cursor/rules/memory && cp -R .cursor/rules/memory-pre-warm-reset-20260614-150919 .cursor/rules/memory`
+2. `git checkout -- .cursor/rules/*.mdc .cursor/rules/COLLABORATOR_GUIDE.md .cursor/rules/mandates/multi-project.md` — reverts the edited rule files / guide / mandate. **Confirmed git-tracked 2026-06-14** (`git status` shows them as `M`/`D`), so this is clean; the `memory/` snapshot does not cover these (they live above `memory/`), git does.
+3. `rm -f .cursor/rules/04-multi-project.mdc` (new untracked file, no prior version).
+4. Bamboo-Lamp (repo root `/Users/alex/Projects/Family/Bamboo-Lamp`): `rm -f .cursor/rules` (the handoff symlink, if/when created) ; `rm -rf memory && cp -R memory-pre-warm-reset-20260614-171818 memory` (restores README/SESSION_LOG/CONCLUSIONS to pre-reset content).
+
+**Failure-mode guards honored**: F1 (deliberate, not a side effect; no directive dropped), F8 (no purpose-conflation dedup), F10 (single source of truth — C8 links-not-copies; exactly one file prescribes the session-start read order).
+
+## 2026-06-14 — extend/generalize: memory-lifecycle directives + § Maintenance rules 4–6
+
+**Change**: codified two memory-lifecycle patterns Alex stated as general, and extended the always-injected maintenance rule to match.
+
+- New `WORKING_STYLE.md § Core Principles` directive *Categories form by accumulate-then-split, not up-front design; expect overlap, cross-link it* `[universal]` — generalizes the persona's own defer-creation rule + the warm-reset C7/D8(c) graduation + `_RELATIONS.md` cross-refs into a persona-wide structural-epistemics principle.
+- New `WORKING_STYLE.md § Core Principles` directive *Batch heavy memory restructuring into deliberate, user-gated lifecycle iterations; keep a backlog and recommend when beneficial* `[universal]` — adds (a) a maintenance backlog register (`MAINTENANCE_BACKLOG.md`, deferred-creation) and (b) a proactive-recommend duty atop the existing "compaction is always deliberate" rule.
+- `00-memory-system.mdc § Maintenance`: extended item 4 (accumulate-then-split + cross-link) and added item 5 (lifecycle-iteration batching + backlog + recommend); old item 5 (CHANGELOG logging) renumbered to 6.
+
+**Trigger**: Alex described both as common patterns and asked to plan heavy reorg as broader, user-gated memory-lifecycle iterations with an accumulated TODO list, recommending iterations when clearly beneficial.
+
+**Deferred-creation note**: `MAINTENANCE_BACKLOG.md` is named but not yet created — no substantive backlog beyond the warm reset (which has its own plan dir as that iteration's todo list). Create on the first real deferred restructure item, per the same discipline `MONITORING.md` uses.
+
+**Level note**: item 5/6 touches the always-injected `00-memory-system.mdc` (Level 3 meta-rule) — additive, precedent-following (mirrors the MONITORING.md addition), logged here per § Maintenance.
+
+## 2026-06-14 — extend: durable reference copies + two persona directives (cold-AI, flexible-plans)
+
+**Change**: imported two external persona docs into durable in-workspace storage and wired each to an operational directive.
+
+- New reference files (verbatim copies with a provenance header) in `.cursor/rules/reference/`: `cold-ai-paradigm.md`, `flexible-plans-for-ai-execution.md`. These join the existing `00-08` reference set.
+- New `WORKING_STYLE.md § Core Principles` directive *Apply the cold-AI write-time gate before persisting any content* `[universal]` — operational trigger form of the cold-AI paradigm.
+- New `WORKING_STYLE.md § Core Principles` directive *Flexible-plan layered commitment for agent-executed plans* `[universal]` — umbrella over the pre-existing siblings *Pre-commit to targets, not shape* and *Reflect explicitly at every meaningful checkpoint*; adds authority-handoff map, criteria-revision gate, exit ramps, diminishing-returns termination, scope-discipline-under-surprise. Deliberately NOT a duplicate — cross-references the two siblings as its sub-parts.
+- `WORKING_STYLE.md § Human Profile` calibrated for Alex.
+
+**Trigger**: Alex asked to integrate the cold-AI paradigm (session start) and *Flexible Plans for AI Execution* (this turn) into the persona, explicitly flagging the `~/Developed/AI/generalized-agent-learnings/` source folder as **ephemeral** — so referencing files there is fragile; copy them locally. The flexible-plans doc will be used next to draft the Option-B (`warm reset`) plan.
+
+**Rationale for copy-not-reference**: a directive whose reference form lives in an ephemeral folder fails the cold-AI lifecycle test (a future session may find the pointer dangling). Durable copies in `reference/` make the persona self-contained. Verbatim (not derived) because both docs are already dense, cold-AI-compliant, and needed at full fidelity for the upcoming planning use.
+
+**Anti-duplication discipline**: the flexible-plans directive overlaps heavily with two existing Core Principles. Per the abstraction-lifecycle rule, it was written as an umbrella that *names* the siblings as its operational sub-parts rather than restating them — only the genuinely-new mechanisms (authority handoffs, criteria gates, exit ramps, termination heuristic) are spelled out.
+
+**Files changed**: `reference/cold-ai-paradigm.md` (new), `reference/flexible-plans-for-ai-execution.md` (new), `WORKING_STYLE.md` (header + Human Profile + two Core Principles directives), this file. No `.mdc` rule-file changes. No `warm reset`.
+
+**Verification**: both reference files exist and are readable; both directives point at the local copies (grep `reference/cold-ai-paradigm.md` and `reference/flexible-plans-for-ai-execution.md` in `WORKING_STYLE.md`). Flexible-plans directive promotes to `established` after one clean application — the warm-reset plan is the first candidate.
+
 ## 2026-04-26 — refine: placement-gate in always-injected trigger
 
 **Change**: strengthened `03-memory-update-triggers.mdc` item 1 with an explicit discriminator question ("Does this directive govern the shape of a code artifact?") as a mandatory placement gate before writing any new directive. Updated the placement-discipline bullet in `WORKING_STYLE.md § Retention and Evaluation` with the three-incident recurrence log and a pointer to the always-injected gate as the systemic fix.

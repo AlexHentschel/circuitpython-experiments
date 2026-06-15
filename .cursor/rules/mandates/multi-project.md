@@ -1,7 +1,11 @@
 # Open Mandate: Multi-Project Memory Structure
 
-**Status**: declared, not yet implemented.
-**Explicit trigger**: the user saying **"warm reset"** initiates implementation (see § Warm Reset Protocol below).
+> **STATUS: EXECUTED 2026-06-14 — this document is now a HISTORICAL TEMPLATE, not live policy.** The warm reset was executed per `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md` (Alex-approved, D1–D8 resolved). **Live multi-project mechanics now live in `04-multi-project.mdc`** (M1 detection, M5 read order, placement gate, M2 tagging, M3 promotion, M6 demotion); layout in `00-memory-system.mdc § File Architecture`; migration record in `universal/CHANGELOG.md § 2026-06-14`. Where this mandate and the live rule files differ, **the rule files win** (this was a *prior-execution template*, adapted during execution — DV1–DV3, D8 concept-graph).
+>
+> **D5 vocabulary reconciliation (mechanical, applies document-wide):** every `verified` / "validation gate" / "human-elevation" / "human-confirmed ──▶ universal" reference below is **superseded** — it predates the current evidence-status model. Authoritative replacements: technical-finding promotion needs *independent corroboration* not user ratification (`00-memory-system.mdc § Evidence-Status Discipline`); pattern/directive promotion is *auto at the 2-project trigger, with Alex sign-off required only for `[universal]`* (D2 / `04 § M3`). Read the protocol steps below as historical provenance, not as instructions to re-run.
+
+**Status**: declared 2026-04-17 → **EXECUTED 2026-06-14** (see banner above).
+**Explicit trigger**: the user saying **"warm reset"** initiated implementation (now complete; no longer a pending trigger).
 **Declared**: 2026-04-17, session 0 (pre-Genesis setup).
 
 ## Pre-execution review (read before triggering)

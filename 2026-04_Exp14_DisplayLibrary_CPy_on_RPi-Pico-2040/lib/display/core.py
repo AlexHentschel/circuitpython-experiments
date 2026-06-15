@@ -278,11 +278,12 @@ def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> N
     pixels = _pixels
     lut = _LUT
     off = OFF
+    x_base = 0  # invariant at top of loop: x_base == x * HEIGHT (`geometry.build_lut` slot convention)
     for x in range(WIDTH):
         col_byte = data[offset + x]
-        x_base = x * HEIGHT  # matches `geometry.build_lut` slot-name convention
         for y in range(HEIGHT):
             pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
+        x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
     pixels.show()
 
 
@@ -364,15 +365,15 @@ def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, in
     pixels = _pixels
     lut = _LUT
     off = OFF
-    x_base = 0
+    x_base = 0  # invariant at top of loop: x_base == x * HEIGHT
     for x in range(WIDTH):
         idx = read_head + x
         if idx >= WIDTH:
             idx -= WIDTH
         col_byte = ring[idx]
-        x_base += HEIGHT  # light weight way of calulating x_base = x * HEIGHT
         for y in range(HEIGHT):
             pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+        x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
     pixels.show()
 
 
@@ -420,6 +421,17 @@ class Image:
 
     Monochrome images store column-major bytes + a single color RGB-triple.
     Multi-color images store a flat sequence of per-pixel RGB tuples (one per pixel).
+
+    The image's height is always assumed to be ``HEIGHT`` (8) rows. Width is independent of the display
+    and may be smaller, equal to, or **larger** than the ``WIDTH`` (8) physical columns of the LED matrix:
+      - ``create_image`` builds an exactly-``WIDTH`` (8-wide) image.
+      - ``create_big_image`` builds a ``2 * WIDTH`` (16-wide) image.
+      - ``from_pattern`` accepts any width (the widest kept row).
+    An image wider than the display is shown a ``WIDTH``-column window at a
+    time: ``show_image(offset)`` picks the window and ``scroll_image`` animates
+    it across the full width -- image columns outside that window are trimmed.
+    Where the display window overhangs the image (a narrower image, or an ``offset``
+    past an edge), the uncovered display columns render as ``OFF``.
     """
 
     __slots__ = ("_data", "_width", "_multi", "_color")
@@ -439,7 +451,7 @@ class Image:
     @staticmethod
     def from_pattern(
         pattern_str: str,
-        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+        color: dict[str, tuple[int, int, int]] | tuple[int, int, int] = WHITE,
     ) -> Image:
         """Parse a pattern string into an Image.
 
@@ -515,17 +527,73 @@ class Image:
             pos += offset
 
     def _render_window(self, offset: int) -> None:
-        """Render the WIDTH-column window starting at ``offset`` into ``_pixels`` and show().
+        """Render a WIDTH-column window of this image at ``offset`` into ``_pixels`` and show().
 
-        Splits the display into three slices ahead of the per-pixel loop --
-        ``[0, x_min)`` and ``[x_max, WIDTH)`` render OFF (source is out of
-        bounds), ``[x_min, x_max)`` copies from ``self._data`` with no
-        per-iteration bounds check. This replaces an ``if 0 <= src_x < width``
-        check inside the ``WIDTH * HEIGHT`` = 64-iteration inner loop.
+        ``offset`` is the image column shown at display column 0. The image width is independent of the display: it may exceed ``WIDTH``
+        (e.g. a 16-pixel-wide ``create_big_image``, scrolled via ``scroll_image``) or be narrower. Only the window columns
+        ``[offset, offset + WIDTH)`` from ``self._data`` are transferred to the display; any display column not coverd by the image
+        renders ``OFF`` (e.g. if the picture is narrower than the display, or if offset leaves display columns uncovered).
 
-        Negative ``offset`` is supported (image appears partially off the
-        left edge) via ``x_min = max(0, -offset)``.
+        Negative ``offset`` is supported (image appears partially off the left edge) via ``x_min = max(0, -offset)``.
+
+
+        -------- Goal -----------------------------------------------------------------------------------------------------------
+
+        ``x_min`` and ``x_max`` are the two display-column boundaries that split the WIDTH-wide display into three contiguous slices:
+        a left OFF margin ``[0, x_min)``; the image-covered span ``[x_min, x_max)``; and a right OFF margin ``[x_max, WIDTH)``. The goal is
+        to iterate over the columns with a ``range(x_min, x_max)``, where all boundary checks are efficienlty pre-computed.
+
+            0          x_min                    x_max          WIDTH
+            │           [───────── image ──────── )               │
+            ☐ ☐ ☐ ☐ ☐ ☐ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ▣ ☐ ☐ ☐ ☐ ☐ ☐ ☐ ☐ │
+            ╰── OFF ──╯                           ╰──── OFF ────╯
+
+        -------- Deriving the window bounds ``x_min`` and ``x_max`` --------------------------------------------------------------
+
+        Display column ``x ∈ [0, WIDTH)`` shows image column ``src = offset + x`` iff ``0 ≤ src < width``. Hence, exactly the display columns ``x ∈ [0, WIDTH)``
+        are covered by the image that satisfy ``-offset ≤ x < width - offset``. Intersecting with the display domain ``[0, WIDTH)`` gives the interval of display
+        columns covered by the image: ``x ∈ I := [max(0, -offset), min(WIDTH, width - offset))``. Note that I is the empty interval, iff the formula for the lower
+        bound is greater than or equal to the formula for the upper bound.
+
+        Cases (``[...]`` = the WIDTH-wide display; ``▣`` covered display col, ``☐`` OFF display col, ``▪`` image col off-window):
+
+            (0) 0 ≤ offset; display fully covered     ▪[▣▣▣▣]▪    x_min=0,        x_max=WIDTH                    fully covered
+            (1) 0 < offset, image runs out         ▪▪▪▪[▣▣☐☐]     x_min=0,        x_max=width-offset             right tail OFF
+            (2) negative offset < 0                    [☐▣▣▣]▪▪▪  x_min=-offset,  x_max=min(width-offset,WIDTH)  left edge OFF
+            (3) negative offset < 0, narrow image      [☐▣☐☐]     x_min=-offset,  x_max=width-offset             both edges OFF
+
+        We want to define loop bounds ``x_min`` and ``x_max``, such that we cover the edge case where the interval is empty: formally ``x_max ≥ x_min`` and
+        ``x_max, x_min ∈ [0, WIDTH]`` and ``[x_min, x_max) = I``. Observations:
+        • If ``offset ≥ Image.width``, the image has entirely been moved off the display on the left. Hence, let's define
+          ``offset_upper_cutoff := min(offset, Image.width)``. For any ``offset ≥ offset_upper_cutoff``, we can just use ``offset_upper_cutoff`` instead.
+          Physical display output remains unchanged: no part of the image is visible.
+        • For a negative ``offset ≤ - display.WIDTH``, the image has entirely been moved off the display on the right. For any ``offset ≤ offset_lower_cutoff``,
+          we can just use ``offset_lower_cutoff := max(offset, -display.WIDTH)`` without altering the display output (no part of the image visible).
+
+        We define ``_offset := max(- display.WIDTH, min(offset, Image.width))``. As we have argued above, offsets exceeding the cutoff bounds can be clipped
+        without changing the output. (It can be proven that offsets outside the clipping bound always result in I = ∅.) Therefore, we can state I also in terms
+        of the clipped offset:
+           ``x ∈ I ≡ [x_min, x_max)``   with   ``x_min := max(0, - _offset)``  and  ``x_max := min(WIDTH, width - _offset)``
+         By definition, we have ``0 ≤ x_min``. Furthermore, ``x_max = min(WIDTH, …)`` ensures  ``x_max ≤ WIDTH``.
+        • For ``_offset = 0`` we find: ``x_min ≤ x_max`` and ``x_max, x_min ∈ [0, WIDTH]``, because ``WIDTH`` and ``width`` are non-negative integers.
+        • For ``_offset > 0`` we find: ``x_max = min(WIDTH, width - _offset) ≥ 0``, because ``_offset`` is upper-bounded by ``Image.width``.
+          Since ``x_min = 0`` for any positive ``_offset``, we conclude that ``x_min ≤ x_max`` and ``x_max, x_min ∈ [0, WIDTH]``
+        • For ``_offset < 0`` we find: we have ``0 ≤ x_max`` because both arguments of ``min(WIDTH, width - _offset)`` are non-negative.
+          As ``_offset`` is lower-bounded by ``- display.WIDTH``, we have ``x_min ≤ WIDTH``. Hence, ``x_max, x_min ∈ [0, WIDTH]``.
+          For negative ``_offset``, we have ``x_min = - _offset`` (bounded by ``WIDTH``) which implies: ``x_min = - _offset ≤ width - _offset ≤ x_max``.
+
+        ┌──── Corollary ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+        │ For any  ``_offset := max(- display.WIDTH, min(offset, Image.width))``, the interval I of display columns covered by the image is  │
+        │ given exactly by:                                                                                                                  │
+        │              ``x ∈ I ≡ [x_min, x_max)``       with  ``x_min := max(0, - _offset)``  and  ``x_max := min(WIDTH, width - _offset)``  │
+        │ It is guaranteed that                                                                                                              │
+        │  •  ``x_max, x_min ∈ [0, WIDTH]`` implies values are within the display's bound                                                    │
+        │  •  ``x_min ≤ x_max`` allows iteration via Python ``range(x_min, x_max)``    (efficient)                                           │
+        │  •  for x ∈ I ≡ [x_min, x_max), the image column displayed is ``offset + x``                                                       │
+        │  •  display columns left of x_min are off, specifically columns x ∈ [0, x_min); and likewise columns x ∈ [x_max, WIDTH) are off.   │
+        └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
         """
+
         pixels = _pixels
         lut = _LUT
         off = OFF
@@ -541,37 +609,44 @@ class Image:
         elif x_max > WIDTH:
             x_max = WIDTH
 
+        # x_base invariant at the top of every loop body: x_base == x * HEIGHT.
+        # The three slices cover contiguous x in [0, x_min), [x_min, x_max),
+        # [x_max, WIDTH), so a single accumulator stays in sync across them --
+        # addition per column instead of recomputing x * HEIGHT.
         if self._multi:
             data = self._data
+            x_base = 0
             for x in range(x_min):
-                x_base = x * HEIGHT
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = off
+                x_base += HEIGHT
+            src_base = (offset + x_min) * HEIGHT  # one setup multiply; loop body stays additive
             for x in range(x_min, x_max):
-                x_base = x * HEIGHT
-                src_base = (offset + x) * HEIGHT
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = data[src_base + y]
+                x_base += HEIGHT
+                src_base += HEIGHT
             for x in range(x_max, WIDTH):
-                x_base = x * HEIGHT
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = off
+                x_base += HEIGHT
         else:
             data = self._data
             color_on = self._color
+            x_base = 0
             for x in range(x_min):
-                x_base = x * HEIGHT
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = off
+                x_base += HEIGHT
             for x in range(x_min, x_max):
-                x_base = x * HEIGHT
                 col_byte = data[offset + x]
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+                x_base += HEIGHT
             for x in range(x_max, WIDTH):
-                x_base = x * HEIGHT
                 for y in range(HEIGHT):
                     pixels[lut[x_base + y]] = off
+                x_base += HEIGHT
         pixels.show()
 
 

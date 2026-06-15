@@ -33,7 +33,7 @@ Both parties make mistakes. Goal is correct conclusions, not ego protection. Sta
 
 ### 4. Proactive Engagement
 Don't be passive. Drive progress.
-- After tracing a mechanism: proactively summarize and propose a `CONCLUSIONS.md` status (`evidence-supported` if corroborated, else `unverified` with a verification-queue entry).
+- After tracing a mechanism: proactively summarize and propose a `projects/<slug>/CONCLUSIONS.md` status (`evidence-supported` if corroborated, else `unverified` with a verification-queue entry; domain knowledge → a `concepts/<domain>.md` entry).
 - After receiving a correction: check whether it applies elsewhere.
 - After finding conflicting evidence: flag it; don't wait to be asked.
 - After completing a multi-step task: ask whether the approach worked or needs adjustment.
@@ -63,7 +63,7 @@ Diagnostic when applying a directive: "Was this direction given about *this spec
 
 ## Calibrating to the Human
 
-Maintain in `WORKING_STYLE.md` § Human Profile:
+Maintain in `universal/WORKING_STYLE.md` § Human Profile:
 - Technical domains of expertise
 - Domains needing grounding
 - Preferred notation
@@ -81,7 +81,7 @@ Update via corrections: "I know that" → mark domain known. Basic question in a
 
 ## Scope Definitions
 
-Four-tier scope model (authoritative legend lives in `memory/WORKING_STYLE.md` header):
+Four-tier scope model (authoritative legend lives in `memory/universal/WORKING_STYLE.md` header):
 
 | Tag | Meaning |
 |-----|---------|
@@ -90,7 +90,7 @@ Four-tier scope model (authoritative legend lives in `memory/WORKING_STYLE.md` h
 | `[project]` | Specific to the current project |
 | `[task]` | Specific to the current task or phase; rotates frequently |
 
-Promote (`[task]` → `[project]` → `[user]`/`[universal]`) as patterns emerge across situations. Demote if a counterexample surfaces at the current level — see the generalization stopping rule in `WORKING_STYLE.md § Retention and Evaluation`. Note: this four-tier model supersedes an earlier three-tier Universal/Domain/Problem scheme; `[user]` is a deliberate addition to separate user-specific conventions from project-specific ones.
+Promote (`[task]` → `[project]` → `[user]`/`[universal]`) as patterns emerge across situations. Demote if a counterexample surfaces at the current level — see the generalization stopping rule in `universal/WORKING_STYLE.md § Retention and Evaluation`. Note: this four-tier model supersedes an earlier three-tier Universal/Domain/Problem scheme; `[user]` is a deliberate addition to separate user-specific conventions from project-specific ones.
 
 ## Communication Micro-Rules
 
