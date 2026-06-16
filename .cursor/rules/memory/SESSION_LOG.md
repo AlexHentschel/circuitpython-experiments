@@ -49,6 +49,49 @@ When the same fact must live in two places (rare; only when duplication serves d
 
 ## Cross-project & tooling sessions
 
+## 2026-06-15: Session 12 — [tooling] (generalized the warm-reset `_META` into a reusable corpus process doc)
+
+- Context: Alex asked to read `working-docs/warm-reset-plan/_META.md` as one *instance* of a general process for
+  drafting → self-reviewing → refining a plan iteratively (engraining higher-level reflection, progress self-monitoring,
+  and self-adaptation), and to write that generalization into the external persona-design corpus
+  `~/Developed/AI/generalized-agent-learnings/` for a cold AI that knows only that folder.
+- Artifacts created (in the external corpus, NOT in `.cursor/rules/memory/` — that corpus is the paradigm *source*,
+  ephemeral-from-the-persona's-view but the authoring home Alex maintains):
+  - `generalized-agent-learnings/plan-refinement-loop.md` — the generalized process. Sections: setup/adaptation (ask
+    the user for the hard convergence cap + iteration location + a one-line naming blueprint; reflect on instance-specific
+    additions) · the blueprint (versioning v0.0→v0.X→v1.0; copy→reviews→change-magnitude→apply→converge) · the three
+    ordered reviews **R1 substance/goal-fit → R2 cold-ai+flexible-plans → R3 economy** (order rationale: structural edit
+    before line-edit before trim) · convergence (change-magnitude depth/breadth + user cap) · post-loop close (promote
+    v1.0 + irreducible-uncertainty risk scan w/ MISSING check) · sub-agents as opt-in accelerator (cost heads-up to user;
+    composer-2.5-class extraction vs opus-4.8-class reasoning, or newer) · heuristics-not-laws with bounded-deviation
+    invariants. Framing rule encoded: present to user as "internally iterating over the plan", keep "meta-plan" jargon
+    internal.
+  - `generalized-agent-learnings/exemplary-artifacts/warm-reset-plan_META.md` — verbatim copy of the warm-reset `_META.md`,
+    referenced from the process doc (§8) as one concrete adaptation.
+- Follow-up (same session): listed all the named (non-numbered) corpus docs in `00-OVERVIEW.md` (they were absent —
+  `cold-ai-paradigm`, `Flexible Plans`, `writes-thinks-speaks`, `Effective Behavioral Guidelines`, `plan-refinement-loop`),
+  added a front-matter note. Renamed `PLAN.md` → `EXTRACTION-PLAN.md` (Alex's pick; disambiguates the corpus *build*
+  plan from the how-to-draft-plans doc; only ref was its own self-row). Added `README.md` — an ultra-compact, jargon-free
+  goal→file router for humans + quick AI onboarding (sits above `00-OVERVIEW.md`).
+- Refinement pass (transcript-coverage, Alex): crawled this chat's transcript (`agent-transcripts/73251650-…jsonl`,
+  14 user turns) and built a coverage matrix of feedback-given vs feedback-covered in `plan-refinement-loop.md`. Notes:
+  `working-docs/plan-refinement-loop_refinement-notes.md`. Result: ~22 substantive items already covered; 5 gaps, all
+  applied to the doc — G1 audible-reflection-at-checkpoints (EBG), G2 "steps are illustrative shape not mandate" framing
+  (EBG anti-over-prescription), G3 falsifiable "signals this blueprint needs revision" (cold-ai §7 recursive), G4
+  fresh-cold-chat handoff capability (§6), G5 "inherited spec = adaptable prior, contradictions have no default winner"
+  (§7). Deliberately did NOT hoist the parsimony-vs-retrieval / topic→detail-one-hop specifics into the general process
+  (instance-specific to memory-structure plans → stay in the rubric/§8 example).
+- Second refinement (Alex, parsimony tension): added §3.8 "plan economy model" — plan-bloat < memory-bloat asymmetry
+  (memory: retrieval > parsimony, loaded forever; plan: task-scoped, leaner still by default for *surface-area* reasons);
+  lean plan = more flexible (less over-prescribe/over-harness surface); leanness is safe **only because** the
+  reflection/monitoring/adaptation machinery is explicit and carries what a fat plan pre-specifies. R3 gained a trim
+  test + cross-ref. Notes-economy clarified. Logged as G6 in the refinement notes.
+- Routing rationale: this is persona-process meta-work spanning all projects → central `[tooling]` log, not `bamboo-lamp`
+  (even though authored from the Bamboo-Lamp chat context). No project-technical content touched.
+- Op note (reinforces the *Prefer file-edit tools over shell for file mutations* directive): the corpus lives outside the
+  Cursor workspace → the `cp` of `_META.md` hit a sandbox write-block; cleared with `required_permissions:["all"]`. The
+  `Write`/`StrReplace` tools wrote to the external path without issue.
+
 ## 2026-06-14: Session 11 — [tooling] (warm-reset EXECUTION + post-execution maintenance)
 
 - Context: the separate cold-AI execution chat the Session-10 handoff (below) anticipated. Triggered by Alex's "warm reset" phrase; ran `warm-reset-plan_v1.0.md` Phases 1–8 under the Phase-0.5 pre-flight gate (snapshot → present change set → await explicit "go ahead" before any non-snapshot mutation). **Full structural provenance + rollback command: `universal/CHANGELOG.md § 2026-06-14 — warm reset`.** This entry is the session narrative + the durable operational learnings.
