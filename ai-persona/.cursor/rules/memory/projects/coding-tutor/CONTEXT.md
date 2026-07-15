@@ -66,10 +66,12 @@ CodingTutor is published to Alex's GitHub (currently inside repo `github.com/Ale
 (single consolidated file, linked from `README.md`) with a per-source license/redistribution status. **Third-party
 copyrighted material (papers, books, media transcripts) must not be committed** unless a permissive redistribution
 license is confirmed and recorded there; downloaded papers go in git-ignored `CodingTutor/materials/papers/`.
-Two open flags surfaced 2026-07-15 (see SESSION_LOG): the podcast transcript + translation are already tracked
-(copyrighted → recommend `git rm --cached`), and the same repo also tracks the private `ai-persona/` memory — confirm
-repo public/private + intended publication scope before pushing. These are Alex's decisions; do not untrack/rewrite
-history unilaterally.
+Status 2026-07-15 (see SESSION_LOG for full trail): repo `circuitpython-experiments` is **public**, 0 forks. The
+copyrighted podcast transcript was untracked, git-ignored, and **scrubbed from all branch history** (`git filter-repo`
++ force-push); it now 404s on `master`. **Accepted residual**: merged PR #1 still exposes it (browsable) — Alex chose to
+keep the PR; bare-SHA reachability also accepted. **`ai-persona/` intentionally kept public** in this repo (Alex,
+2026-07-15) — no credentials (`settings.toml` gitignored), Alice is a safe pseudonym. Remediation thread closed. Do not
+untrack/rewrite history unilaterally.
 
 ## Resumption point
 

@@ -89,8 +89,20 @@ directives: `../../universal/`. Roster + routing: `../_INDEX.md`. Heavy technica
 - **Executed (Alex-approved):** untracked the German transcript (`git rm --cached "materials/They Talk Tech transcript.txt"`,
   staged `D`, local copy kept); the EN translation was never committed. Activated the two `.gitignore` lines so both stay
   out. Gotcha recorded: `git rm --cached` aborts entirely if any pathspec is untracked (the `_EN.txt` file) — pass only
-  tracked paths. **Still open**: `transcript.txt` remains in *past history*; if the repo was pushed, a history scrub
-  (`git filter-repo`/BFG + force-push) is needed — Alex to confirm push state.
+  tracked paths.
+- **Remediation completed 2026-07-15.** Repo `circuitpython-experiments` confirmed **public + pushed**, **0 forks / 0
+  network** (`gh api`). Committed the forward deletion + attribution set (`README.md`, `REFERENCES.md`, `.gitignore`,
+  `materials/papers/README.md`, Scheiter digest, research agenda, memory updates) as `ffdb2d7` on `alex/display-mvp`.
+  Then Alex scrubbed the transcript from **all branch history** via `git clone --mirror` + `git filter-repo --path ...
+  --invert-paths` + `git push --force --mirror` (rewrote `master` 5458ef3 + `alex/display-mvp` ffdb2d7). Verified the
+  file now 404s on `master`. Local branches re-synced to rewritten origin.
+- **Accepted residual (Alex's call):** merged **PR #1** still pins pre-rewrite commit `107b91c` and keeps the transcript
+  browsable at `/pull/1/files` (force-push cannot touch server-side `refs/pull/*`). Alex chose to **keep the PR** rather
+  than file a GitHub Support purge request. Bare-SHA reachability of old commits also accepted. **Gotcha for future**:
+  history rewrites do NOT remove data reachable via merged-PR refs — only GitHub Support can.
+- **Decided (Alex, 2026-07-15):** keep `ai-persona/` (53 files) **public** in this repo. No credentials in it
+  (`settings.toml` gitignored), Alice is a safe pseudonym → acceptable. The persona memory is intentionally public.
+  Remediation thread fully closed.
 
 ## Open Questions
 
