@@ -26,17 +26,25 @@ Level-Shifter OUT --> WS2812b DIN    (5 V side)
 GND          --> all GNDs (board, shifter, LED matrix, PSU)
 ```
 
-## Library API -- `lib/display.py`
+## Library API -- `lib/display/` package
+
+The library is structured as a Python package (`lib/display/`) with six
+sub-modules. Everything user-facing is re-exported at the top level, so
+callers import from `display` directly (e.g. `from display import
+display, Icons, Arrows, RED, create_image`). See
+[lib/display/README.md](lib/display/README.md) for the package
+architecture and design rationale.
+
 
 ### Quick start (async, recommended)
 
 ```python
 import asyncio
-from display import display, IconNames, RED, GREEN, create_image
+from display import display, Icons, RED, GREEN, create_image
 
 async def main():
-    await display.show_icon(IconNames.HEART, color=RED, interval=800)
-    await display.show_string("Hello!", color=GREEN, interval=150)
+    await display.show_icon(Icons.HEART, color=RED, interval_ms=800)
+    await display.show_string("Hello!", color=GREEN, interval_ms=150)
     display.clear_screen()
 
 asyncio.run(main())
@@ -45,36 +53,80 @@ asyncio.run(main())
 ### Quick start (sync, no multitasking)
 
 ```python
-from display import display, IconNames, RED
+from display import display, Icons, RED
 
-display.render_icon(IconNames.HEART, color=RED)
+display.render_icon(Icons.HEART, color=RED)
 # image persists on LEDs until next display call
 ```
+
+### Core concepts
+
+The API tables below rely on three vocabulary items. Introducing them
+here so the tables can stay terse.
+
+A **pattern string** is an 8x8 grid of characters describing which
+pixels are on. In *monochrome* (or *mono*) mode, `#` = on and `.` =
+off, and every lit pixel shows the same color. Whitespace (spaces,
+tabs, carriage returns) is stripped and blank lines are ignored, so
+the grid can be indented freely inside a triple-quoted string:
+
+```python
+"""
+. # # # # # # .
+# . . . . . . #
+. # # # # # # .
+"""
+```
+
+**Colors**: every rendering call accepts a `color` argument. For a
+monochrome pattern, pass a named constant like `RED` or `GREEN`, or an RGB
+triple from `color(255, 128, 0)`; every `#` lights up in that color.
+For multi-color patterns, pass a *palette dict* mapping each character
+in the pattern to a color:
+
+```python
+palette = {'R': color(255, 0, 0), 'B': color(0, 0, 255), '.': OFF}
+```
+
+See [Color palette](#color-palette) below for the full list of named
+constants and helpers.
+
+**Images, icons, arrows** -- an `Image` is a pre-built 8x8 pattern with
+an embedded default color. `create_image("""...""")` builds an `Image` from a
+pattern string. 40 built-in icons and 8 arrows ship as ready-made
+`Image` instances: `Icons.HEART`, `Icons.HAPPY`, `Arrows.NORTH`, etc.
+Anywhere the API takes an icon or arrow, it takes any `Image`.
 
 ### Tier 1 -- Synchronous rendering (instant, no await)
 
 | Method | Description |
 |--------|-------------|
-| `render_pattern(pattern, color_palette=WHITE)` | Render `#`/`.` pattern or palette dict to LEDs. |
-| `render_icon(icon, color=WHITE)` | Render icon bitmap to LEDs. |
-| `render_arrow(direction, color=WHITE)` | Render arrow bitmap to LEDs. |
+| `render_pattern(pattern, color=WHITE)` | Render a pattern string to the LEDs. |
+| `render_icon(icon, color=WHITE)` | Render an icon (e.g. `Icons.HEART`). |
+| `render_arrow(arrow, color=WHITE)` | Render an arrow (e.g. `Arrows.NORTH`). |
 | `clear_screen()` | All pixels off. Cancels ongoing animations. |
 | `clear()` | Alias for `clear_screen()`. |
-| `set_pixel(x, y, color)` | Set one pixel. Cancels ongoing animations. |
+| `set_pixel(x, y, color)` | Overwrite pixel `(x, y)` with `color`; other pixels keep their current state. Cancels ongoing animations. |
 | `fill(color)` | Fill all pixels. Cancels ongoing animations. |
 | `get_pixel(x, y)` | Read buffered pixel color. |
 | `set_brightness(value)` | Adjust 0.0-1.0. Does not cancel animations. |
 | `set_rotation(degrees)` | Rebuild LUT for 0/90/180/270. |
 
+### Lifecycle
+
+| Method | Description |
+|--------|-------------|
+| `deinit()` | Release the data pin / PIO state machine. Cancels any ongoing animation, then frees the NeoPixel hardware; the `display` singleton is unusable afterwards (no re-init path). Use before a soft reboot or to hand GP0 to another peripheral. |
+
 ### Tier 2 -- Async (require `await`)
 
 | Method | Description |
 |--------|-------------|
-| `show_leds(pattern, color_palette=WHITE, interval=0)` | Render + hold. `color_palette`: tuple or dict. |
-| `show_icon(icon, color=WHITE, interval=0)` | Render icon + hold. |
-| `show_arrow(direction, color=WHITE, interval=0)` | Render arrow + hold. |
-| `show_string(text, color=WHITE, interval=150)` | Scroll text. interval = ms/column. |
-| `show_number(n, color=WHITE, interval=150)` | Single digit: centered. Multi-digit: scroll. |
+| `show_leds(pattern, color=WHITE, interval_ms=0)` | Render a pattern and hold for `interval_ms`. |
+| `show_icon(icon, color=WHITE, interval_ms=0)` | Render an icon and hold. |
+| `show_arrow(arrow, color=WHITE, interval_ms=0)` | Render an arrow and hold. |
+| `show_string(text, color=WHITE, interval_ms=150, loop=False)` | Scroll text. `interval_ms` = milliseconds per column step. `loop=True` keeps scrolling (or holding, for short text) until another display call cancels. |
+| `show_number(n, color=WHITE, interval_ms=150, loop=False)` | Single digit: centered. Multi-digit: scroll. Accepts `loop=True` (see `show_string`). |
 | `pause(ms)` | Cancellable async sleep. |
 | `forever(callback)` | Sync convenience: while-True loop via asyncio. |
 
@@ -88,11 +140,11 @@ img = create_image("""
     . # . #
     # . # .
     . # . #
-""", color_palette=RED)
+""", color=RED)
 
-await img.show_image(offset=0, interval=500)
+await img.show_image(offset=0, interval_ms=500)
 img.recolor((0, 255, 0))
-await img.scroll_image(offset=1, interval=200)
+await img.scroll_image(offset=1, interval_ms=200)
 ```
 
 ### Color palette
@@ -105,7 +157,9 @@ await img.scroll_image(offset=1, interval=200)
 
 **Aliases:** `OFF` = `BLACK`
 
-**Helpers:** `color(r, g, b)`, `colorwheel(pos)` (re-exported from `rainbowio`)
+**Helpers:** `color(r, g, b)`, `colorwheel(pos)` (re-exported from
+`rainbowio` -- see [Todbot's CircuitPython Tricks: NeoPixels / Dotstars](https://learn.adafruit.com/todbot-circuitpython-tricks/neopixels-dotstars)
+for usage patterns)
 
 ### Multi-color palette example
 
@@ -120,7 +174,7 @@ palette = {
 await display.show_leds("""
     R . R . R . R .
     . B . B . B . B
-""", color_palette=palette, interval=2000)
+""", color=palette, interval_ms=2000)
 ```
 
 ### Coordinate system
@@ -168,15 +222,11 @@ Display rotation (0/90/180/270 degrees via `set_rotation()`) is also baked
 into the LUT, so all rendering code stays the same regardless of how the
 physical matrix is mounted.
 
-### Pattern string format
-
-8 rows of 8 characters. `#` = ON, `.` = OFF (mono mode). With a dict palette,
-any single character maps to a color. Spaces stripped.
-
 ## Icons and arrows
 
-40 built-in icons (`IconNames.*`) and 8 arrows (`ArrowNames.*`). See
-`lib/display_icons.py` for the full list and ASCII art designs.
+40 built-in icons (`Icons.*`) and 8 arrows (`Arrows.*`), each an `Image` instance. See
+[lib/display/icons.py](lib/display/icons.py) for the full list and
+ASCII art designs.
 
 ## Library installation
 
@@ -201,17 +251,38 @@ Use `circup` flags `--path <project-dir> --board-id vcc_gnd_yd_rp2040 --cpy-vers
 |   +-- settings.json         Python venv path
 |   +-- cpfiles.txt           CircuitPythonSync manifest
 +-- code.py                   Demo script (asyncio-based Phase 2 showcase)
++-- requirements-dev.txt      Host-side test dependencies (pytest)
 +-- lib/
-|   +-- display.py            MakeCode-style display library
-|   +-- display_icons.py      Icon + arrow bitmap data (column-major bytes)
+|   +-- display/              MakeCode-style display library (package)
+|   |   +-- __init__.py       Public-API re-exports
+|   |   +-- _constants.py     Dimensions + encoding limit + colors (pure)
+|   |   +-- bitmap_codec.py   ASCII art <-> column-major bytes codec
+|   |   +-- geometry.py       Pure build_lut / xy_to_index
+|   |   +-- icons.py          ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
+|   |   +-- core.py           Display + Image runtime (hardware-coupled)
+|   |   +-- font_free_mono_8/ PCF font (ships with package)
+|   |   +-- README.md         Package architecture + design rationale
 |   +-- neopixel.mpy          (installed by circup)
 |   +-- adafruit_pixelbuf.mpy (installed by circup)
 |   +-- asyncio/              (installed by circup)
 |   +-- adafruit_ticks.mpy    (installed by circup)
 |   +-- adafruit_bitmap_font/ (installed by circup)
-|   +-- font_free_mono_8/     (installed by circup -- PCF font)
++-- tests/                    Tier 1 pytest suite (host-side)
 +-- CONTEXT_HANDOFF.md        AI context document
 +-- README.md                 This file
+```
+
+## Running tests (host-side, Tier 1)
+
+Pure sub-modules (`bitmap_codec`, `geometry`, `icons`, `_constants`)
+are exercised on CPython without any CircuitPython stubs. The
+`display.core` runtime (NeoPixel buffer, font) is covered by Tier 2
+tests (deferred; will add `circuitpython-mocks` + local stubs).
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest tests/
 ```
 
 ## Development workflow

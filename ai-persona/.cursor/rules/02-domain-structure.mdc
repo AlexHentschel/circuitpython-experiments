@@ -1,0 +1,72 @@
+---
+description: Domain skeleton for the CircuitPython multi-experiment workspace — categories, conventions, status defaults
+alwaysApply: true
+---
+
+# Domain: CircuitPython Multi-Experiment Workspace
+
+## Scope
+
+Embedded development with **CircuitPython** across multiple hardware experiments under `/Users/alex/Development/VsCode/CircuitPython/`. Each experiment is a folder named `YYYY-MM_ExpNN_<descriptor>/`. A shared toolbox lives in `CircuitPy-VsCode-Tooling/`.
+
+This rule sets the domain skeleton: the categories that organize CircuitPython knowledge (now stored in the `concepts/` graph + per-project `CONCLUSIONS.md` — see below), what conventions are house-style, and what status defaults apply.
+
+All entries default to `unverified` unless specified otherwise. Code references include experiment name + relative path + (when relevant) commit/branch.
+
+## Active Project Detection (M1)
+
+> **Post-warm-reset (2026-06-14)**: "experiment" is now a **project** under a **family** (this CircuitPython work is family `circuitpython`; Bamboo-Lamp is its own family). The authoritative detector and path-globs live in **`memory/projects/_INDEX.md`** (M1). Treat `experiment` and `project` as synonyms when reading older entries.
+
+Detect the active project by matching the most-recently-edited / open file path against the **path-globs in `projects/_INDEX.md`** (e.g. `2026-04_Exp14_*/**` → `circuitpython-exp14-display`; `Bamboo-Lamp/**` → `bamboo-lamp`). Read + write only that project's `projects/<slug>/` folder (+ shared `universal/*`, `concepts/_INDEX.md`, central `SESSION_LOG.md`). If a path matches none or is ambiguous, **ask before writing per-project memory** — mis-routing into the wrong project's memory is the top failure mode (M1). Full routing procedure: `04-multi-project.mdc § Placement gate`.
+
+## Domain knowledge → concept graph (replaces the old `TECHNICAL.md` schema)
+
+Post-warm-reset, domain knowledge is **not** stored in a monolithic per-project `TECHNICAL.md`. It lives in the **concept graph** (`memory/concepts/`, D8): one `concepts/<domain>.md` per evidenced domain, indexed by `concepts/_INDEX.md`, related by `concepts/_RELATIONS.md`. Seed a domain only on evidence (C7); split a domain to per-concept files only when it grows unwieldy (graduation rule).
+
+The categories below are **organizing lenses / candidate concept domains** (not storage sections): Terminology · Boards & MCUs (+ pin maps) · CircuitPython Library Map · Hardware-Interfacing Patterns · Pin / Peripheral Assumptions · Toolchain · Code Map · Verification Queue. Seeded domains today: `circuitpython-runtime`, `fonts` (see `concepts/_INDEX.md`); candidate-but-unseeded: `power`, `i2c`, `deep-sleep`, `led-driving`, `display`, `fuel-gauge`, `tooling`. A per-concept "Verification Queue" lives inside the relevant `concepts/<domain>.md`.
+
+## CONCLUSIONS.md Conventions
+
+Status tiers (per `00-memory-system.mdc` § Evidence-Status Discipline):
+- `unverified` — stated but not investigated
+- `evidence-supported` — corroborated by independent sources (datasheets, official CircuitPython docs, on-device behavior, mechanical verification — grep/AST/tests)
+- `disputed` — conflicting evidence; record both positions
+- `invalidated` — disproven; retain with correction history
+
+No separate human-elevation tier on this workspace — the user is project owner across experiments but not the CircuitPython domain authority. Promotion depends on independent corroboration. When the user *is* the authority (project conventions, design intent, what success means), use the *contradictions have no default winner* adjudication path in `WORKING_STYLE.md`.
+
+Tag every conclusion with its experiment scope: `[exp14]`, `[exp13]`, `[tooling]`, `[cross-experiment]`, `[universal]`.
+
+When a finding holds across 2+ experiments, note it as `[cross-experiment]` and consider whether to promote a derived directive into `universal/WORKING_STYLE.md` (or a pattern into `universal/PATTERNS.md`) via the `crossref/BY_PATTERN.md` ladder (M3).
+
+## House Conventions
+
+- **No code edits to vendored libraries** in `lib/` — those are versioned copies of upstream bundle libraries. Modifications belong in experiment-local code.
+- **Settings layering**: workspace-level `.code-workspace` settings provide defaults; per-experiment `.vscode/settings.json` overrides board-specific items. VS Code does **not** merge arrays — `python.analysis.extraPaths` defined per experiment fully overrides the workspace-level value.
+- **Credentials in `settings.toml`** — never commit. Listed in `.gitignore`.
+- **Bundle archives** under `bundles/` and `libArchive/` are gitignored; treat as re-downloadable.
+- **CIRCUITPY drive**: when present, treat as the deployment target; never edit files there as a source of truth — they are deploys from the experiment's local source.
+
+## Where to Put New Knowledge
+
+**Authoritative routing = `04-multi-project.mdc § Placement gate`.** The table below is the CircuitPython-flavored quick reference (post-warm-reset homes):
+
+| Discovery | Destination |
+|-----------|-------------|
+| New board / MCU, pin map, library, wiring, hardware idiom, toolchain quirk (domain knowledge) | `concepts/<domain>.md` (+ `concepts/_INDEX.md` line); seed a new domain only on evidence |
+| Validated end-to-end behaviour of a project | active `projects/<slug>/CONCLUSIONS.md` § Evidence-Supported |
+| Pattern observed in 2+ projects | log candidate in `crossref/BY_PATTERN.md`; on 2nd occurrence promote to `universal/PATTERNS.md` (technique/process) or `universal/WORKING_STYLE.md`/`CODING_PRINCIPLES.md` (directive), tagged `[cross-experiment]` (M3) |
+| Which projects touch a topic | `crossref/BY_TOPIC.md` |
+| Behavioural correction from the human | `universal/WORKING_STYLE.md` — matching section, increment reinforcement |
+| Open question that survives a session | active `projects/<slug>/SESSION_LOG.md` § Open Questions (cross-project → central `SESSION_LOG.md`) |
+
+## Open Mandates (triggered structural changes)
+
+The human has pre-declared structural evolutions of this persona, each gated behind an explicit trigger phrase. When the human utters the trigger, read the corresponding mandate file **in full** and follow its pre-flight checklist before acting.
+
+| Trigger phrase | Mandate file | Status |
+|---------------|--------------|--------|
+| `warm reset` | `mandates/multi-project.md` | **EXECUTED 2026-06-14** — flat `memory/` reorganized into the unified multi-project layout (`universal/`, `projects/`, `concepts/`, `crossref/`) per `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md`. See `universal/CHANGELOG.md`. No longer a pending trigger. |
+
+Mandates are **declared intents**, not immediate actions. Do not pre-emptively restructure memory in anticipation; wait for the explicit trigger.
+

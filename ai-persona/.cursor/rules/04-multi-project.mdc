@@ -1,0 +1,58 @@
+---
+description: Multi-project memory mechanics — active-project detection, attention scoping/read order, scope tagging, placement gate, promotion/demotion ladder
+alwaysApply: true
+---
+
+# Multi-Project Memory
+
+This persona keeps **one unified memory** shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future), reachable from each workspace via the `.cursor/rules` symlink. This file is the **single source of truth** for *routing and the session-start read order* — `00`/`02`/`03` defer here. Layout overview + file table: `00-memory-system.mdc § File Architecture`. Migration record: `universal/CHANGELOG.md § 2026-06-14`. Authored at the 2026-06-14 warm reset (plan `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md`, mandate `mandates/multi-project.md`).
+
+> **PROVISIONAL (as of 2026-06-14).** The layout is an in-flight experiment. **Confirm** = real queries resolve one-hop (index→domain/project→detail) with deterministic placement. **Refute** = a query needs multi-file scanning/speculative search, a write lands in the wrong project, or a finding has no deterministic home here. **Trigger** = re-evaluate after ~5 real memory additions land post-reset, or next maintenance session. Remove the marker (here + `concepts/_INDEX.md` + `projects/_INDEX.md`) once ~5 additions land with no refute.
+
+## M1 — Active-project detection (do this first, every session)
+
+Pick the active project by matching the most-recently-edited / open file path against the **path-globs in `projects/_INDEX.md`** (e.g. `2026-04_Exp14_*/**` → `circuitpython-exp14-display`; `2026-06_Exp15_*/**` → `circuitpython-exp15-microbit`; `Bamboo-Lamp/**` → `bamboo-lamp`). If the path matches **none** or **multiple** projects ambiguously, **ask before writing any per-project memory** — writing into the wrong project's folder is the top failure mode (silent cross-contamination). Reading broadly is safe; *writing* per-project content requires a confident match.
+
+## M5 — Attention scoping (the canonical session-start read order)
+
+Memory is **not** auto-injected. At session start, in order:
+
+1. **Always read (cheap, cross-project):** `universal/WORKING_STYLE.md` (collaboration posture) + `universal/MONITORING.md` (recurrence triggers must be resident to fire) + `projects/_INDEX.md` (roster + globs, for M1) + `concepts/_INDEX.md` (concept skeleton) + central `SESSION_LOG.md` **living summary**.
+2. **Read when doing code work:** `universal/CODING_PRINCIPLES.md`.
+3. **Active project only:** `projects/<slug>/CONTEXT.md` (digest + resumption) + `projects/<slug>/SESSION_LOG.md` (last 1–2 entries + Open Questions) + `projects/<slug>/CONCLUSIONS.md` (if evaluating findings). Do **not** read other projects' folders — reach them only through `crossref/`.
+4. **On demand:** a specific `concepts/<domain>.md` (+ `concepts/_RELATIONS.md` for lateral traversal) when the task touches that domain; `crossref/BY_TOPIC.md` to find prior art in other projects; `universal/CHANGELOG.md` only during self-evaluation/compaction.
+
+Run health checks while reading (`00 § Active Retrieval`). This list is the **only** prescribed read order — no other file restates it (F8/F10 hazard).
+
+## Placement gate (route every new write to exactly one home)
+
+Answer in order; stop at the first match. **Governing principle (load-bearing): never *guess* an association into a deep, specific bucket.** A wrong-bucket placement is asymmetrically costly — a mis-buried entry is invisible from where it should be retrieved and silently rots; under-tagging stays findable and is cheap to fix. When scope is uncertain, keep the entry at the **shallowest correct scope** (broad-but-visible beats narrow-but-wrong) or flag for review. **Honor any scope tag already present** (R-7): route already-`[universal]`/`[cross-experiment]` content to central, never bury it in a project.
+
+1. **Is it a behavioral / collaboration directive?** (how I communicate, edit, decide, produce non-code artifacts) → `universal/WORKING_STYLE.md`.
+2. **Is it a coding-craft directive?** (API shape, code structure, docstring content, test design, refactoring economics) → `universal/CODING_PRINCIPLES.md`.
+3. **Is it domain/technical knowledge?** (board, peripheral, library, algorithm, mechanism — reusable beyond one project's narrative) → `concepts/<domain>.md` as a `### concept` (+ `_INDEX` line; + `_RELATIONS` edge if it connects to an existing concept). **Seed a new domain only on evidence (C7)** — if no domain fits and there's only this one concept, place it in the closest existing domain and note the candidate in `concepts/_INDEX.md § Candidate domains` rather than creating a near-empty file.
+4. **Is it a finding about one project's system** (with evidence status)? → active `projects/<slug>/CONCLUSIONS.md`.
+5. **Is it a session insight / decision / open question for one project?** → active `projects/<slug>/SESSION_LOG.md`. Cross-project or tooling/meta → central `SESSION_LOG.md`.
+6. **Is it a single-incident observation to act on only if it recurs?** → `universal/MONITORING.md` (Observation / Trigger / Action-on-trigger / First-observed / Scope).
+7. **Does it relate a topic across projects, or look like a recurring pattern?** → `crossref/BY_TOPIC.md` (topic→projects) and/or `crossref/BY_PATTERN.md` (candidate + occurrence count). Promotion handled by M3.
+
+If two branches seem to apply, prefer the **most general visible** home (per the governing principle) and cross-link.
+
+## M2 — Scope tagging (two orthogonal dimensions — D4)
+
+- **Directive scope** (for `universal/WORKING_STYLE.md` / `CODING_PRINCIPLES.md`): `[universal]` / `[user]` / `[project]` / `[task]`.
+- **Content scope** (for concepts / project findings / crossref): `[domain:<d>]`, `[family:<f>]`, `[project:<slug>]`, `[cross-experiment]`, `[universal]`.
+
+Keep them orthogonal — a directive can be `[user]` while a finding is `[project:bamboo-lamp]`; do not collapse one into the other.
+
+## M3 — Promotion ladder (auto-promote, sign-off only for `[universal]` — D2)
+
+`[project]` observation → log a candidate in `crossref/BY_PATTERN.md` (1st occurrence) → **on a 2nd project's occurrence, auto-promote**: technique/process → `universal/PATTERNS.md`; behavioral/coding directive → the relevant `universal/` catalog; concept holding across projects → mark `[cross-experiment]` in `concepts/`. Tag with the new scope + dated provenance. **Promotion to `[universal]` requires Alex's sign-off**; cross-project (`[cross-experiment]`) promotion does not.
+
+## M6 — Demotion (reversible)
+
+If a counterexample surfaces at the current scope, **demote**: narrow the scope tag (or mark a finding `disputed`/`invalidated`, retaining correction history), and **log it in `universal/CHANGELOG.md`** with the counterexample. Demotion is the safety valve that makes auto-promotion (M3) low-risk.
+
+## Cold-AI write gate (every new/moved entry)
+
+Before persisting, confirm the entry is decodable by a fresh AI with no chat history: claim + evidence + status + enough context to act, with links (not copies) to project-repo detail (C8). See `reference/cold-ai-paradigm.md`.

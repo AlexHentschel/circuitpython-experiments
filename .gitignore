@@ -22,3 +22,7 @@ __pycache__/
 
 # Empty bundle placeholder
 bundles/
+
+# Cursor per-root plan scratch (plans live in the master; sub-root plan dirs are transient).
+# Uses **/ to match at any depth so per-experiment .cursor/plans/ folders are also ignored.
+**/.cursor/plans/

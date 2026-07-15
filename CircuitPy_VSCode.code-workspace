@@ -16,6 +16,10 @@
 	// ============================================================================
 	"folders": [
 		{
+			"path": "2026-06_Exp15_RP2350-Bit-Board_Microbit-v01",
+			"name": "Exp15: micro:bit alternative (RP2350)"
+		},
+		{
 			"path": "2026-03_Exp11_Ws2812_with_CPy_RP2350-Bit-Board",
 			"name": "Exp11: WS2812b & DotStar (RP2350)"
 		},

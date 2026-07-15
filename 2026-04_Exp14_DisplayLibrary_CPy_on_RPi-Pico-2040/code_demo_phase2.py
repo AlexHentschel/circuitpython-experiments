@@ -10,7 +10,9 @@ Hardware: YD-RP2040, WS2812b 8x8 matrix on GP0 via level shifter.
 import asyncio
 from display import (
     display,
-    IconNames,
+    Icons,
+    Arrows,
+    ARROW_NAMES,
     create_image,
     create_big_image,
     color,
@@ -62,7 +64,7 @@ ARROW_IMAGE = create_image(
 . . # # . . . .
 . . # # . . . .
 """,
-    color_palette=CYAN,
+    color=CYAN,
 )
 
 WIDE_IMAGE = create_big_image(
@@ -76,7 +78,7 @@ WIDE_IMAGE = create_big_image(
 . . . . . . # . . # . . . . . .
 . . . . . . . # # . . . . . . .
 """,
-    color_palette=GOLD,
+    color=GOLD,
 )
 
 
@@ -86,52 +88,52 @@ async def main():
     while True:
         # 1. Icon showcase
         print("Icons: HEART, HAPPY, SKULL, BUTTERFLY")
-        await display.show_icon(IconNames.HEART, color=RED, interval=800)
-        await display.show_icon(IconNames.HAPPY, color=GREEN, interval=800)
-        await display.show_icon(IconNames.SKULL, color=WHITE, interval=800)
-        await display.show_icon(IconNames.BUTTERFLY, color=PURPLE, interval=800)
+        await display.show_icon(Icons.HEART, color=RED, interval_ms=800)
+        await display.show_icon(Icons.HAPPY, color=GREEN, interval_ms=800)
+        await display.show_icon(Icons.SKULL, color=WHITE, interval_ms=800)
+        await display.show_icon(Icons.BUTTERFLY, color=PURPLE, interval_ms=800)
 
         # 2. Arrow cycle
         print("Arrow directions")
-        for d in range(8):
-            await display.show_arrow(d, color=CYAN, interval=400)
+        for name in ARROW_NAMES:
+            await display.show_arrow(getattr(Arrows, name), color=CYAN, interval_ms=400)
 
         # 3. Text scrolling
         print("Scrolling text: Hello!")
-        await display.show_string("Hello!", color=YELLOW, interval=120)
+        await display.show_string("Hello!", color=YELLOW, interval_ms=120)
         await display.pause(300)
 
         # 4. Number display
         print("Numbers: 42")
-        await display.show_number(42, color=AMBER, interval=120)
+        await display.show_number(42, color=AMBER, interval_ms=120)
         await display.pause(300)
 
         # 5. Single digit (centered)
         print("Single digit: 7")
-        await display.show_number(7, color=PINK, interval=200)
+        await display.show_number(7, color=PINK, interval_ms=200)
         await display.pause(500)
 
         # 6. Multi-color palette
         print("Multi-color: French flag")
-        await display.show_leds(FLAG_PATTERN, color_palette=FLAG_PALETTE, interval=1500)
+        await display.show_leds(FLAG_PATTERN, color=FLAG_PALETTE, interval_ms=1500)
 
         # 7. Image display and scroll
         print("Image: arrow")
-        await ARROW_IMAGE.show_image(offset=0, interval=1000)
+        await ARROW_IMAGE.show_image(offset=0, interval_ms=1000)
 
         print("Image: wide scroll")
-        await WIDE_IMAGE.scroll_image(offset=1, interval=150)
+        await WIDE_IMAGE.scroll_image(offset=1, interval_ms=150)
         await display.pause(300)
 
         # 8. Recolor demo
         print("Recolor arrow image to RED")
         ARROW_IMAGE.recolor(RED)
-        await ARROW_IMAGE.show_image(offset=0, interval=1000)
+        await ARROW_IMAGE.show_image(offset=0, interval_ms=1000)
         ARROW_IMAGE.recolor(CYAN)
 
         # 9. Tier 1 sync demo (works without await)
         print("Tier 1 sync: render_icon + clear")
-        display.render_icon(IconNames.GHOST, color=BLUE)
+        display.render_icon(Icons.GHOST, color=BLUE)
         await display.pause(1000)
         display.clear_screen()
         await display.pause(500)
