@@ -95,6 +95,19 @@ Scope: Bamboo-Lamp session insights, decisions, and open questions ONLY. Routing
   domain); `sensors` deferred to a future domain for environmental sensors (LM75A etc.), seeded on first
   concrete sensing concept. Self-discharge refined to ~2–5 %/mo. Full record: `universal/CHANGELOG.md
   § 2026-06-15`. Remaining candidate domains: `deep-sleep`, `led-driving`, `display`, `tooling`, `sensors`.
+- **Follow-up (back-power fallbacks + level-shifter research)**: revisited physical fallbacks for the one residual
+  back-feed point under D-4 (always-on MAX17048 lines vs dead C6). Researched I2C level shifters as back-power fixes
+  (datasheets: TI TXS0102/TCA9517A/PCA9306 + TI E2E). Findings extended into **`concepts/i2c.md` § back-feeding**
+  (isolation-device taxonomy): the needed feature = *powered-off high-Z / Ioff*. **TXS0102** (open-drain, VCC-isolation
+  + Ioff, µA-class) is the viable level-shifter option; **active buffers TCA9517A/PCA9617A** have powered-off-high-Z
+  but draw ~1–5 mA (unusable on the always-on rail); **PCA9306/LSF0102 do NOT auto-isolate on single-side power-down**
+  (TI E2E — EN stays high via the live side; needs a live GPIO to pull EN low = dead in standby); ISO154x isolators
+  need both sides powered. Two negative results also recorded: PCA9306 trap, and **power-path "ideal diode"
+  (LM74610/XL74610) is not a signal-line back-feed fix**. Tool-choice conclusion unchanged: for a same-voltage bus,
+  pull-ups on the switched rail (free) > dedicated Ioff switch TMUX1511 (~0.01 µA) > a translator; a powered-off-high-Z
+  translator only earns its place if real 5 V↔3.3 V translation coexists. Also added digest **Q16(f)**: named
+  lamp fallback for un-removable gauge pull-ups → powered-off-high-Z isolator (TMUX1511 or TXS0102) on the gauge↔C6
+  lines, powered from the switched rail. (TXS0102 module ~$2.50 CAD — Alex may stock a couple as insurance.)
 
 ## 2026-06-14: Session 1 — Bamboo-Lamp (memory bootstrap + cold-AI integration)
 
