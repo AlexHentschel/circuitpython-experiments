@@ -582,7 +582,7 @@ class Image:
           As ``_offset`` is lower-bounded by ``- display.WIDTH``, we have ``x_min ≤ WIDTH``. Hence, ``x_max, x_min ∈ [0, WIDTH]``.
           For negative ``_offset``, we have ``x_min = - _offset`` which implies: ``x_min = - _offset ≤ width - _offset`` (for non-negative ``width``).
           We note that the lower ``_offset`` bound implies ``x_min = -_offset ≤ WIDTH``. Hence we have shown that ``x_min`` is smaller or equal to
-          either terms in ``min(WIDTH, width - _offset) = x_max``, i.e. ``x_min ≤ x_max``.
+          either term in ``min(WIDTH, width - _offset) = x_max``, i.e. ``x_min ≤ x_max``.
 
         ┌──── Corollary ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
         │ For any  ``_offset := max(- display.WIDTH, min(offset, Image.width))``, the interval I of display columns covered by the image is  │

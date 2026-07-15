@@ -1,0 +1,1061 @@
+Podcast (in German): "They Talk Tech"
+Episode: "Live mit Katharina Scheiter: KI und Bildung - Verlernen wir gerade, wie man denkt?" 
+
+
+============================================================================================================================== 
+Episode Description (in German): "Live mit Katharina Scheiter: KI und Bildung - Verlernen wir gerade, wie man denkt?" 
+
+They Talk Tech Live vom University:Future Festival 2026 mit Katharina Scheiter, Professorin für Lehr-Lernforschung an der Universität Potsdam und eine der klügsten Stimmen in Deutschland, wenn es um evidenzbasierte Perspektiven auf digitales Lernen geht. Wir sprechen über die Frage, ob KI uns schlauer macht oder nur bequemer, und wie wir unsere Interaktion mit Chatbots & Co mehr in die Richtung schlauer statt bequemer drehen können. Wenn unser Gehirn Abkürzungen liebt und Chatbots immer mehr kognitive Arbeit übernehmen, verlernen wir dann, uns wirklich mit Inhalten auseinanderzusetzen? Wir diskutieren Studien, Fehlanreize im Bildungssystem und die Frage, wie KI sinnvoll als Lernwerkzeug eingesetzt werden kann, ohne den Lernprozess zu ersetzen. Denn Anstrengung ist kein Bug, sondern das Feature von Lernen. Wir sprechen auch darüber, wann metakognitive Faulheit zum echten Problem wird und was sich in Schule und Hochschule radikal ändern muss (Spoiler: ziemlich viel).
+
+University:Future Festival 2026: https://festival.hfd.digital/de/sessions-2026/?id=1191986 Interview von Eva mit Katharina Scheiter: https://t3n.de/news/hirnforscher-warnen-chatgpt-1712547 bzw. https://shop.t3n.de/collections/mit-technology-review/products/mit-technology-review-07-2025
+
+============================================================================================================================== 
+
+Transcript (German)
+
+00:00:16
+Ja, herzlich willkommen.
+00:00:17
+Das ist gleichzeitig ein Live-Podcast von Daytalk Tech.
+00:00:20
+Ein CT Podcast, den ich gemeinsam mit Svea Eckert mache normalerweise.
+00:00:24
+Die ist jetzt wie ihr sehen könnt heute nicht hier, die kann nicht hier sein aber ich bin hier und habe Katharina Scheiter zu Gast.
+00:00:31
+Wir kennen uns schon ganz schön lange weil Katharina scheitern war bevor sie Professorin für digitale Bildung an der Uni Potsdam wurde.
+00:00:38
+was dir schon seit ... ist, wie ich mit Erstaunen festgestellt hab.
+00:00:42
+War sie lange in Tübingen am Leibniz-Institut für Wissensmedien?
+00:00:46
+Hat da promoviertes Psychologin und erhabilitiert... Und in dem Zusammenhang habe ich dich immer mal wieder interviewt, weil mein Thema Digitalisierung ja und KI und wie ändert das die Gesellschaft natürlich ganz oft also erstens mit Psychologie zu tun hat aber eben auch ganz oft Lehren und Lernen.
+00:01:06
+Und das ist ja ein Thema, was uns jetzt glaube ich alle breit beschäftigt seit ChatGPT.
+00:01:16
+Seit Jahr habe ich diese Diskussion und Fragen immer wieder auch aus dem Freundeskreis von Lehrerinnen und Lehrern aber auch von SchülerInnen Studierenden so die Frage Was ist denn jetzt ein sinnvoller Einsatz von ChatGPP und anderen KI Systemen?
+00:01:31
+beim Lehren und Lernen.
+00:01:32
+Und wie gesagt, wir haben dieses Thema auch vorher schon diskutiert.
+00:01:35
+Es gibt ja auch noch andere KI-Systeme, andere Zusammenhänge, in denen man Digitalisierung oder eben KI Persönlichassistenten einsetzen kann.
+00:01:43
+Da gibt es schon immer viel Forschung dazu und es gibt auch schon immer das weißt du wahrscheinlich auch Katharina viele viele schräge Dinge, die der Hype treibt.
+00:01:53
+und da habe ich in Katharina wirklich immer eine super kompetente spannende und tolle Interviewpartnerin gefunden.
+00:01:59
+Und deswegen freue mich mega dass du heute auch hier bist um mit uns über KI und Bildung zu diskutieren natürlich ein Thema was euch hier auf dem University Future Festival besonders bewegt wie ich mir vorstellen kann.
+00:02:15
+Du hast außerdem, um die Vorstellung abzuschließen eine Ehrenprofessur in der School of Education in Nottingham und machst empirische Lehr- und Lernforschung.
+00:02:25
+Pädagogische und kognitive Psychologie lernen mit digitalen Medien.
+00:02:29
+wie schon gesagt habe Und ich würde sagen deine Kernhaltung kann man so zusammen fassen digitale Medien machen lernen nicht per se besser.
+00:02:35
+Entscheidend ist ja logisch wo und wie man sie einsetzt.
+00:02:38
+herzlich willkommen Katharina.
+00:02:40
+Ja vielen Dank.
+00:02:41
+freue mich heute hier zu sein.
+00:02:43
+Vielleicht bringen wir direkt rein in dieses macht ChatGPT uns dumm Thema.
+00:02:48
+Das war das jüngste Intro, was wir vor aber auch schon wahrscheinlich ein, zwei Jahren geführt haben.
+00:02:53
+Da kam eine große Studie oder es war eben keine große Studi.
+00:02:55
+Es kam eine Studie raus die hatte den Titel Your Brain on ChatGPP und hat relativ viele auch alarmistische Artikel nach sich gezogen und wie mir die Autorin im Interview gesagt hat, denkt sie dass es daran liegt das die meisten Journalistinnen diese Studie haben von ChatGPT zusammenfassen lassen.
+00:03:13
+Und dann erstens die nicht ganz komplett verstanden haben und zweitens die dadurch auch nochmal ja reißerischer oder provozierender wurde und wir haben damals drüber gesprochen.
+00:03:25
+ich würde die Frage jetzt dir auch mal ganz offen stellen macht denn ChatGPP und Sturm
+00:03:30
+Das stimmt wahrscheinlich sozusagen in dieser Pauschalität ähnlich wie Bücher machen schlau.
+00:03:35
+Also es kommt sehr auf die Art... Bücher
+00:03:37
+können auch nicht schlauen!
+00:03:39
+Bücher Können schlaumachen, wenn man die richtigen Bücher liest, wenn sie hinreichend tief verarbeitet, wenn sich dazu Fragen stellt.
+00:03:48
+und das sind so einige Rahmenbedingungen, die gelten für Gepäte natürlich genauso bzw generell generative KI, man muss es eben richtig einsetzen und für die richtigen Aufgaben einsetzen.
+00:04:00
+Und man darf dafür gleichzeitig sozusagen bei der Nutzung sein Hürden nicht ausschalten.
+00:04:05
+Das ist glaube ich der entscheidende Punkt.
+00:04:07
+Aber passiert das denn so leicht dass man seine Hirne ausschaltet?
+00:04:09
+Also können wir das überhaupt ausschalten und warum?
+00:04:14
+Die Verführung ist natürlich groß.
+00:04:16
+also wenn ich sozusagen einen Gegenüber habe dem ich jede beliebige Frage stellen kann und ich kriege sofort eine einfach aufbereitete, gut nachvollziehbare Antwort die auch erstmal sozusagen plausibel klingt.
+00:04:29
+Warum soll ich denn so zu sagen selber dann noch vertieft drüber nachdenken?
+00:04:33
+Also wir sind ja als Menschen auf kognitive Sparsamkeit ausgerichtet.
+00:04:37
+das heißt wir möchten möglichst nur so viel investieren dass wir sozusagen zum Ziel kommen in der Regel tatsächlich und das ist genau das Motiv die Haltung, die Chatchapiti und andere generative KI-Anwendungen eigentlich perfekt bedienen.
+00:04:54
+Dass sie uns dieses Gefühl geben das ist doch leicht zugänglich.
+00:04:58
+jetzt müssen wir gar nicht weiter hinterfragen sondern wir können im schlimmsten Fall sozusagen die Antwort die uns Chachapiti gibt eins zu eins übernehmen und haben unsere Aufgabe erledigt.
+00:05:09
+Jetzt hast du gesagt Wir sind auf kognitive Sparsamkeit ausgerichtet.
+00:05:14
+Das finde ich gar nicht so intuitiv, weil eigentlich denkt man doch wir sollten da auch auf Wachstum und immer schlauer werden usw.
+00:05:20
+ausgerichtet sein.
+00:05:21
+warum ist es eigentlich so?
+00:05:24
+Na ja aus einer evolutionären Perspektive würde ich sagen tatsächlich geht das mal darum mit den begrenzten Kognitive und Ressourcen die wir haben sparsam umzugehen.
+00:05:34
+Wir können eben nicht beliebig viel Informationen gleichzeitig verarbeiten, wir können uns Dinge nur wenn wir sie nicht aktiv immer wieder aufrechterhalten auch nur für einen begrenzten Zeitraum, aktiv im Arbeitsgedächtnis halten.
+00:05:48
+Wenn die Sachen einmal ins Langzeit-Gedächtnis gekommen sind die Informationen Dann sind sie dort gut verfügbar möglicherweise nicht mehr auffindbar, aber eigentlich sind Sie da.
+00:05:58
+Aber der Prozess dorthin ist eben erst mal einer, der durch ein ziemliches Nagelöhe kognitiv gehen muss und da macht es natürlich dann schon Sinn zu gucken wie komme ich sozusagen mit dem möglichst geringsten Widerstand zu einem befriedigenden Ergebnis?
+00:06:13
+Dass das nicht immer mit Wachstum gleich verbunden ist und mit dem großen Wurf sozusagen intellektuell ... Das ist dann das andere Problem.
+00:06:22
+Das
+00:06:22
+ist ein scheinbarer Widerspruch in meinem Gehirn.
+00:06:27
+Wir können lernen und wachsen, aber es gibt eine Grenze, was in den Kopf reingeht.
+00:06:36
+Dinge werden dann schon ins Langzeitgedächtnis überführt.
+00:06:40
+Und das hat mehr Speicherkapazität oder kann da mehr rein?
+00:06:45
+Oder fällt immer wieder was hinten raus?
+00:06:49
+Was begrenzt ist sozusagen unsere Fähigkeit, die Informationen während des Lernprozesses zu verarbeiten.
+00:06:59
+sogenannte Langzeitspeicher oder das Langzeitgedächtnis.
+00:07:02
+Das Problem ist, was wir dort haben.
+00:07:04
+wenn wir Dinge nicht sozusagen gut miteinander in Verbindung gebracht haben also einfach zum Beispiel Vokabeln auswendig gelernt haben ohne sie zu verknüpfen, ohne vertieft über die Bedeutung nachzudenken dann finden wir sozusagen diese Übersetzungen im Langzeit Gedächtnissen irgendwann nicht mehr wieder.
+00:07:21
+Das heißt wir sind darauf angewiesen neue Informationen die wir lernen regelmäßig sozusagen mit bekannten Wissen zu verknüpften, möglichst starke Verbindungen herzustellen.
+00:07:32
+Dann können wir dieses Wissen auch wieder aus dem Langzeitgedächtnis
+00:07:35
+abrufen.".
+00:07:37
+Der Weg dorthin ist dann eben einer, da muss sozusagen die Information durch relativ begrenzte Verarbeitungssysteme hindurch.
+00:07:46
+Wir können eben nur begrenzt viel Informationen visuell aufnehmen oder auch auditiv und wir können uns nicht mehr als ein paar Informationseinheiten gleichzeitig merken.
+00:07:57
+also wenn ich jetzt hier beliebige Telefonnummer nennen würde dann würde wahrscheinlich jeder bei Sieben plus minus zwei Ziffern bei einer neuen Telefonnummer kapitulieren.
+00:08:11
+Und das ist eben das Problem, dass wir aufgrund dieser Begrenzung versuchen es uns leicht zu machen an vielen Stellen.
+00:08:19
+Ah daher kommt also dieses Evolutionäre Wir versuchen Abkürzungen zu nehmen und wir nehmen das dankbar an wenn Chatty Pity die Aufgabe für uns löst und dann die vielleicht noch so erklärt Dass ich ein Eindruck bekomme eigentlich habe ich Ja, teilweise sogar selbst gemacht oder eigentlich jedenfalls verstanden.
+00:08:34
+Aber du sagst das ist nicht so also man hat es dann nicht notwendigerweise Verstanden.
+00:08:40
+oder diese Abkürzung führt dazu dass diese Inhalte dann eben nicht tiefer verankert werden?
+00:08:45
+Genau!
+00:08:46
+Also zum einen ist es so wenn man zb Studierende fragt wie sie denn die Anstrengung beim Lernen empfunden haben Dann sagen Sie überwiegend Es war unangenehm Das war belastend.
+00:08:56
+das hat mir nicht gefallen Selbst wenn dieser anstrengungen auf der Ergebnisseite sozusagen positiv mit Lernergebnissen zusammenhängt.
+00:09:04
+Das heißt, während der Lernsituation überwiegt nicht dieses Gefühl von ich habe mir hier etwas erarbeitet sondern eher ist es mühselig und das ist vielleicht eine Situation die ich lieber entgehen möchte.
+00:09:16
+Wenn wir jetzt eine Situation haben, die uns so leicht macht wie beispielsweise die Interaktion mit einem Chatbot dann Das geht alles ganz einfach.
+00:09:27
+Wir haben kein Gefühl von Hindernis und wir unterliegen möglicherweise auch der Illusion, dass wir uns das in der Tat selber erarbeitet haben.
+00:09:36
+Was letztendlich dazu führt, dass sie sehr souverän sagen, das haben wir jetzt verstanden ... und später stellt sich dann raus, wenn wir den Chatbot nicht mehr zur Verfügung haben.
+00:09:46
+Na ja so ganz verstanden haben wir es doch eben nicht weil wir können's nicht abrufen.
+00:09:51
+Wir können damit keine Probleme lösen mit dem was wir vermeintlich gelernt haben Weil wir eben nicht die Anstrengung aufgewendet haben, die eigentlich notwendig gewesen wäre.
+00:10:00
+Das klingt aber jetzt so als wenn diese Chatbots quasi wie eine Lücke springen, die die Evolution öffengelassen hat oder die werden sie so in der Lücke ausnutzen.
+00:10:08
+Und das sind oft auch Dinge oder so Fallen, aus denen wir ganz schlecht rauskommen.
+00:10:14
+Also dieses was wir evtl zu näher war so tief drin steckt kann man ja ganz schlecht überwinden.
+00:10:17
+oft wenn du jetzt sagst das ist quasi die willkommene Abkürzung und ich kann es total gut verstehen und ich habe übrigens auch Ganz viele Beispiele immer wieder gehört und da oft auch an dich gedacht und an deiner Aussage dass eben Lernen nur dann nachhaltig ist wenn's mit Mühe verknüpft ist Und dass man eben oft von Chatbots das Gefühl bekommt.
+00:10:35
+hier ist die Lösung und Du hast sie doch eigentlich so halb selbst erarbeitet verstanden.
+00:10:39
+Zum Beispiel habe ich neuer über so ein Hacker Contest Porn to Own geschrieben.
+00:10:43
+Da müssen Hackerinnen und Hacker quasi neuartige Sicherheitslücken einreichen, also als die sie gefunden haben und dann müssen sie live auf der Bühne vorführen mit einem neuen Laptop das ganz klar ist.
+00:10:52
+da kann nichts vorbereitet sein.
+00:10:53
+und da war eine Gruppe die hatte was ich ganz sicher Und hat es dann genau nicht auf der Bühne zeigen können.
+00:10:59
+Der Organisator hat mir gesagt, das war wahrscheinlich genauso ein Fall.
+00:11:02
+Die haben's mit KI-Agenten gemeinsam erarbeitet und ich weiß es auch im Programm mit dem KI-Agenten.
+00:11:06
+Ich hab das alles in der Hand.
+00:11:09
+Aber sie hatten es eben am Ende doch nicht ganz verstanden.
+00:11:13
+Was ist denn der Umgang?
+00:11:20
+Wie kommen wir da raus?
+00:11:21
+Wie können wir uns den Schützen vor diesem Effekt nur noch alles oberflächlich zu lernen oder gar nicht mehr?
+00:11:27
+Genau, also die eine Frage ist hier.
+00:11:28
+Also wie setzen wir KI dann richtig ein und zu welchem Zeitpunkt setzten wir KI ein?
+00:11:34
+Da ist zum einen wenn man jetzt zum Beispiel an Kinder denkt, die schreiben lernen sollen, die rechnen lernen sollen das da sozusagen dieser frühe Einsatz von generativer KI, die wirklich Lösungen ungefiltert vorgibt.
+00:11:48
+Dann eher problematisch weil ich dann eben sozusagen diesen Lernprozess nicht wirklich durchlaufe.
+00:11:53
+aber selbst wenn ich sozusagen eine Fertigkeit schon beherrsche also schon schreiben kann und schon lesen kann rechnen kann ist immer noch die Frage muss sich nicht so zu sagen erstmal selber mich an der Aufgabe versuchen bevor ich dann sozusagen die KI zur Überarbeitung zur Revision einsetze oder mir weitere Fragen stellen, dass sie beispielsweise die sozusagen über das hinausgehen was ich schon zu Papier gebracht habe beziehungsweise eingetippt habe.
+00:12:19
+So dass sich dann sozusagen mit der KI an meinem eigenen Produkt oder dieses Produkt was meinen eigenen Denkprozess widerspiegelt, dann weiter erarbeiten?
+00:12:30
+aber das Denken mache ich zuerst und dann nutze ich erst die KI.
+00:12:35
+Weil wenn die Chatbots uns das gefügigen und ich meine, das tun sie glaube ich echt erfolgreich.
+00:12:40
+Du hast es doch verstanden und hier ist ja alles... Und noch dazu finde ich oft, ermitteln Sie auch so den Eindruck, dass es eigentlich ein ganz einfaches Thema ist.
+00:12:46
+Ich bauste jetzt mal so zusammen, dass das ganz einfach zu verstehen ist oder was mir die Autore in dieser Studie gesagt hat dann werden einfach die Sachen, die ein bisschen schwieriger sind, weg gelassen?
+00:12:55
+Dann merkt es ja niemanden, wenn man die Studie selbst nicht gelesen hat.
+00:12:58
+wie können wir denn uns als Gesellschaft, die ich unterstelle mal durchaus sich weiterentwickeln will.
+00:13:05
+Menschen ist ja geschafft, obwohl es so mühsam ist das trotzdem beizubehalten.
+00:13:09
+Gibt es Tricks oder Beispiele wie man sich das konkret organisieren kann?
+00:13:14
+Dass man eben nicht in diese Falle hat auch wenn's so verlockend ist jedes einzelne Mal wenn man diesen Chatbot öffnet?
+00:13:20
+Nein die Frage ist tatsächlich überprüfe ich überhaupt ob ichs verstanden habe oder gebe mich in dem Augenblick wo ich den Chatbott Dialogbox sozusagen wieder geschlossen habe, gehe ich dann zufrieden raus und gehe wieder meiner Wege oder setze ich mich danach nochmal hin vielleicht mit dem Blattpapier.
+00:13:37
+Und versuche die Aufgabe selber zu lösen oder eine ähnliche Aufgabe zu löse?
+00:13:41
+weil wir sind sehr schlecht darin tatsächlich als Menschen korrekt einzuschätzen was wir wissen und was wir nicht wissen.
+00:13:49
+das weiß man auch jenseits von Digitalität.
+00:13:52
+dass wir ne Tendenz haben uns eigentlich eher zu überschätzen, ist auch ganz selbstwert dienlich.
+00:13:57
+Aber kann natürlich beim Lernen zum Problem führen.
+00:14:00
+und das Problem was wir da noch haben es gerade diejenigen die sehr am Anfang des Lernprozesses stehen sind dieser Tendenz besonders stark ausgesetzt, das heißt die überschätzen sich noch stärker und brechen dann beispielsweise solche Lernprozesse frühzeitig ab.
+00:14:18
+Und da müsste man eigentlich sagen also für jede Arbeit mit einem Chatbot wo ich sozusagen gemeinsam Aufgaben bearbeite muss es danach nochmal eine Reflektionsphase geben wo ich zum einen Überlege, wie habe ich jetzt eigentlich mit dem Chatbot zusammengearbeitet?
+00:14:32
+Wann habe ich die Antworten übernommen.
+00:14:35
+Wann hab' ich vielleicht auch gesagt, nee das ist quatsch!
+00:14:37
+Das suche ich noch mal woanders und dann aber auch sozusagen eine nicht-chatbot unterstützte Phase zu haben, wo ich nochmal selber versuche Aufgaben zu bearbeiten, Aufgaben
+00:14:49
+Das könnte man ja wahrscheinlich technisch umsetzen.
+00:14:52
+Und ich weiß, es gab immer wieder von den Chatbot-Anbietern, da gab's ja auch so Angebote, naja wir machen einen Lernmodus wo wir eben dann nur Fragen stellen... Ich weiß das gibt doch viel Forschung.
+00:15:02
+unter anderem glaube ich auch von dir oder deiner Gruppe dazu zu der Frage was müsste denn so ein persönlicher digitaler Agent wie müsste denn der mit einer lernenden Person umgehen?
+00:15:11
+Was braucht man denn nicht die Abkürzung zu nehmen?
+00:15:15
+Aber ehrlich gesagt, in der Realität ist es zumindest bei den großen US-Tech-Unternehmen ja nie angekommen.
+00:15:20
+Ich dachte mir jetzt kommt dann dieses hier ChatGPT.
+00:15:23
+ich frag dich danach immer noch was ab.
+00:15:25
+oder bevor du weiter mit mir reden kannst musst du mal kurz einen Test machen.
+00:15:28
+das kam ja nicht.
+00:15:29
+woran liegt's?
+00:15:32
+Die sind im Grunde mehr darauf trainiert quasi gefällig zu sein also Bestätigung zu liefern und damit die Nutzer an sich zu binden.
+00:15:40
+Ich möchte natürlich lieber mit einem System interagieren was dir mir die ganze Zeit sagt Das war schon ganz gut, mach mal weiter so.
+00:15:47
+Und das kriegen wir auch noch hin.
+00:15:49
+hier dieses kleine Problem als jemand dem er sagt, oh, es geht aber gar nicht und der mir dann auch sozusagen Hindernisse in also vermeintliche Hindernissen in den Weg legt indem es mich Fragen stellt obwohl ich doch eigentlich Antworten haben möchte.
+00:16:02
+Das heißt dass ist einfach aus einer Verkaufsperspektive wie diese Chatbots funktionieren passt das überhaupt nicht zusammen?
+00:16:11
+Wir haben tatsächlich selber versucht ein System zu entwickeln was die lernen dann eher in so einem tutoriellen Dialog verwickelt.
+00:16:20
+Also das macht was gute Tutoren machen, die geben ja auch nicht die Antworten vor sondern die stellen kluge Fragen also Rückfragen und es ist unglaublich schwierig tatsächlich so ein Chatbot sozusagen diese Tendenz abzugewöhnen immer nur zu sagen kommen hier ist die richtige Antwort bzw.
+00:16:37
+hast du schon ganz prima gemacht?
+00:16:39
+Und dabei höflich zu bleiben!
+00:16:41
+Also höfliche Rückfragen zu stellen, aber auch zu signalisieren.
+00:16:45
+Das war jetzt tatsächlich noch nicht so eine brillante Antwort und darauf sind diese Systeme einfach nicht getrimmt.
+00:16:51
+Das heißt man müsste echt ganz andere bauen wenn man das sinnvoll machen wollen würde?
+00:16:55
+Man kann grundsätzlich sozusagen die Grundarchitekturen von large language Modellen natürlich nutzen also die enormen Rachfähigkeiten, die diese Systeme haben.
+00:17:05
+Aber man muss ihnen sozusagen einiges wieder über System Prompting austreiben was sozusagen die Entwickler dieser Systeme da reintrainiert haben an Verhalten und dann geht es tatsächlich ganz gut wobei es auch nicht so leicht ist wie man sich das vorstellen würde.
+00:17:21
+man verfällt sehr schnell dann in solche Loops hinein wurde man ständig der Tutor wieder rückfragen stellte man irgendwann denkt naja komm jetzt können wir auch mal das Thema wechseln.
+00:17:32
+Also da merkt man dann schon, dass die dydaktische Intelligenz oder das didaktische Gespür, dass das da eigentlich bei einem guten menschlichen Totor auch noch reinkommt zu wissen wann breche ich ab und wann gehe ich vielleicht auch mal in eine andere Richtung?
+00:17:48
+Oder versuche nochmal einen neuen Weg an das Thema heranzukommen wenn mein Gegenüber offensichtlich Schwierigkeiten hat.
+00:17:56
+Ich weiß ja, dass ich vor einigen Jahren schon mal bei euch war in Tübingen noch und genau solche Ansätze angeschaut habe.
+00:18:01
+Das war von dir und deinen Kolleginnen und Kollegen.
+00:18:04
+Und da ging es ganz oft darum, das Lernen.
+00:18:06
+jetzt wenn man so eine Schulklasse denkt oder wahrscheinlich auch an die Uni, das ist Lernen oder was der Unterricht, zumindest wenn es einen Frontaltricht ist, der präsentiert wird immer nur ganz wenige wirklich erreicht.
+00:18:14
+also viele sind überfordert und viele sind unterfordert.
+00:18:16
+Nur ein kleiner Teil hat genau diesen Stand.
+00:18:18
+Da ging es immer darum, dass man so adaptive Systeme braucht jedem Schüler, jeder Schülerin die Fragen stellen.
+00:18:25
+Die gerade genau die richtigen sind und ich weiß dass damals ziemlich viel Hoffnung war eben auf künstliche Intelligenz und so diesen.
+00:18:31
+dann werden die Systeme besser verstehen wo du grade steckst auch vielleicht warum du was nicht verstehst.
+00:18:36
+damals ging es noch viel um eye-tracking.
+00:18:38
+heute kann man wieder anderes verhalten messen um rauszukriegen was eigentlich grad das Problem oder die Herausforderung für Menschen ist.
+00:18:44
+ist das denn besser geworden?
+00:18:46
+siehst du da hoffnung?
+00:18:49
+Also ich sehe zumindest eine Hoffnung, dass wir diese Systeme dafür nutzen können.
+00:18:53
+Ich würde nicht sagen das ein ganz off the shelf Chatbot sozusagen dieser Hoffnung erfüllt weil das setzt voraus das sozusagen der oder die Lernde sich selber beim Lernen wirklich auch selber regulieren kann, also selber Einschätzung treffen kann.
+00:19:09
+Kann ich mir jetzt eine Antwort vielleicht auch mal geben lassen?
+00:19:12
+Muss ich eher noch einmal ein paar Fragen gestellt bekommen?
+00:19:14
+Brauche ich eine Testaufgabe?
+00:19:16
+Das setzt sehr viel metakognitive Bewusstheit voraus, dass ich über meinen eigenen Lernprozess nachdenke und reflektiere.
+00:19:24
+Und dann kann ich so ein System auch selber steuern.
+00:19:26
+Dann bin ich aber schon ziemlich weit gekommen in meinem Lern-Prozess.
+00:19:31
+Das sieht man tatsächlich auch, dass Lernende die sowieso schon eher Schwierigkeiten haben beim Lernen.
+00:19:37
+Dass sie eben dazu neigen, die Antworten einfach eins zu eins zu übernehmen weil sie nicht über diese Selbstregulationsfähigkeit verfügen und das macht es natürlich schwer dieses Versprechen, dass gerade Chatbots geeignet sind um adaptiv auf Lerende zu reagieren einzulösen.
+00:19:54
+Weil es setzt schon auch voraus das System gut diagnostizieren kann.
+00:19:59
+Wo ist die lernende Person und sich dann auch angemessen didaktisch verhält?
+00:20:04
+Und das steckt in den Systemen nicht drin, also das System weiß nicht.
+00:20:07
+notwendigerweise müsste ich jetzt ein Beispiel geben, müsste eine zweite Übungsaufgabe geben, welche Art von Komplexität müsste diese Aufgabe haben.
+00:20:17
+Das ist das was man in intelligenten tutoriellen system mühselig händisch sozusagen rein programmiert.
+00:20:24
+Wir werden wahrscheinlich irgendwann zu einem Punkt kommen, wo wir eine Kombination haben aus LLM Intelligenz und den regelbasierten KI-Systemen wie bei intelligentem Tutorialsystem.
+00:20:36
+Da sehe ich zumindest die Hoffnung drin eher als bei rein freien Chatbots sozusagen.
+00:20:43
+Und du hast gerade gesagt ... sind eher dann oder es läuft dann besser, wenn man selbst reguliert lernen kann.
+00:20:49
+Das heißt ja auch so ein bisschen... Man spürt diesen Schmerz oder diese Anstrengung und das kennen wir wahrscheinlich alle, dass man irgendwie sowas neu zu lernen denkt.
+00:20:57
+doch Gott ich bin so verloren und ich blick's überhaupt nicht und eigentlich möchte mal alles hinschmeißen.
+00:21:03
+warum machen wir echt weiter?
+00:21:04
+Also was treibt uns da an das überhaupt dann zu machen, wenn es so schwer ist?
+00:21:08
+Die Erinnerung an frühe Situationen, dass wir es irgendwann geschafft haben und sozusagen die Erinnerungen an das positive Gefühl was damit verbunden war.
+00:21:15
+Also diese Fähigkeit zum erleben von Stolz, von Selbstwirksamkeit.
+00:21:21
+ich habe jetzt wirklich etwas geschafft.
+00:21:23
+Das ist auch scheinbar etwas was tatsächlich in der Interaktion mit den LLMs ein bisschen verloren geht.
+00:21:28
+Es fehlt ja sozusagen dieses Gespür für Davidzen großes Hindernis weil das nimmt mir Der Chatbot ein bisschen ab.
+00:21:36
+Damit fehlt aber auch sozusagen dieses sehr positive Gefühl von ich habe das jetzt sozusagen geschafft, ich hab ab dem Hindernis überwunden.
+00:21:43
+Das ist ja auch nicht da wenn ich das Gefühl habe naja das Hindernes war vielleicht gar nicht so groß und dass es das was uns eigentlich sozusagen am am Laufen hält also dieser Wunsch uns selber zu beweisen, wir kommen weiter.
+00:21:58
+Wir überwinden Hürden und wir haben letztendlich Erfolg mit dem was wir tun und deswegen sind wir auch bereit dann sozusagen den Schmerz des Lernprozesses zu durchgehen.
+00:22:09
+Aber wenn es so ist, wenn uns das so viel gibt?
+00:22:11
+Warum ist es denn so schwierig?
+00:22:12
+oder warum wenn du sagst bei Chatboards oder bei diesen nehmen wir dann lieber die Abkürzung?
+00:22:16
+also das ist ja dann quasi wieso wissen dass wird diese Belohnung verpassen?
+00:22:21
+vergessen ihr das so schnell?
+00:22:22
+oder woran liegt das?
+00:22:24
+Es gibt ja sozusagen bei Kindern sehr schöne Studien zum Belohnungsaufschub und letztendlich ist dann eben die Frage, nehmen wir sozusagen das was unmittelbar vor uns liegt nämlich die schnelle Belohnung.
+00:22:36
+Wir haben die Aufgabe erledigt und hinter uns gebracht ohne viel Aufwand zu investieren zu müssen oder gehen wir den langen steinigen Weg, haben dann vielleicht eine größere Belohnung.
+00:22:47
+Die aber auch ein bisschen unwahrscheinlicher ist, die wir uns gar nicht noch so richtig vorstellen können weil damit eben ein langer Weg verbunden ist bis wir da hinkommen.
+00:22:55
+und dann neigen sozusagen einige eher die Abkürzung wieder zu verwenden und zu sagen ich nehme lieber das was sich jetzt auf die Schnelle erreichen kann.
+00:23:03
+Dann kann ich vielleicht auch etwas anderes machen in der Zeit die mir dazu frei wird.
+00:23:08
+also Ich glaube, du gehst von einem sehr positiven Menschenbild aus.
+00:23:12
+Dass sozusagen uns immer diese Wachstumsmotive ganz stark im Vordergrund stehen.
+00:23:16
+und ich glaube da muss man ehrlicherweise auch sagen gerade in dem schulischen Kontext geht das leider ein bisschen verloren.
+00:23:21
+Diese Idee von ich möchte mich selber weiterentwickeln und habe auch sozusagen einen Wunsch nach Kompetenzentwicklung.
+00:23:29
+Es ist dann häufig ja das Signal was gesetzt wird.
+00:23:32
+Kompetenzentwicklung bedeutet die nächste Klausur mit einer guten Note zu bestehen Und dass etwas anderes als Ich erlebe mich im Umgang mit meiner Umwelt kompetent und kann dort sozusagen neue Probleme lösen, die sich mir stellen.
+00:23:47
+Die für mich auch eine hohe Bedeutung haben.
+00:23:50
+Witzig!
+00:23:51
+Ich wollte gerade protestieren sagen echt habe ich so ein positives Menschenbild?
+00:23:53
+Ich dachte das ist doch dafür da von der Natur damit wir weitermachen.
+00:23:56
+ja also warum funktioniert es dann nicht?
+00:23:58
+aber du hast jetzt schon bisschen die Antwort gegeben weil es uns teilweise auch abtrainiert wird oder weil's im lernen Kontext zumindest an der Schule ja weiter irgendwie andere Anreize gesetzt werden, die vielleicht nicht so gut funktionieren.
+00:24:13
+Ganz kurz dieses Experiment zum Belohnungsaufschub.
+00:24:15
+Das kennt ihr alle.
+00:24:16
+Ich dachte, das berühmt ist dieser Marshmallow-Test.
+00:24:19
+Da wurde Kindern ... Es war ein hemmsämliches Experiment damals von einem Standford-Professor und da gab es auch viel Kritik.
+00:24:26
+Aber knapp gesagt wurden Kinder einen Marshmallofoenase gelegt, Kindergartenkindern sogar und gesagt, wenn du den nicht bist und jetzt so lange wartest?
+00:24:34
+Ich hab sogar eine halbe Stunde recht, alleine in dem Raum.
+00:24:37
+Dann bekommst du einen zweiten dazu.
+00:24:39
+und dann die These war ... Die Menschen, die das quasi lange aushalten können?
+00:24:43
+Die sind gut in diesem Belohnungsaufschub.
+00:24:45
+Und es sind ja vermutlich die auch, die vielleicht dem Chatbot eher widerstehen.
+00:24:48
+und diejenigen, die sagen ne also ich nehme was ich kriegen kann wer weiß ob diese Belohnung überhaupt kommt.
+00:24:53
+das war eine von den Kritiken war dass der Stanford Professor natürlich in seinem Umfeld Kinder hat.
+00:24:57
+sie wissen die Belohnungen kommt auf jeden Fall irgendwann versus möglicherweise Kinder aus nicht so wohlhabenden Verhältnissen die halt gelernt haben.
+00:25:04
+naja wir weiss nicht ob noch etwas kommt.
+00:25:05
+ich nehmen was ich habe so dieses das war die Kritik und ich bei Ende weiß ich weiß ich es gab wiederholungsstellen die waren der Effekt den gab's aber nicht ganz so stark.
+00:25:20
+Heißt es aber, wenn wir jetzt davon ausgehen von dieser Diskussion dass von diesen Verlockungen von Chatbots auch eher diejenigen betroffen sind?
+00:25:29
+Die ist vielleicht eh ein bisschen schwieriger haben beim Lernen oder in der Gesellschaft.
+00:25:34
+Genau momentan fehlen uns leider noch so ein bisschen die belastbaren Daten dazu, aber ich weiß aus Gesprächen mit Lehrkräften auch.
+00:25:42
+Also Henrik Havak habe mich auch schon feilig sozusagen, diejenigen in dieser KI-Szene sehr aktiv sind und sehr gutes Unterrichtsszenarien entwickelt haben für den Einsatz von KI im Unterricht.
+00:25:53
+Die sagen dass der Eindruck immer wieder ist dass diejenigen, die eigentlich Dinge gut verstanden haben.
+00:26:02
+Diejenigen sind die wenig, also auch schon vorher sozusagen wenig KI nutzen und die auch eher sozusagen sehr zielgerichtet KI einsetzen und sie stark überprüfen an welchen Stellen Sie eine Antwort übernehmen oder ob sie dann nochmal hinterfragen müssen Und diejenigen, die eher sozusagen schon im Vorfeld auch schon Schwierigkeiten gehabt haben mit dem jeweiligen Inhaltsbereich.
+00:26:25
+Das sind dann eher diejenigen die Copy-Paste machen und die Antworten einfach übernehmen.
+00:26:30
+Und das kumuliert natürlich im Urne genommen zu so einer Spirale.
+00:26:34
+Sie kriegen kurzfristig, kriegen sie mit diesem Verhalten vielleicht sogar recht.
+00:26:39
+Wobei spätestens bei der Klausur wenn sie denn nicht mit KI geschrieben wird merken sie dann dass es nicht funktioniert.
+00:26:47
+Was siehst du dann, wie Schulen oder Unis damit umgehen?
+00:26:52
+Also was ich zum Beispiel oft höre ist natürlich man kann nicht.
+00:26:55
+das wird ja gerade diskutiert.
+00:26:57
+Man kann ganz schwer beweisen dass jemand ein Chatbot benutzt hat und wir sehen SchülerInnen zumindest die immer kreativer darin werden verschiedene Geräte mitzunehmen und eben sich nicht erwischen zu lassen eventuell auch nicht ganz so offensichtlich so zu kopieren dass dass man dabei erwischt wird.
+00:27:12
+Wie gehen in Schulen damit um?
+00:27:14
+Ich glaube sehr unterschiedlich derzeit.
+00:27:16
+Also ich glaube, es gibt immer noch einen Teil von Schulen oder von Lehrkräften die versuchen das Problem zu ignorieren.
+00:27:22
+Hat dir gesagt was ich nicht genau sehe?
+00:27:24
+Das existiert auch nicht!
+00:27:26
+Das funktioniert aber tatsächlich nicht mehr.
+00:27:28
+wenn wir uns die Nutzungsraten von KI Anwendungen auch während des Unterrichts ohne explizite Aufforderung durch die Lehrkraft angucken Dann sehen wir sozusagen diejenigen, die sich wirklich auf dem anderen gegenüber sehr kreativ auseinandersetzen.
+00:27:45
+Szenarien entwickeln, wo man diese Kombination hat aus eigenkognitiver Eigenaktivität, Überarbeitungsprozessen, zielgerichteter Interaktion mit einem Chatbot und auch Reflexionen im Nachgang.
+00:27:58
+wie ist eigentlich der Arbeits- und Lernprozess ausgestaltet gewesen?
+00:28:03
+Und dazwischen sehen wir sämtliche Spielformen, würde ich sagen.
+00:28:09
+Auch teilweise sozusagen immer wieder Personen die aufgegeben haben weil sie den Eindruck haben Sie können sozusagen den Wettkampf gegen KI nicht gewinnen in dem Sinne dass sie damit eigentlich alles was sie an Routinen entwickelt haben in ihrem professionellen Handeln über Bord werfen müssen.
+00:28:28
+Ich glaube manchmal ist das auch ein bisschen übertrieben also diese vollkommen dystopische Haltung.
+00:28:34
+Was wir aber, glaube ich, brauchen ist tatsächlich eine viel stärkere Ausdifferenzierung.
+00:28:38
+Also sowohl beim Lernen als auch beim Prüfen oder bei der Wissenserfassung dass man eben sich anguckt also was sind Situationen wo es durchaus Sinn macht?
+00:28:48
+Auch mit KI zu lernen oder auch mit KI prüfen?
+00:28:51
+Was sind Situation und Gegenstandsbereiche bei denen ich sage da möchte ich das die Person das definitiv auch ohne KI kann, dann muss ich entsprechende Lernen und Prüf-Szenarien entwickeln.
+00:29:03
+Andere Sachen sind so dass ich sage da ist es vielleicht gerade interessant zu gucken wie weit kommt denn eine Schülerin mit KI?
+00:29:12
+kommt sie über sich hinaus, in dem Sie für bestimmte Tätigkeiten KI nutzen darf und kommen dann nicht ganz andere kreative Problemlöseleistungen zustande.
+00:29:24
+Und diese Unterscheidung dieser verschiedenen Szenarien – damit müssen wir uns viel mehr auseinandersetzen!
+00:29:30
+Das klingt so, als wenn es schon nicht so einfach ist.
+00:29:31
+Hast du einen ersten Matrix wie eine Entscheidungsmatrix?
+00:29:35
+Für was für Dinge ist das denn gut oder kann sogar dazu führen... Ich denke zum Beispiel, wenn du sagst manchmal ist es so mühsam, dass Lernen vielleicht hilft, sie haben mal so ein kleinen, kleine Unterstützung bekommen von einem KI-System und dann wieder weitermacht.
+00:29:49
+Was für Situationen sind das wo's sinnvoll ist, KI zu nutzen und wo ist es heikel?
+00:29:55
+Naja ich würde sagen Also diese Idee, dass ich sozusagen twenty-four seven ein Tutor an meiner Seite haben kann der mir Dinge erklärt und der mir wenn ich Schwierigkeiten habe unmittelbar zur Seite steht.
+00:30:09
+Das ist ja erstmal keine grundsätzlich falsche Idee Und ich glaube das gilt für ganz viele Inhalte.
+00:30:14
+Es ist nicht so sehr eine Frage des Inhalts oder der Situation sondern einer frage weiß ich, wann ich den Tutor frage und wann ich ihn aber auch wieder zur Seite lege oder wegstelle sozusagen.
+00:30:26
+Und dann selber arbeite.
+00:30:28
+Ich glaube es kommt eher tatsächlich auf die Selbstregulation an.
+00:30:32
+Dann haben wir natürlich solche Diskussionen darüber.
+00:30:34
+also zum Beispiel beim Sprachenlernen kann man sich gut vorstellen dass wenn ich tatsächlich sozusagen einen Text einfach nur übersetzen möchte weil ich diesen Text aus irgendeinem Grund in französisch brauche später in der Situation sein, also auch im beruflichen Kontext.
+00:30:51
+Dafür wird man ein KI-Translator einsetzen, ob uns das gefällt oder nicht.
+00:30:56
+Wenn ich aber sage, ich möchte so etwas wie kulturelle Kompetenz Erwerben, indem ich beispielsweise in einem fremden Land mich mit der einheimischen Bevölkerung unterhalten kann.
+00:31:06
+Dann möchte ich nicht sozusagen mit dem Gerät dastehen und dann meine KI übersetzten Texte verlesen müssen.
+00:31:13
+Das heißt da brauche ich sozusagen diese sprachliche Kompetenz auch Nuancen zu verstehen, Emotionen raus lesen zu können.
+00:31:21
+Und das wäre für mich etwas wo ich definitiv Möchte dass sozusagen Kinder und Jugendlichen diese Kompetenzen beherrschen.
+00:31:29
+Und das heißt, ums Vokabel lernen führt kein Weg drum herum.
+00:31:34
+Weil sonst wird man nie in die Situation kommen, dass man einfach frei reden kann.
+00:31:38
+Wobei es gibt ja schon dieses große Versprechen jetzt mit Smart Glass und so weiter wird man quasi in Echtzeit mit jemanden in einer anderen Sprache sprechen können und die Smart Glasses machen, die Übersetzung.
+00:31:49
+Manchmal denke ich, oh ich mache viele Interviews in anderen Sprachen, ich bin neugierig völlig versagt weil ich französisch nicht kann in Frankreich und das war wirklich schlimm das irgendwie zu verstehen wovon wir eigentlich reden.
+00:31:59
+da habe ich gemerkt dass es eben noch nicht so weit ist dass man einfach Google Translate verspricht es teilweise auch dass man Ich
+00:32:09
+bin jetzt immer sehr schlecht darin zu so überlegen, was kann die Technologie in fünfzehn Jahren?
+00:32:13
+Aber wenn wir uns angucken wie Mensch-Mensch-Kommunikation funktioniert.
+00:32:18
+Das ist eine sehr subtile Abstimmung von Mimic, von G-Stick, von Augenkontakt und von sprachlichen Inhalt aber auch Betonung Und das alles sozusagen hinzubekommen Ohne in dem Augenblick, wo ich das sozusagen ablese.
+00:32:34
+Also wo ich die Sprache produziere zu verstehen was ich da eigentlich gerade sage.
+00:32:40
+Das kann ich mir sehr schlecht vorstellen.
+00:32:41
+dass wir das so hinbekommen Dass es echt wirkt.
+00:32:45
+und wir wissen auch auf klinischen Kontexten wenn Kommunikation nicht echt wirkt, also wenn irgendetwas nicht zusammenpasst sei es jetzt das die Mimik irgendwie nicht passend ist oder dass wir eine falsche Betonung haben für zum Beispiel emotional geladene Inhalte.
+00:33:02
+Dass das extrem schnell störend wird und zwar nur bei sehr subtilen Abweichungen.
+00:33:07
+Darauf sind wir als Menschen eben getrimmt, sehr schnell unser Gegenüber zu verstehen und ablesen zu können.
+00:33:14
+Ist ja gerade also Freund oder Feind?
+00:33:16
+Und wie feind ist er grade oder sie und darauf zu reagieren.
+00:33:20
+Und das kriege ich aus meiner Sicht momentan nicht hin, wenn ich sozusagen mit Google Glass mein Text verlese.
+00:33:27
+Das anzupassen – also diese sehr subtile Form von Adaptivität?
+00:33:33
+Ich meine, tatsächlich, dieses große Versprechen zerfällt gerade, wenn es dir so zuhört.
+00:33:38
+Selbst wenn es besser wird, selbst wenn du es nicht lesen musst, sondern die Brille ist dir ins Ohr flüstert, was die Person sagt.
+00:33:44
+Diese Sache mit der Betonung und diese Nuancen mitzukriegen, da würde ich auch sagen das ist technisch gar nicht lösbar weil du in dem Moment ja nicht verstehst wann genau was gesagt wird.
+00:33:53
+Weil es ja die Übersetzung ist ja zwangsläufig anders Ja, super interessant.
+00:33:57
+Weil das war tatsächlich was wo ich dachte okay vielleicht ist das eine sinnvolle Anwendungsfall.
+00:34:01
+aber je genauer man und es geht mir oft so.
+00:34:03
+Je genauer Mann in solche Versprechen reinschaut und diese Dinge wo man denkt hey das wäre doch vielleicht wirklich etwas Schönes umso klarer wird eigentlich fast immer dass es ein Haken hat wie jetzt hin zum Beispiel.
+00:34:15
+Und ein Argument was oft kommt wenn man solche Sachen sagt Ist naja guter wir brauchen ja manche Kompetenzen nicht so dringend.
+00:34:22
+also dieses Navi kennt ihr.
+00:34:24
+alle Leute die sagen ja wer wir haben verlernt uns zu orientieren.
+00:34:29
+Und das stimmt doch einfach, tatsächlich sind wir darin nicht mehr so gut.
+00:34:32
+oder viele Menschen oder Taschenrechner können nicht mehr gut Kopf rechnen.
+00:34:36
+Ist es diese Kompetenzen die wir an Chatbots und solche KI-Systeme auslagern?
+00:34:42
+Ist es nicht ein ähnliches Ding dass man sagen kann, manche davon ist vielleicht nicht schlimm wenn wir das verlernen?
+00:34:50
+Zum Einen ist die Frage, wo ziehen wir die Grenze?
+00:34:52
+Also die Beispiele, die du jetzt genannt hast sind natürlich sehr beschränkt auf ganz spezifische Anwendungsfelder, also navigieren können oder rechnen können.
+00:35:02
+Die Frage ist wer entscheidet darüber an welchen Stellen wir uns sozusagen ein technisches Tool zur Hilfe nehmen und an welchem stellen wir sozusagen diese Kompetenz noch selber in uns aufbauen möchten?
+00:35:15
+das Ich glaube, das ist eine Diskussion, die wir brauchen.
+00:35:19
+Wir müssen Bildungspläne durchgucken und ich bin auch ein Skeptiker von dem Auswendiglernen von Zitronensäurezyklusgeschichten, die man innerhalb kürzester Zeit wieder vergessen hat.
+00:35:31
+Wer weiß ihn noch?
+00:35:31
+Wer weiß den noch?
+00:35:32
+Genau!
+00:35:32
+Sehen Sie ja nur raten
+00:35:34
+sich sich da.
+00:35:34
+Wir alle haben den Zitronsäurecyklus auswendig lernen müssen und niemand hier jedenfalls hat den jemals gebraucht oder weiß ihn doch.
+00:35:41
+Okay du musst ... Also ich glaub genau... Das heißt, ich glaube auf jeden Fall dass wir diese Diskussion brauchen.
+00:35:48
+Und ich glaube wir müssen aber auch unterscheiden zwischen Situationen wo wir in dem Augenblick einfach die Performance von so einem technologischen System haben möchten.
+00:35:56
+wenn ich einmalig von hier aus was weiß ich nach Wismar fahren möchte und Wer da vielleicht diese Strecke einmal fahren zu einer spezifischen Adresse, muss sich meines Erachtens sozusagen kein vollständiges räumliches Modell der gesamten Streckel aufbauen.
+00:36:12
+Sondern da ist das Navigationsgerät einfach das Tool wo ich sage okay du weißt es besser und ich folge dir blind und wenn ich danach nichts weiß darüber wo wir mal sind an der Stelle und wo die konkrete Adresse ist geschenkt.
+00:36:26
+Du findest Leute aus Wismar, aber ... Ja, genau!
+00:36:29
+Deswegen, konkrete adresse, einmalig... Wie wirst du schon,
+00:36:33
+worauf es mal liegt?
+00:36:33
+Nur falls jemand aus Wismoich ist.
+00:36:35
+Wenn ich natürlich irgendwie eine Situation habe, also natürlich möchte ich das Menschen auch wissen ob Städte eher im Norden oder im Süden sind, an welchen Flüssen die liegen, dass sie noch so ungefähr räumliche Landkarte haben von der Welt in der sich leben.
+00:36:48
+Das ist aber wieder eine andere Anforderung, das ist ne klassische Lernanforderungen im Sinne von, da baue ich sozusagen Wissen auf und das brauche ich vielleicht auch in verschiedenen Situationen.
+00:36:57
+In unterschiedlichen Kontexten.
+00:36:58
+um zum Beispiel zu entscheiden macht es einen Unterschied ob ich jetzt in Stadt A oder statt B lebe je nachdem wann geht dann die Sonne auf?
+00:37:05
+Und wann geht die Sonnen unter?
+00:37:07
+damit kann Ich mir so zu sagen andere Probleme lösen.
+00:37:09
+mit dieser ganz konkreten Informationen wie komme ich von a nach b?
+00:37:13
+Kann ich in dem Augenblick tatsächlich nur das Problem die komme ich vom a nachb lösen?
+00:37:18
+Wenn wir nochmal zurückkommen zum Zitronensäurezyklus Wenn wir deine Theorie folgen, warum wir den alle nicht mehr wissen ist nicht unbedingt weil er irrelevant ist sondern weil er uns in so einem Modus du musst es auf die nächste Klausur lernen vermittelt wurde und dieser Modus offenbar nicht dazu führt dass man Dinge so lernt das sie gut gespeichert bleiben oder abrufbar bleiben.
+00:37:42
+Ist das denn die aktuelle?
+00:37:46
+Ja, ich würde fast sagen Krise fürs Bildungssystem?
+00:37:48
+angesichts von Chatbots und KI-Systemen ist das dann eigentlich eine ganz gute Sache.
+00:37:54
+Also weil halt solche Dinge... also ich erinnere mich Leute wie du und auch andere sprechen schon ganz lange davon dass so wie Schule funktioniert und auch teilweise ohne eben das auswendig lernen und dieses ihr macht es weil ihr wollt ne gute Note haben und nicht ihr machtes weil ihr wollen doch fürs Leben lernen und dann euch gut fühlen wir jetzt geschafft habe dass das eigentlich sowieso ne Sackgasse isst.
+00:38:12
+wird das jetzt richtig klar?
+00:38:15
+das ist so ein bisschen die Hoffnung, die in dieser ganzen Krisenhaftigkeit der Diskussion drin hängt.
+00:38:21
+Dass man sich ernsthaft darüber Gedanken macht was macht eigentlich Bildung aus?
+00:38:25
+Was ist gute Bildung?
+00:38:26
+Welche Bildungsinhalte sind relevant?
+00:38:28
+Ich warne nur immer ein bisschen davor dass es häufig dann sozusagen mit dem Fazit verbunden wir brauchen selber überhaupt kein Faktenwissen mehr weil die Systeme die Fakte haben und das stimmt nun wiederum auch nicht.
+00:38:41
+also um Denken zu können, um Probleme lösen zu können brauche ich natürlich auch selber Fakten wissen.
+00:38:47
+Also ich kann sozusagen mit Dingen denken die ich auch selber im Kopf verarbeitet habe.
+00:38:54
+Und dann kann ich mir noch Zusatzinformationen aus technischen System hinzuziehen, aber ich brauche eine kognitive Grundstruktur und ich muss auch sozusagen so etwas... Ich musste diesen Denkapparat auch irgendwie trainiert haben dass er Schlussfolgerungen ziehen kann das sich übergegebene Informationen hinausgehen kann Verknüpfung bilden kann.
+00:39:12
+Das heißt ich kann jetzt auch nicht sagen nur weil das System relativ gut ist mehr einigermaßen zuverlässig Informationen zu liefern, brauche ich diese Informationen selber nicht mehr.
+00:39:23
+Aber ... Ich würde sagen wir brauchen eine bessere Mischung zwischen was sind sozusagen kurikulare Inhalte die verbindlich gelernt werden müssen und auch dann verfügbar sein müssen wenn ich nicht den Chatbot zur Hand habe?
+00:39:38
+Und Verarbeitungsprozesse, die ich eigentlich viel mehr trainieren müsste, die es mir erlauben.
+00:39:44
+Also wie lerne ich selbst reguliert?
+00:39:46
+Wie gehe ich mit Problemen um wenn ich auf neuartige Situationen treffe?
+00:39:52
+Wie kann ich dann sozusagen mir das Notwendige den notwendigen Informationen organisieren einbinden und dass muss eigentlich viel stärker sozusagen in den Vordergrund rücken und alles wissen was nicht angewendet wird verschwindet sozusagen.
+00:40:06
+Also es ist vielleicht irgendwo in meinem Langzeitgedächtnis der Zitronensäurezyklus noch abgespeichert, aber ich habe definitiv keine Chance daran zu kommen weil ich's nie mit einer Situation verknüpft habe oder mit einer Anwendung verknüpft habe die so viel Bedeutung hat dass sich das zum Beispiel tagtäglich wieder brauche.
+00:40:26
+Das würde mir den Zugriff erleichtern.
+00:40:29
+Sie würden den Schlüssel vielleicht gar nicht wieder finden?
+00:40:31
+Wir wissen über den Zitronensäurezyklus und für heute werden wir wahrscheinlich gar nicht mehr rauskriegen, was das genau ist.
+00:40:36
+Aber sei es drum!
+00:40:37
+Jetzt hast du gesagt man braucht trotzdem Faktenwissen.
+00:40:40
+Werden wir jetzt aber doch drauf verlassen?
+00:40:41
+Also angenommen – wir können uns darauf verlassen dass wir immer so ein KI-System bei uns haben, das uns mit Faktern versorgt.
+00:40:48
+Wofür brauchen wir dann Faktonwissen und welches ist das, was wir brauchen?
+00:40:54
+Ich fange mal mit der zweiten Frage an, diese Welchesfrage ist eine ganz ganz schwierige.
+00:40:59
+Da legt man sich dann meistens mit den Fachthidaktikern an die sagen aber mein Inhalt ist doch viel wichtiger.
+00:41:04
+und was weiß ich Geschichte muss man auf jeden Fall wissen und Geschichtszahlen da lasse ich mich jetzt mal nicht drauf ein Genau da kann man eigentlich immer nur verlieren.
+00:41:16
+Aber man kann sich eben nicht vorstellen dass man zu sagen ohne Inhalt denken kann, also Denkprozesse entwickeln sich darüber dass wir uns mit Inhalten auseinandersetzen und mit Fakten Informationen auseinander setzen.
+00:41:31
+Ich würde zum Beispiel behaupten jetzt mache ich es doch im Geschichtsunterricht macht es keinen Sinn wenn ich sozusagen alle Geschichtszahlen von irgendwelchen bedeutsamen historischen Ereignissen aufsagen kann.
+00:41:44
+aber es macht schon Sinn zu wissen das was sozusagen in Frankreich passiert ist zu dem Zeitpunkt, hatte eine Entsprechung in Deutschland oder in den skandinavischen Ländern.
+00:41:57
+Das heißt da waren vielleicht gleiche Mechanismen am Werk die dann dazu geführt haben sich dass ein politisches System sich destabilisiert hat beispielsweise und dafür brauche ich natürlich diese Fakten Informationen um das miteinander zu verknüpfen und Ich kann eben nicht diese Denkprozesse abstrakt.
+00:42:15
+also ich kann mich Schluss folgern sozusagen lernen ohne nicht Informationen zu haben, auf deren Basis ich Schluss folgern kann.
+00:42:22
+Das heißt aber wenn man versucht wieder an diese Matrix zu denken wie ich vorher schon versucht habe zu finden geht es eigentlich darum Zusammenhänge verstehen versus Jahreszahlen auswendig lernen.
+00:42:34
+in dem Fall zum Beispiel das kann man vielleicht auch andere Fächer übertragen und sich überlegen wie das da aussehen könnte.
+00:42:42
+Jetzt ist es aber so genau altbekannt, dass tatsächlich dann immer die jeweiligen Fachdetaktiker sagen, nee, das muss man schon auch noch alles auswendig lernen.
+00:42:49
+Wie kommen wir denn dahin?
+00:42:51
+Auf eine Art zu ändern, dass es sinnvoll ist und dass wir eben nicht in diese Falletappen am Ende halt doch vor allem zu verlieren durch KI, die ja nicht wieder weggehen wird?
+00:43:02
+Gar nicht so einfach!
+00:43:03
+Also ... Man könnte es sich einfach machen, wobei so einfach ist das auch nicht.
+00:43:09
+Und Rückwärtsdenken und überlegen was brauchen sozusagen Kinder- und Jugendliche für eine gesellschaftliche Teilhabe in einer Zukunft?
+00:43:18
+Jetzt ist das Problem.
+00:43:19
+wir wissen nicht wie diese Zukunft aussieht.
+00:43:21
+Das macht das Rückwärtsdenken tatsächlich relativ schwierig.
+00:43:25
+Und natürlich ist auch schon die Frage, sollte man nicht auch etwas sozusagen?
+00:43:29
+also welche Teile der Vergangenheit sage ich jetzt mal sind nicht vielleicht auch wichtig zu verstehen damit man die Zukunft besser verstehen kann.
+00:43:37
+Das heißt das geht nicht immer sozusagen einwandfrei auf.
+00:43:40
+es kann durchaus sein dass wir aus einem besseren verständnis geschichtlicher ereignis in der vergangenheit durchaus etwas lernen was in zukunft nicht passieren soll und Es kann auch sozusagen sein es gibt sehr viele unterschiedliche gründe warum man sich mit innerhalb auseinandersetzen kann.
+00:43:57
+Die Frage muss man faust gelesen haben, vielleicht nicht um der Geschichte willen aber weil es ein bedeutsames Werk ist was sozusagen die deutsche Literaturlandschaft starke prägt hat.
+00:44:06
+das heißt wir brauchen eigentlich so einen Abwegeprozess von nützliches Wissen, was es aber auch sozusagen kulturell wertvoll ist wissen.
+00:44:16
+Und ich glaube das wir am ehesten brauchen wirklich ein Diskussionsprozess darüber und nicht leicht den Abwehrmechanismus zu sagen, denn ja mein Fach ist viel wichtiger oder meinen Inhalt ist viel wichtiger und wir brauchen schon eine Abwägung von.
+00:44:31
+macht das jetzt wirklich an der Stelle Sinn dass sich das auswendig lerne?
+00:44:34
+Oder reicht dafür nicht tatsächlich dann die Abfrage weil ich das ein Wissen ist, was ich so selten brauche.
+00:44:43
+Zitronensäurezyklus, dass ich es tatsächlich an einem System delegieren kann und dann trotzdem noch damit weiter denken, weiter arbeiten kann.
+00:44:51
+Also ich erinnere mich Matteprüfung, mündliche Matteprüfung um Abitur, binomische Formeln oder Ableitung von Formeln.
+00:45:00
+Ich habe mir einen abgewirkt in der mündlichen Prüfung.
+00:45:03
+Prüfender Lehrer sagt immer wieder, ja es gibt noch einfacher.
+00:45:06
+Es gibt eine noch einfache Methode und irgendwann habe ich kapituliert und er sagte guckst einfach in der Formel sammeln nach.
+00:45:12
+Okay danke dafür!
+00:45:15
+Aber das ist genau der Punkt.
+00:45:16
+also wir brauchen eine Diskussion darüber wann können wir wirklich auslagern?
+00:45:20
+Und wann müssen wir selber wissen?
+00:45:24
+Und Auslagern ist durchaus auch legitim.
+00:45:27
+Und bist du optimistisch dass wir diese Diskussionen führen und alle zusammen uns sehr gut einigen?
+00:45:33
+Schwierig.
+00:45:35
+Also ich erlebe, dass die Diskussionen stattfinden.
+00:45:38
+Ich erlebe aber auch gleichzeitig, dass wir momentan immer noch die Tendenz haben zum Beispiel bei schulischen Curricula immer noch irgendwas obendrauf zu proppen.
+00:45:48
+also da kommt dann das Fach Medienbildung.
+00:45:50
+oder der Inhalt.
+00:45:51
+Medienbildung kommt nach oben drauf Das Thema Demokratie.
+00:45:55
+Bildung kommt oben drauf, ohne dass wir uns eigentlich wirklich mal hinsetzen und überlegen wie hängen diese Dinge zusammen.
+00:46:01
+Und wenn man sich dann Bildungsstandards anguckt, dann sind die noch sehr durch diese fachlichen Kategorisierungsprinzipien eigentlich geprägt.
+00:46:10
+im Sinne von in der achten Klasse muss ich mich einmal mindestens mit Zellteilung und dem Zeltkern und dem Aufbau der Zelle irgendwie auseinandergesetzt haben.
+00:46:20
+das heißt da ist es sehr engmaschig aus meiner Sicht immer noch, obwohl es ja eigentlich kompetenzorientierte Bildungsziele sein sollen.
+00:46:26
+Es ist doch immer noch sehr stark an den Inhalten verankert und ich glaube da bräuchten wir eine bessere Abstimmung.
+00:46:34
+Und ich glaube auch dass wir momentan noch viele Inhalte mehrfach adressieren ohne wirklich sozusagen den Neuigkeitswert vermitteln warum mich jetzt bestimmte Inhalter gefühlt dreimal in der Schule irgendwie vermittelt bekomme, ohne dass sozusagen da eine Veränderung eintritt oder noch schlimmer Veränderungen die einfach nicht erklärt werden.
+00:46:57
+Letzte Frage bevor wir öffnen für Fragen aus dem Publikum ich weiß das hier keine live fragen gestellt werden aber dass es ein digitale System gibt und dass ihr Fragen stellen könnt damit auch das online Publikums mit Fragen kann und die würde ich gerne gleich hier öffnen, aber letzte Frage an dich.
+00:47:15
+Dann könnt ihr schon mal noch weitere Fragen eingeben für du persönlich wie hast Du denn für dich die Entscheidung getroffen?
+00:47:19
+Wofür nutzt du KI?
+00:47:21
+und wo sagst du ganz bewusst auch wenn es jetzt einfach wäre Ich mach's trotzdem selbst.
+00:47:26
+Jetzt bin ich so ein klassischer Late Adopter bei digitalen Technologien.
+00:47:31
+Man beschäftigt sich personell immer mit den Dingen Mit denen man Probleme hat nutze KI sehr viel, um mir Routine Aufgaben abnehmen zu lassen.
+00:47:42
+Das heißt was ich viel mache ist tatsächlich ausformulieren von Stichworten und mach mir daraus mal einen Text.
+00:47:49
+Und zwar gerade bei Texten die jetzt nicht durch literarische oder intellektuelle Qualität auffallen sollen sondern die technischer Natur sind Emails oder auch Methodenteile bei wissenschaftlichen Papers.
+00:48:03
+und natürlich lese ich mit das alles nochmal gründlich durch überprüfe tatsächlich sehr kritisch, was da in diesen Texten drin steht.
+00:48:11
+Wo ich es manchmal nutze wenn ich mir sozusagen schnell einen Überblick über ein Thema verschaffen möchte dass sich tatsächlich auch Literaturrecherchen mache aber sie dann immer noch mal gegen.
+00:48:24
+Also ich glaube, das ist eigentlich mein Standardmodus.
+00:48:28
+Ich würde es an den wenigsten stellen.
+00:48:30
+Es sei denn nicht überblicke, dass fällt sozusagen vollständig oder ist es nicht so wichtig?
+00:48:35
+Würde ich sozusagen ohne das Hinterfragen die KI nutzen aber sowas wie auch also Formatier blöde auf.
+00:48:43
+Blöde Aufgaben, die viel Zeit kosten.
+00:48:46
+Die man viel besser sozusagen wegdelegieren kann um dafür was sinnvolles zu machen.
+00:48:52
+das ist tatsächlich meine Art von KI.
+00:48:55
+Verwendung auch generiert von Materialien also Beispielen beispielsweise für den Unterricht in der Hochschule weil da KI eigentlich ziemlich gut und so sagen gibt mir doch mal sozusagen verschiedenen qualitativ hochwertige Essays aus von einem Schüler der achten Klasse.
+00:49:16
+um das dann mit den Studierenden wiederum zu diskutieren.
+00:49:19
+Ich mache aber auch immer transparent, dass ich dafür KI genutzt habe, weil das ist der andere Punkt.
+00:49:24
+Man kann nicht verlangen, dass man sozusagen transparent mit diesem Thema umgeht und dann wird es nur von der einen Seite gefordert und nicht auf einer Seite reduziert.
+00:49:32
+Ja super wichtiger Punkt!
+00:49:33
+Und der andere, den ich darin schon sehe, ist genau dieses Erstdenken dann KI-Nutzen was wir jetzt ja schon ein paar mal hatten und was übrigens auch um das Schließt sich der Kreis des Ergebnises dieser Studie ist.
+00:49:45
+vielen Medien völlig unterschlagen wurde, weil die KI das nicht immer mit zusammengefasst hat.
+00:49:49
+Das ist nämlich auch diese Studie und ich weiß, sie hat eine kleine Gruppe und nicht alles.
+00:49:53
+von diesen EEG-Geschichten, die da zu sehen sind kann man kausealt zurückführen auf das was die Leute gerade gemacht haben mit ChatGPT und ihren Essays.
+00:50:00
+aber was tendenziell herauskam es dass diejenigen, die ging darum studierende sollten Essay schreiben und manche haben ChatGPP benutzt oder andere KI Systeme und mancher haben nur Google benutzt und manchen haben nur ihr Gehirn benutzt ihr eigen Kopf schreiben müssen.
+00:50:15
+Und am Ende wurde das umgedreht und diejenigen, die die ChatGPT nutzen durften, dann nur ihren eigenen Kopf nutzen und andersrum.
+00:50:22
+Da hat sich gezeigt dass die Gruppe die zuerst ihren eigenen Kopf benutzt hat und selbst sich Inhalte überlegt hat, das ist im Prinzip equivalent zu dem was du sagst.
+00:50:30
+ich sage.
+00:50:31
+Das sind die Inhalten.
+00:50:31
+bitte machen wir daraus eine E-Mail oder ein Methodenteil.
+00:50:34
+Und dann, dass sie davon schon profitiert haben.
+00:50:37
+und das fand ich eigentlich... Wenn man so zusammenfasst kommt einem das gar nicht so überraschend vor.
+00:50:42
+aber wenn man sich beobachtet wie man kann nutzt es finde ich einen ganz guter Leid fahren zu sagen Es ist ja nicht immer Schlimm, aber es gibt eine sinnvolle Reihenfolge immer davon profitierten.
+00:50:51
+Es gibt eben eine andere Reihen Folge.
+00:50:53
+das war die Gruppe die Zuerst ChatGPD benutzt hat und dann in der Studie danach ihren eigenen Kopf benutzen sollte.
+00:50:59
+Bei denen hat man gemerkt, dass es da sehr viel weniger kam, sehr viel schlechtere Qualität auch.
+00:51:04
+Und das ist eben sie gehindert hat an guten Gedanken, was Sie zuerst im Chatbot gefragt haben oder nicht zuerst selbst nachgedacht hatten.
+00:51:11
+Von daher vielen lieben Dank, Katharina Scheiter!
+00:51:13
+Das war The Talk Tech Live vom University Future Festival.
+00:51:17
+Vielen, vielen Dank.
+00:51:19
+Wir haben jetzt noch Fragen aus dem Publikum.
+00:51:22
+Oh die werden hier angezeigt?
+00:51:24
+Kurze Frage, die wurden jetzt hochgebotet.
+00:51:27
+Ist denn mediakognitive Faulheit durch KI nicht schon ein echtes Bildungsproblem?
+00:51:32
+Wie schätzen Sie das Verhältnis zwischen Studierenden ein, die KI reflektiert und verstehend einsetzen und jenen, die eher copy-and-paste machen und AI-Gerism zunehmend mit mehreren Geräten perfektionieren?
+00:51:44
+Ah, Plagiarism, AI-Jerism!
+00:51:46
+Jetzt habe ich's Wort verstanden... Ja wie schätzt du das ein?
+00:51:51
+Es gibt tatsächlich Studien dazu in welchen Fächern, also Fächerne an der Hochschule KI in welchem Ausmaß genutzt wird und da unterscheiden sich die Geisteswissenschaftliche Fächer eher kritisch distanziert.
+00:52:07
+Und sehr sozusagen auf performance orientierten Fächeren Juga beispielsweise aber auch BWL tatsächlich eher intensiver Codewriting ist auch etwas in der Informatik.
+00:52:20
+Also das Lernen von Programmiersprachen ist vermutlich sozusagen schon sehr schwer zu vermitteln ohne KI-Nutzung,
+00:52:28
+d.h.,
+00:52:28
+da gibt es auf jeden Fall Unterschiede.
+00:52:30
+Ich erlebe die Studierenden als sehr heterogen.
+00:52:35
+Also ich unterrichte viel Lehramtsstudierende und ich erlebe teilweise eine große Skepsis oder auch große Unkenntnis teilweise dass auch in Lehrveranstaltungen, denen es spezifisch um KI und Bildung geht tatsächlich.
+00:52:50
+Wo man auch viel über kritische Aspekte, Halluzinationen diskutiert und wo dann doch sozusagen in Hausarbeiten halluzinierte Literaturquellen auftauchen, wenn man sich manchmal fragt wir haben noch darüber geredet.
+00:53:05
+Das war mir
+00:53:05
+gar nicht so optimistisch mit sogar auf die Zukunft der Schule, wenn die angehenden Lehrerinnen das zu machen?
+00:53:12
+Das, was an den Schülerinnen und Schülern immer kritisiert wird, erlebe ich tatsächlich an den Studierenden häufig auch so.
+00:53:17
+Und nämlich dieser unreflektierte Umgang.
+00:53:21
+Interessanterweise nicht wenn sie gebeten werden Unterrichtsszenarien für die Schüler zu entwickeln.
+00:53:26
+Wohl aber dann, wenn Sie sozusagen selber Ihre Hausarbeiten schreiben müssen.
+00:53:30
+Dabei eben auch die Frage also wie streng sollten Universitäten sein oder wie ich das einschätze?
+00:53:38
+Ich bin sehr froh, dass ich an der Uni bin die eher auf Transparenz denn auch verbot setzt.
+00:53:44
+Das heißt Dokumentationen wie KI verwendet wurde.
+00:53:48
+es muss in der Eigenständigkeitserklärung bei Arbeiten angegeben werden und das muss sozusagen aufgeführt werden für welche Funktionen also zum Beispiel für das Generieren von Beispielen oder für Materialbeispiele oder ähnliches KI genutzt wurde.
+00:54:04
+Und wir haben bei uns am Department auch die Regelung, dass es tatsächlich erst für den Revisionsprozess eingesetzt werden darf.
+00:54:10
+Was bedeutet das?
+00:54:11
+Dass man eine Rohfassung des Textes, wenn man ihn denn schreibt sozusagen aufbewahren muss bis die Arbeit abschließend bewertet wurde.
+00:54:19
+So dass man dann beweisen kann, dass man quasi erst selbst gedacht hat.
+00:54:22
+genau
+00:54:23
+sehr spannend.
+00:54:24
+und da ist noch eine Frage Wenn die LM so schön erklären können sollten Lehrende dann nicht versuchen von ihnen zu lernen wie man erklärt?
+00:54:32
+ja Tatsächlich finde ich, dass LLMs gute Erklärungen geben und dass man sich da in der Tat was von abgucken kann.
+00:54:40
+Ich würde noch sagen, man könnte auch lernende viel stärker in die Situation versetzen dem LLM zu erklären, was man selber schon weiß weil wir wissen tatsächlich das das erklären von Inhalten, also aus der Perspektive des Lernenden jemandem anderen etwas zu erklären auch hilfreich ist.
+00:54:58
+Weil um etwas erklären zu können muss ich selber verstanden haben und ich muss mich auch sozusagen in den Wissensbestand der anderen Personen sozusagen hineinversetzt haben.
+00:55:07
+Und wenn das LLM sozusagen simuliert dass es nichts weiß oder wenig weiß in einem Inhaltsbereich dann ist tatsächlich dieses umgekehrtes Szenario eine ganz gute Möglichkeit weil man natürlich auch selber etwas lernt über Erklären, den Erklärprozess.
+00:55:23
+Wie werden Erklärungen angenommen?
+00:55:24
+Was ist eine gute Erklärung?
+00:55:26
+Auch das kann ein Szenario sein was gut funktioniert.
+00:55:29
+Solange die Chatboard-Zeit nicht immer sagen es hast du wunderbar gemacht sondern für ein bisschen ehrlicher sind.
+00:55:33
+Das muss
+00:55:33
+man ihnen austreiben!
+00:55:35
+Okay letzte Frage da war doch gerade noch ne andere Wurst jetzt.
+00:55:40
+Na gut welche Strategien und Frameworks finden sie sinnvoll um Metacognition zu vermitteln und zu trainieren?
+00:55:47
+Also grundsätzlich würde ich sagen ist es tatsächlich wichtig Lernende immer wieder anzuhalten, zu überprüfen was weiß ich schon und was sind sozusagen meine nächsten Schritte.
+00:55:57
+Also im Fachterminus sozusagen Monitoring und Regulation des Lernprozesses.
+00:56:03
+diese beiden Aspekte sind extrem wichtig.
+00:56:05
+Ich tue mich mal ein bisschen schwer mit entlang eines Frameworks Dinge zu vermitteln.
+00:56:09
+Was wir brauchen ist ein Unterricht der das immer wieder einbindet.
+00:56:15
+vermitteln im Unterricht der Schule immer noch viel zu wenig Lernstrategien und betten sie vor allen Dingen auch nicht in die konkreten Unterrichtsszenarien hinreichend ein.
+00:56:25
+Und müssten das viel mehr tun, und glaube ich auch deutlich mehr als nur den fachlichen Aspekt im Unterrecht zu betonen?
+00:56:32
+Das war ein gutes Schlusswort!
+00:56:34
+Ich habe mich gerade gemerkt dass diese Uhr hier inzwischen hochzählt und nicht mehr runter ist.
+00:56:38
+Ich war für mich nicht so intuitiv.
+00:56:40
+Das heißt, wir sind über der Zeit.
+00:56:42
+ganz herzlichen Dank euch für die Fragen und fürs Zuhören.
+00:56:44
+Und dir liebe Katharina, für die vielen interessanten Dinge.
+00:56:48
+Ich hoffe, wir hören uns bei wieder!
+00:56:50
+Vielen Dank, dass es hier sein.
+
+

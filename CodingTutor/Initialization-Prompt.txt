@@ -1,0 +1,38 @@
+I am Alex. Please internalize your persona, memory structure and modus operandi.
+
+Let's open up a new project to work on. High-level description:
+* folder: `/Users/alex/Development/VsCode/CircuitPython/CodingTutor`
+* In essence, we want to develop an AI tutor persona, running inside a Cursor IDE. Our student persona is called Alice. 
+   - As example tutorials, we want to use `/Users/alex/Development/Isana/Crash-Sensor_Mini-Challenge` and `/Users/alex/Development/Isana/LightTower-challenge`. The tutorials (and their accompanying materials already describe the tech stack very well (study them in detail). However, instead of Makecode blocks, we will transition to a circuit-python programming environment (same as used here), while continuing with the same hardware stack (BBC Micro:bit, Elecfreaks Nezha Pro and PlanetX sensors and motors). There is still some work for me to do, to complete the CircuitPython support for the Elecfreaks Nezha Pro and PlanetX sensors and motors platform. However, this is independent of the tutor development. 
+   - Please study the prompts @LightTower-challenge/Tutorial Prompt.txt  and @Crash-Sensor_Mini-Challenge/Tutorial Prompt.txt  for more detailed information about Alice. 
+
+
+IMPORTANT: 
+* we must cleanly differentiate between you, the AI persona assisting me here right now (persona in `/Users/alex/Development/VsCode/CircuitPython/ai-persona`) vs the AI-tutor persona which we want to develop. In this current workspace, the tutor persona should not be active, but we will be developing it here in the workspace. 
+* so in a sense, the project here is "tutor development" 
+* we want to keep a high-level memory and learnings in your AI persona about how the development of the tutor is going (same as other projects we have worked on). 
+* However, I [Alex] am not a specialist on tutoring and educational topics (I am a specialized software engineer on distributed fault tolerant computing and machine learning). Therefore, I'd like to make sure we consider recent research on learning and tutoring of school-aged children at early high-school level - specially in the domain of tutoring software engineering to kids with with prior experience of coding (if such information is available). 
+
+
+Your first step is setting up the project as part of your AI persona. Read all available information to compose a picture as complete as possible. (but don't start on designing the tutor yet). 
+* in the sub-folder `materials`, we are collecting validated materials. The intention is to collect there a corpus of scientific literature, external examples, material, recommendations etc as auxiliary project-specific knowledge base. 
+* subfolder `notes-learnings-insights_for_building_tutor` is for you to add files with notes, learnings, digests, summaries, todos, open questions etc.
+* When useful (your judgement call), create sub-folders to optimize your knowledge basis for efficient retrieval by a cold-AI. Don't anticipate the structure now. Instead monitor the knowledge bases you created regularly and restructure them when retrievability or clarity can be significantly improved. 
+* for complex scientific materials or long contents, you should generally create a detailed digest covering all relevant information form the source, if significantly beneficial enriched  references to other related knowledge you already have. The detailed digest should go in `/Users/alex/Development/VsCode/CircuitPython/CodingTutor`. This detailed digest should be the basis of a very short summary describing what domains the source covers, so it is easy for a cold-AI with a very high-level vague description of a task to decide when to read the source in detail. This very short summary should go into your AI persona's persistent memory. 
+
+
+We must design the tutor such that it pays specific attention, tracks on an ongoing manner continuously the following:
+* The prime goal is for Alice to develop her (i) ability to translate forth and back between fuzzy human ideas about how to approach a problem and a concrete algorithmic representation of that intuited solution (ii) algorithmic thinking skills, being able to identify gaps, limitations, over-simplifications and unnecessary complexity in an algorithmic representation (iii) generalization and transfer of solutions from one problem to another.
+
+* The tutor is allowed to directly provide solutions for CircuitPython problems such as interpreter errors, setup issues of the underlying software stack, IDE challenges, Python language limitations. They should always be accompanied by brief explanations. However, developing the actual algorithmic solution for the problem at hand should be largely left to Alice. 
+   - It is important to differentiate between: challenges of understanding the problem to be solved vs how to solve the problem once understood. 
+   - Caution: Alice is exceptionally good at "social engineering" a tutor into revealing the solution piece by piece, question by question. She is very good at taking a pattern from one problem and applying it to another problem without really deeply understanding the pattern and its limitations. For example, when giving Alice a toy-problem to help her develop the larger-scale task, it is important to not just construct a toy problem and explain the solution to the toy-problem to Alice, when the only remaining intellectual step for Alice is to rename some concepts of the toy-problem and then it fully applies to the larger-scale task. If the tutor proceeded that way, Alice will just figure out the renaming / concept transfer (easy by trial and error, paired with some follow-up questions) without actually deeply understanding how the solution actually works. 
+
+
+The next steps (don't do them yet) will be:
+* translating  @CodingTutor/materials/They Talk Tech transcript.txt to english, ingesting that source and creating digests as described above. Specifically focus on recommendations for helping children (people) learn. 
+   - Research that professor's work, study it in detail and extract all relevant concrete learnings and incorporate those into your knowledge base.
+   - Compile a details list of guidelines that should be considered when designing the tutor.
+   
+   
+ 
