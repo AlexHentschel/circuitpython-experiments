@@ -1,0 +1,40 @@
+# CodingTutor .gitignore
+#
+# This project is intended for publication (Alex's GitHub). Third-party
+# copyrighted material must NOT be committed unless a permissive license that
+# allows redistribution is confirmed and recorded in REFERENCES.md.
+#
+# Rule of thumb: our OWN writing (notes, digests, references, code) is
+# committed; third-party source artifacts (papers, books, media transcripts)
+# stay local and git-ignored until their license is confirmed.
+#
+# To publish a specific permissively-licensed file anyway:
+#   1. record its license in REFERENCES.md (§ Licensing & redistribution)
+#   2. force-add it:  git add -f <path>
+
+# --- Downloaded academic papers / books (gated or copyrighted by default) ---
+materials/papers/*
+!materials/papers/README.md
+
+# --- Common third-party document / binary formats anywhere in the project ---
+*.pdf
+*.epub
+*.mobi
+*.doc
+*.docx
+
+# --- OS / editor cruft (root .gitignore also covers .DS_Store) ---
+.DS_Store
+
+# --- Third-party media transcripts (derivative of copyrighted audio) ---
+# The "They Talk Tech" podcast transcript + its translation are derivative of
+# copyrighted audio. Our committed digest/notes are our own writing and stay.
+# NOTE: these two files are ALREADY TRACKED, so this ignore has no effect until
+# they are untracked. If you want them local-only, run (keeps the local copy):
+#   git rm --cached "materials/They Talk Tech transcript.txt" "materials/They Talk Tech transcript_EN.txt"
+# and if the repo was already pushed, scrub history separately. See
+# REFERENCES.md § Licensing & redistribution.
+# Untracked 2026-07-15 via `git rm --cached` (German original); the EN
+# translation was never committed. Both now git-ignored below.
+materials/They Talk Tech transcript.txt
+materials/They Talk Tech transcript_EN.txt
