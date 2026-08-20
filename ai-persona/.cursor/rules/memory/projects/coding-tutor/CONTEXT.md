@@ -50,6 +50,11 @@ a rename of the real task).
   `CodingTutor/notes-learnings-insights_for_building_tutor/04_pre-design-considerations-and-research-agenda.md` —
   considerations A–D, research agenda E (P1: Scheiter's own tutorial-dialogue system; the "Your Brain on ChatGPT" study;
   ITS + LLM hybrids; programming-education-for-novices), open design questions F.
+- **Research corpus catalog (iteration 1, 2026-07-15)**:
+  `CodingTutor/notes-learnings-insights_for_building_tutor/05_research-corpus_iteration-1.md` — **Covers**: 17 downloaded
+  sources (in `materials/papers/`, git-ignored) triaged + mapped to agenda cells + read-prioritized (T1/T2/T3); a **ranked
+  list of relevant-but-inaccessible sources** for Alex to fetch (§ B); secondary leads for the next loop (§ C); agenda
+  coverage matrix (§ D). Read when choosing what to deep-read next or requesting gated sources.
 - `CodingTutor/materials/They Talk Tech transcript.txt` (German) + `..._EN.txt` (English translation) — ingested 2026-07-15.
 
 ## Domain knowledge
@@ -76,7 +81,10 @@ untrack/rewrite history unilaterally.
 ## Resumption point
 
 Knowledge-gathering phase. **Done**: setup; ingested the Scheiter *They Talk Tech* transcript (translation + digest +
-high-level pre-design overview). **Next (not started)**: research Katharina Scheiter's own work — especially her
-tutorial-dialogue-system publications (top lead) — then execute the P1 research agenda in
-`.../04_pre-design-considerations-and-research-agenda.md § E`, then compile a tutor-design guidelines list. Only then
-begin designing the tutor. Per-session detail: `SESSION_LOG.md`.
+pre-design overview); **research loop iteration 1** — assembled a 17-source corpus across all agenda cells, downloaded to
+`CodingTutor/materials/papers/` (git-ignored), cataloged + triaged + ranked in
+`CodingTutor/notes-.../05_research-corpus_iteration-1.md` (+ a ranked can't-access list for Alex in its § B / `REFERENCES.md § 2b`).
+**Next (iteration 2)**: deep-read/digest the T1/T2 set (`05...md § A` — start Bauer/Scheiter-2025, Kosmyna-2025, Ruffle&Riley,
+Kasneci-2026, Weintrop-2019, Fan-2024), fold concrete learnings into `04...`, then compile a research-grounded tutor-design
+guidelines list. **Awaiting Alex**: the ranked gated sources (esp. #1 Blocks-to-Text-Misconceptions; #2 the unconfirmed
+specific Scheiter tutorial-dialogue paper). Only after the research: begin designing the tutor. Per-session detail: `SESSION_LOG.md`.

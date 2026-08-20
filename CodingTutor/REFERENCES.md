@@ -30,37 +30,51 @@ Status legend:
 - **Access**: `open` (podcast). **Redistribution**: `no` — the transcript + translation are derivative of copyrighted
   audio. Our digest/notes (our own writing) are fine to commit; the transcript files should be untracked (see § Licensing).
 
-## 2. Primary academic works to locate (research-agenda leads)
+## 2. Learning-science, tutoring & programming-education corpus (research iteration 1, 2026-07-15)
 
-These are the P1 leads from `notes-learnings-insights_for_building_tutor/04_pre-design-considerations-and-research-agenda.md § E`.
-Citations to be completed once located; gated PDFs go to `materials/papers/` (git-ignored).
+Assembled by the first autonomous research loop. Full triage + agenda-mapping + read-priority: `notes-learnings-insights_for_building_tutor/05_research-corpus_iteration-1.md`. Local PDFs live in `materials/papers/` (git-ignored). All are third-party copyrighted unless a specific redistribution license is noted; **none are committed** (see § Licensing).
 
-### [Scheiter-tutorial-dialogue] — highest-value lead `[to locate]`
-- Katharina Scheiter and colleagues' work on **LLM-based tutorial-dialogue systems** (referenced in the podcast: "we tried
-  to build a system that engages the learner in a tutorial dialog"; suppressing sycophancy; the endless-question-loop
-  failure mode). Locate via her Univ. Potsdam / Leibniz-IWM Tübingen publication list, ORCID, or Google Scholar.
-- **Access**: likely mix of `open`/`gated`. **Redistribution**: `TBD` per paper.
+### 2a. Downloaded (local copies in `materials/papers/`)
 
-### [Scheiter-profile] — author background `[to locate]`
-- Katharina Scheiter: educational + cognitive psychology, learning with digital media, multimedia learning, eye-tracking,
-  adaptive / intelligent tutoring systems. Formerly Leibniz-Institut für Wissensmedien (IWM), Tübingen; honorary professor,
-  School of Education, University of Nottingham. Pull her key review/framework papers (cognitive load, multimedia,
-  self-regulated learning with media).
+| Key | Citation | Local file | Access |
+|---|---|---|---|
+| [Bauer-2025-hype] | Bauer, E., Greiff, S., Graesser, A.C., Scheiter, K., Sailer, M. (2025). Looking beyond the hype: understanding the effects of AI on learning. *Educational Psychology Review* 37, 45. DOI 10.1007/s10648-025-10020-8. | `Bauer-Scheiter-2025_Looking-beyond-the-hype_EPR.pdf` | open (**CC-BY 4.0**) |
+| [Kosmyna-2025] | Kosmyna, N., Hauptmann, E., Yuan, Y.T., Situ, J., Liao, X.-H., Beresnitzky, A.V., Braunstein, I., Maes, P. (2025). Your Brain on ChatGPT: Accumulation of Cognitive Debt… *arXiv:2506.08872*. | `Kosmyna-2025_Your-Brain-on-ChatGPT_arXiv-2506.08872.pdf` | open (arXiv) |
+| [Fan-2024-laziness] | Fan, Y., Tang, L., Le, H., Shen, K., Tan, S., Zhao, Y., et al. (2024). Beware of metacognitive laziness… *British Journal of Educational Technology* 56, 489-530 (arXiv:2412.09315). | `Fan-2024_Metacognitive-laziness_arXiv-2412.09315.pdf` | open (arXiv preprint) |
+| [Weintrop-2019] | Weintrop, D., Wilensky, U. (2019). Transitioning from introductory block-based and text-based environments to professional programming languages… *Computers & Education*. | `Weintrop-Wilensky-2019_Block-to-text-transition.pdf` | open (author copy) |
+| [RuffleRiley-2024] | Schmucker, R., Xia, M., Azaria, A., Mitchell, T. (2024). Ruffle&Riley: Insights from Designing and Evaluating an LLM-Based Conversational Tutoring System. *AIED'24*, 75-90 (arXiv:2404.17460). DOI 10.1007/978-3-031-64302-6_6. | `Schmucker-2024_Ruffle-Riley-AIED_arXiv-2404.17460.pdf` | open (arXiv) |
+| [RuffleRiley-2023] | Schmucker, R., et al. (2023). Ruffle&Riley: Towards the Automated Induction of Conversational Tutoring Systems. *arXiv:2310.01420*. | `Schmucker-2023_Ruffle-Riley-induction_arXiv-2310.01420.pdf` | open (arXiv) |
+| [Kasneci-2026-syco] | Kasneci, E., Kasneci, G. (2026). Sycophancy is an Educational Safety Risk: Why LLM Tutors Need Sycophancy Benchmarks. *arXiv:2605.14604*. | `Kasneci-2026_Sycophancy-educational-safety_arXiv-2605.14604.pdf` | open (arXiv) |
+| [SocraticLLM-2024] | (SocraticLLM) Boosting Large Language Models with Socratic Method for Conversational Mathematics Teaching (2024). *arXiv:2407.17349*. | `SocraticLLM-2024_arXiv-2407.17349.pdf` | open (arXiv) |
+| [Henkel-2024-Ghana] | Henkel, O., Horne-Robinson, H., Kozhakhmetova, N., Lee, A. (2024). Effective and scalable math support: … AI-tutor on math achievement in Ghana. *arXiv:2402.09809*. | `Henkel-2024_AI-tutor-math-Ghana_arXiv-2402.09809.pdf` | open (arXiv) |
+| [Chase-2009-protege] | Chase, C.C., Chin, D.B., Oppezzo, M.A., Schwartz, D.L. (2009). Teachable Agents and the Protégé Effect. *J. Science Education and Technology* 18. DOI 10.1007/s10956-009-9180-4. | `Chase-2009_Protege-effect-teachable-agents.pdf` | open (author copy, Stanford AAALab) |
+| [Munshi-2022-betty] | Munshi, A., Biswas, G., et al. (2022). Analyzing Adaptive Scaffolds that Help Students Develop SRL Behaviors (Betty's Brain). *arXiv:2202.09698*. | `Munshi-2022_Bettys-Brain-adaptive-scaffolds_arXiv-2202.09698.pdf` | open (arXiv) |
+| [Biswas-2004-betty] | Biswas, G., Leelawong, K., et al. (2004). Developing Learning by Teaching Environments that support Self-Regulated Learning (Betty's Brain). *ITS'04*. | `Biswas-2004_Bettys-Brain-SRL.pdf` | open (author copy) |
+| [Kazemitabaar-2022] | Kazemitabaar, M., Weintrop, D., et al. (2022). CodeStruct: … Intermediary Programming Environment for Novices to Transition from Scratch to Python. *IDC'22*. | `Kazemitabaar-2022_CodeStruct_Scratch-to-Python.pdf` | open (author copy) |
+| [HybridReflect-2026] | Hybrid LLM-Embedded Dialogue Agents for Learner Reflection: Designing Responsive and Theory-Driven Interactions (2026). *CHI'26* (arXiv:2602.20486). DOI 10.1145/3772318.3791582. | `Hybrid-LLM-reflection-dialogue-2026_arXiv-2602.20486.pdf` | open (arXiv) |
+| [Kapur-PF-overview] | Kapur, M. — Productive Failure (overview, BOLD Science 2025 summarizing Kapur 2008/2012/2014). | `Kapur_Productive-Failure-overview_BOLD.pdf` | open (summary) |
+| [MayerMoreno-2002] | Mayer, R.E., Moreno, R. (2002). Aids to computer-based multimedia learning. *Learning and Instruction*. | `MayerMoreno-2002_Multimedia-learning-cognitive-load.pdf` | open (author copy) |
+| [PRIMM-practitioner] | Sentance, S., Waite, J. — Teaching Programming with PRIMM (Raspberry Pi Foundation practitioner summary). | `Sentance-Waite_Teaching-with-PRIMM_RaspberryPi.pdf` | open (RPi) |
+| [AutoTutor-LLM-2024] | Pal Chowdhury, S., Zouhar, V., Sachan, M. (2024). AutoTutor meets Large Language Models: A Language Model Tutor with Rich Pedagogy and Guardrails (MWPTutor). *Learning@Scale'24*, DOI 10.1145/3657604.3662041 (arXiv:2402.09216). Code: github.com/eth-lre/MWPTutor. | `PalChowdhury-2024_AutoTutor-meets-LLMs-MWPTutor_arXiv-2402.09216.pdf` | open (arXiv mirror of gated ACM paper) |
+| [SocratiCode-2026] | Towards SocratiCode: Designing a Generative AI-Based Programming Tutor for K-12 Students through a 4-Week Participatory Design Study (2026). *arXiv:2605.17857*. | `SocratiCode-2026_GenAI-programming-tutor-K12_arXiv-2605.17857.pdf` | open (arXiv) |
+| [SakshmAI-2025] | Sakshm AI: Advancing AI-Assisted Coding Education … Through Socratic Tutoring and Comprehensive Feedback (2025). *arXiv:2503.12479*. | `SakshmAI-2025_Socratic-coding-tutor_arXiv-2503.12479.pdf` | open (arXiv) |
 
-### [YourBrainOnChatGPT-2025] — the EEG essay study `[to verify]`
-- Referenced in the episode ("Your Brain on ChatGPT", small-n EEG, essay writing, brain-first vs AI-first reversal).
-  **Best-known details (UNVERIFIED — confirm before citing)**: Kosmyna, N., et al. (2025), MIT Media Lab, arXiv preprint,
-  title approx. "Your Brain on ChatGPT: Accumulation of Cognitive Debt when Using an AI Assistant for Essay Writing Task."
-- **Access**: likely `open` (arXiv). **Redistribution**: `TBD` (arXiv preprints are usually redistributable under their
-  posted license — confirm the specific license line).
+### 2b. Relevant-but-inaccessible — RANKED to fetch (Alex)
 
-### Further research-agenda topics (see `04_...md § E` for the full P1–P3 list)
-Intelligent Tutoring Systems / cognitive tutors + LLM hybrids; programming-education pedagogy for novices with prior
-experience (PRIMM, Use-Modify-Create, worked-examples-with-fading, block→text transition); self-regulated learning &
-metacognition (monitoring/regulation); desirable difficulties (Bjork) & productive failure (Kapur); self-explanation
-(Chi) & learning-by-teaching / teachable agents (Betty's Brain); novice overconfidence / calibration (Kruger & Dunning);
-cognitive load theory & multimedia learning (Sweller; Mayer); "metacognitive laziness" / AI-reliance literature.
-→ add full citations here as each is located.
+Full ranked rationale: `notes-learnings-insights_for_building_tutor/05_research-corpus_iteration-1.md § B`. **Update 2026-07-15**: former #3 [AutoTutor-LLM-2024] now downloaded via arXiv mirror (moved to §2a); STAP has no arXiv but two open substitutes downloaded (§2a [SocratiCode-2026], [SakshmAI-2025]). Remaining:
+
+1. [BlocksToText-Misconceptions-2024] — "From Blocks to Text: Bridging Programming Misconceptions" (Mladenović, Žanko & Zaharija, 2024), *J. Educational Computing Research* 62(5):1082-1106, DOI 10.1177/07356331241240047. **Top lead** (micro:bit MakeCode->Python, 163 sixth-graders). `gated`, no open mirror. Same-lineage related (also gated, lower priority): [MladenovicZankoGranic-2021] Mladenović, Žanko & Granić, IJCCI 29:100279, DOI 10.1016/j.ijcci.2021.100279 "…text to blocks and back"; [ZankoMladenovicKrpan-2023] Žanko, Mladenović & Krpan, *J. Computers in Education* 10(1):1-26, DOI 10.1007/s40692-022-00225-z "…impact on programming misconceptions".
+2. [Scheiter-tutorial-dialogue] — the *specific* Scheiter LLM tutorial-dialogue system from the podcast. **`[unconfirmed]`** — not in her Potsdam list; candidates in the corpus doc. Needs Alex/author knowledge.
+3. [STAP-2025] — Socratic Tutor for Adaptive Programming, *ISAIE'25*, DOI 10.1145/3775073.3775165. `gated` (no arXiv mirror).
+4. [WhenGenAIMeetsSocratic-2026] — Sun, D., Zheng, Y., Xu, J. & Yang, Z. (2026). "When Generative AI Meets Socratic Method…", *J. Computer Assisted Learning* 42(2):e70210, DOI 10.1002/jcal.70210. **High value for Q7** — operationalizes the give-answer-only-after-understanding gate (identify root cause + coherent solution path). `gated` (Wiley).
+5. [Kapur-2008] / [SinhaKapur-2021] — Productive Failure primaries (Cognition & Instruction 26(3); Review of Educational Research 91(5)). `gated`.
+6. [PRIMM-2017] / [PRIMM-2019] — Sentance & Waite (2017, WiPSCE, DOI 10.1145/3137065.3137084); Sentance, Waite, Kallia (2019, Computer Science Education). `gated`.
+7. [Chi-selfexplanation] — Chi et al. (1989, Cognitive Science 13); Chi (1994); Chi & Wylie (2014, ICAP). `gated`.
+8. [SocraticRCT-2024] — Socratic vs Non-Socratic AI RCT, 122 students aged 14-18, *SSRN 5040921*. `gated` (403 to non-browser clients; retried — needs manual browser download).
+9. [Sibley-adaptive-2025] — Sibley, L., Fabian, A., Plicht, C., Pagano, L., Ehrhardt, N., Wellert, L., Bohl, T. & Lachner, A. (2025). Adaptive teaching with technology enhances lasting learning, *Learning & Instruction* 99:102141, DOI 10.1016/j.learninstruc.2025.102141. `gated`. **(Correction 2026-08-14: NOT a Scheiter paper — Tübingen/Lachner group; earlier mislabeled `[Scheiter-adaptive-2025]`.)**
+10. [KrugerDunning-1999] — Unskilled and Unaware of It, *JPSP* 77(6):1121-1134. `gated` (low urgency).
+11. [UseModifyCreate-2011] — Lee et al., ACM Inroads. `gated` (low urgency).
+12. [Sweller-CLT-2011] / [Mayer-2009] — CLT & Multimedia Learning books. `gated` (only if we go deep).
 
 ## 3. Hardware & platform references (from the exemplar tutorials)
 
@@ -97,8 +111,9 @@ Access `internal`, redistribution: Alex's own work (his call whether/how to publ
 | [Scheiter-TTT-2026] transcript (DE) | media transcript | open | **no** (copyrighted audio) | **yes — should untrack** | `materials/They Talk Tech transcript.txt` |
 | [Scheiter-TTT-2026] translation (EN) | derivative transcript | open | **no** | **yes — should untrack** | `materials/They Talk Tech transcript_EN.txt` |
 | [Scheiter-TTT-2026] our digest | our writing | — | yes (ours) | yes | `digests/scheiter-they-talk-tech_digest.md` |
-| [Scheiter-tutorial-dialogue] | paper(s) | TBD | TBD per paper | no | `materials/papers/…` when downloaded |
-| [YourBrainOnChatGPT-2025] | preprint | open? | TBD (confirm arXiv license) | no | `materials/papers/…` |
+| [Kosmyna-2025] Your Brain on ChatGPT | preprint | open (arXiv) | TBD (confirm arXiv license line before committing) | no | `materials/papers/Kosmyna-2025_…pdf` |
+| [Bauer-2025-hype] Looking beyond the hype | journal article | open | **yes — CC-BY 4.0** (may be force-added if desired) | no (kept ignored by default) | `materials/papers/Bauer-Scheiter-2025_…pdf` |
+| Research iteration-1 arXiv/author-copy corpus (§2a, 18 further PDFs) | preprints / author copies | open | TBD per item (arXiv non-exclusive licenses vary; author copies are publisher-copyright) | no | `materials/papers/*` (git-ignored) |
 | Hardware wiki/GitHub refs (§3) | web | open | n/a (link-only) | n/a | — |
 | Exemplar tutorials (§4) | prior work | internal | Alex's own | external | Isana folders |
 

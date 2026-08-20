@@ -5,13 +5,16 @@ others on demand. Persona-level high-level memory lives separately in `ai-person
 (`memory/projects/coding-tutor/`); this repo holds the heavy, project-specific detail.
 
 Project-root files: `../README.md` (central overview + licensing/publication policy) · `../REFERENCES.md` (consolidated
-attribution + per-source license/redistribution status — cite every external source from there).
+attribution + per-source license/redistribution status — cite every external source from there) · `../MISSING-RESOURCES.md`
+(standalone hand-off wishlist: Part 1 = inaccessible publications w/ full citations + DOIs; Part 2 = non-paper resources —
+open-source tutor code, benchmarks/datasets, products, prompt libraries).
 
 | File | What it holds | Read when |
 |---|---|---|
 | `01_project-picture.md` | Complete orientation: purpose, the 3 personas, Alice profile, prime goals, tutoring contract, tech stack, exemplars, scope. | always, first |
 | `04_pre-design-considerations-and-research-agenda.md` | **High-level overview of what to consider & research before designing** (v1, seeded from the Scheiter source). Considerations A–D + research agenda E (P1–P3) + open design questions F. | before any design work |
-| `03_open-questions-todos.md` | Queued next steps (research, guidelines) + open questions Q1–Q6. | planning / resuming |
+| `05_research-corpus_iteration-1.md` | **Catalog from research iteration 1** (2026-07-15): 17 downloaded sources triaged + agenda-mapped + read-prioritized; ranked list of relevant-but-inaccessible sources for Alex; secondary leads for the next loop. | picking what to read next; requesting gated sources |
+| `03_open-questions-todos.md` | Queued next steps (research, guidelines) + open questions Q1–Q8. | planning / resuming |
 | `../digests/exemplar-tutorials_pedagogy-and-stack_digest.md` | Detailed extraction of the two exemplar tutorials — pedagogy techniques + hardware/software stack. | designing pedagogy or referencing the stack |
 | `../digests/scheiter-they-talk-tech_digest.md` | Detailed digest of the Katharina Scheiter podcast: effort-is-the-feature, chatbot sycophancy, illusion of understanding, SRL/metacognition, think-first-then-AI, LLM+ITS hybrid, learning-by-explaining, programming-is-hard-to-teach-without-AI. | grounding tutor pedagogy/behavior |
 | `../materials/` | Validated external corpus. `They Talk Tech transcript.txt` (German original) + `..._EN.txt` (English translation, ingested 2026-07-15). | ingesting a source |
@@ -19,6 +22,10 @@ attribution + per-source license/redistribution status — cite every external s
 
 Layout is intentionally minimal and not pre-designed; restructure (add subfolders, split files) only when retrievability
 or clarity materially improves.
+
+## Outreach
+- `../outreach/scheiter-email_de.md` — email to Prof. Katharina Scheiter (DE, **sent 2026-08-14**).
+- `../outreach/biswas-email_en.md` — email to Prof. Gautam Biswas re: Betty's Brain access (EN, **sent 2026-08-15**).
 
 ## External read-only reference (not in this repo)
 - Exemplar tutorials: `/Users/alex/Development/Isana/Crash-Sensor_Mini-Challenge/` and `/Users/alex/Development/Isana/LightTower-challenge/`.

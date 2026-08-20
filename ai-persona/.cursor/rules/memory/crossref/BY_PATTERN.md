@@ -13,5 +13,6 @@
 | "Audit + broad consistency sweep" as a phase-close ritual | process | exp14 (P1/P2 close) | 1 | `universal/WORKING_STYLE.md` if it recurs in another project's phase close (open Q carried in exp14 CONTEXT) |
 | Preallocate-and-mutate-in-place for hot loops | coding/technique | exp14 (render buffers) | 1 (within one project) | Already a `concepts/circuitpython-runtime.md` entry; promote to `CODING_PRINCIPLES.md` only if it shows up as a *cross-language* habit, not just CircuitPython |
 | Bind module-globals to function-locals in hot loops | coding/technique | exp14 (`_render_colmajor`) | 1 | Same as above — CircuitPython-specific for now (concept), watch for non-MPy recurrence |
+| Public-repo third-party-material hygiene: gitignore copyrighted/third-party by default + dedicated ignored drop-folder (`materials/papers/`) + consolidated `REFERENCES.md` (per-source license/redistribution status) + central README pointer; default = not-redistributable, force-add only after confirming a permissive license | process | coding-tutor | 1 | `universal/PATTERNS.md` when a 2nd project is prepped for public release with third-party sources (git mechanics are already a concept: `concepts/git.md`) |
 
 _No pattern has reached 2 project-occurrences yet; `universal/PATTERNS.md` remains empty (correct under seed-on-evidence)._

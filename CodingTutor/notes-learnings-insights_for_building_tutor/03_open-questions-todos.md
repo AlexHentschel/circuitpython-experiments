@@ -6,12 +6,22 @@ Living list. Resolved items move to the session log / picture; new ones append h
 1. **DONE (2026-07-15)**: ingested `materials/They Talk Tech transcript.txt` → English translation
    (`..._EN.txt`) + detailed digest (`digests/scheiter-they-talk-tech_digest.md`) + high-level overview
    (`04_pre-design-considerations-and-research-agenda.md`). Short summary mirrored into persona memory.
-2. **Research Katharina Scheiter's work** (esp. her tutorial-dialogue-system publications — the P1.1 lead in `04...`):
-   study in detail, extract concrete learnings, fold in. NOT started.
-3. **Execute the research agenda** in `04_pre-design-considerations-and-research-agenda.md` § E (P1 before design).
-4. **Compile a detailed guidelines list** for designing the tutor (grounded in the research above).
-5. Broader: survey **recent research on learning/tutoring of early-high-school children**, esp. teaching software
-   engineering to kids with prior coding experience.
+2. **DONE (2026-07-15) — research loop iteration 1**: assembled + downloaded a 17-source corpus across all agenda cells
+   (Scheiter's own AI-effects synthesis, Your Brain on ChatGPT, LLM tutoring systems, programming-ed pedagogy, SRL/teachable
+   agents, productive failure, cognitive load, metacognitive laziness). Catalog + triage + ranked can't-access list:
+   `05_research-corpus_iteration-1.md`. Local PDFs in `../materials/papers/`. **Scheiter's *specific* tutorial-dialogue paper
+   remains unconfirmed** (not in her Potsdam list) — flagged for Alex (`05...md § B.2`).
+3. **NEXT — iteration 2 (deep read)**: digest the T1/T2 set (`05...md § A`), starting with Bauer/Scheiter-2025, Kosmyna-2025,
+   Ruffle&Riley, Kasneci-2026-sycophancy, Weintrop-2019, Fan-2024. Produce per-source digests + fold concrete learnings into `04...`.
+4. **Awaiting Alex — obtaining sources**:
+   - **Email SENT to Prof. Scheiter (2026-08-14)**: friendly German outreach referencing the podcast; asked for **non-paper
+     resources** — specifically a public **GitHub repository / prompts / materials / open-source system** for the
+     tutorial-dialogue system she mentioned, plus pointers to further work. Awaiting reply. Capture whatever she sends into
+     `materials/` + `REFERENCES.md`; if she names/points to the specific system, that closes `05...md § B.2` (the top
+     unconfirmed lead).
+   - **Alex to fetch** the ranked gated *publications* (`MISSING-REFERENCES.md`; also `05...md § B` / `REFERENCES.md § 2b`) —
+     esp. #1 Blocks-to-Text-Misconceptions (our exact micro:bit->Python transition).
+5. **Then**: compile a detailed, research-grounded tutor-design guidelines list; survey remaining secondary leads (`05...md § C`).
 
 Only after the research: begin designing the tutor.
 

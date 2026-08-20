@@ -4,6 +4,21 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-07-15 — extend: seed `concepts/git.md` (first cross-project tooling domain); log git-hygiene pattern + topic; add escalation directive
+
+**Trigger**: coding-tutor session — an attribution/gitignore task escalated into a full copyright remediation on a public repo (untrack + `git filter-repo` history scrub + accepted PR-ref residual). Yielded reusable, evidence-supported git/publishing knowledge and a repeatable attribution workflow. User then gated a short maintenance iteration.
+
+**Change** (all `extend`, no restructuring):
+- **New concept domain `concepts/git.md`** (`[domain:git]` `[cross-experiment]`, `evidence-supported`) — 3 concepts: (1) history rewrite ≠ removal via merged-PR refs / bare-SHA / fork networks (only GitHub Support purges); (2) scrub-a-file-from-history recipe (`clone --mirror` + `filter-repo` + `push --force --mirror`); (3) `git rm --cached` is all-or-nothing across pathspecs. First **non-CircuitPython** domain — validates the graph holds general tooling knowledge, not just hardware. Index lines added to `concepts/_INDEX.md`.
+- **`crossref/BY_PATTERN.md`**: candidate row "Public-repo third-party-material hygiene" (process, coding-tutor, 1 occurrence → `PATTERNS.md` on 2nd public-release project).
+- **`crossref/BY_TOPIC.md`**: row "Git history/publishing hygiene" → coding-tutor / `concepts/git.md`.
+- **`universal/WORKING_STYLE.md § Judgment & Escalation`**: new `(experimental)` directive — *Verify blast radius before mutating shared/published state; surface exposure beyond the literal ask* (`[universal]`, 1, 2026-07-15).
+- **`MAINTENANCE_BACKLOG.md`**: appended this session's confirm evidence to the provisional-marker-removal item; recommended running it.
+
+**Propagated updates**: `concepts/_INDEX.md` (new domain block + "Seeded since" line); project trail in `projects/coding-tutor/{CONTEXT,SESSION_LOG}.md` (task narrative).
+
+**Verification**: every write landed one-hop via the placement gate with no ambiguity, including a domain unlike the existing hardware ones — a positive `confirm` signal for the still-PROVISIONAL multi-project layout (recorded in the backlog).
+
 ## 2026-07-15 — simplify: single dedicated `ai-persona` root replaces symlink-fanout (Cursor multi-root rule-duplication bug)
 
 **Trigger**: Alex recalled a prior realization — that symlinking the same `.cursor/rules` tree into multiple workspace roots caused repeated inclusion in the context window — and asked for it to be re-validated. Confirmed via Cursor's own bug reports/forum (not previously recorded anywhere in this memory, i.e. it had only ever lived in an unpersisted conversation — a gap per `03-memory-update-triggers.mdc` item 4): Cursor scans `.cursor/rules/` independently per workspace root in a multi-root session, with **no content-based deduplication**. `alwaysApply: true` rules are injected unconditionally (not glob-gated) once per root where the file is filesystem-reachable — real copy or symlink, doesn't matter. N roots reachable to the same rule content = N× token cost. Confirmed still open/unfixed as of this session (Cursor team: "no dedup yet... team is already working on a fix... no ETA").
