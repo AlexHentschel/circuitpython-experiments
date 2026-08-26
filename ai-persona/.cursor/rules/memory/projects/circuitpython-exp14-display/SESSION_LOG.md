@@ -18,7 +18,15 @@ Per-project session memory for **exp14** (MakeCode-style display library for 8×
 
 **Key references**: `CONTEXT_HANDOFF.md` (exp14 root), `.cursor/plans/display_library_refactor_*.plan.md`, `.cursor/rules/reference/` (on-demand reading material — concepts absorbed into own memory in self-contained form, not referenced from memory entries).
 
+**Parallel-chat isolation (2026-08-23, Session 9)**: Alex is running Bamboo-Lamp in a *different* chat at the same time. This chat writes **only** to `projects/circuitpython-exp14-display/` + the exp14 repo. Shared/central files (`universal/*`, central `SESSION_LOG.md`, `concepts/*`, `crossref/*`, `projects/_INDEX.md`) stay untouched unless a write is unavoidable — then append-only / section-local, never a wholesale rewrite. Never write `projects/bamboo-lamp/`. See `universal/MONITORING.md` *Concurrent-session write race*.
+
 ## Sessions
+## 2026-08-23: Session 9 — [exp14] (resume Phase 3)
+
+- Context: persona re-internalized; active project locked to `circuitpython-exp14-display`. Last code work was 2026-06-12 (Session 8 glyph-coordinate docstring). Parallel Bamboo-Lamp chat — isolation policy in the living summary above.
+- Resumption: Phase 3 P3.1–P3.5 done; **next planned** = P3.6 on-device smoke (`deinit`, in-place `set_rotation`, font-legibility carry-over) then P3.7 audit + L1–L8 retrospective. Carry-overs unchanged (Pattern-A-vs-PEP-563 uniformity; `colmajor_to_pattern` buffer-type widening; cryptic `IndexError` on `width > len(data)`).
+- Artifacts updated: this entry only. No shared/central memory writes this turn.
+
 ## 2026-05-25: Session 8 — [exp14] (Phase 3 start: type hints + codec validation)
 
 - Technical insights:

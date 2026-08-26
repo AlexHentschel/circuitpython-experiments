@@ -123,7 +123,8 @@ def _iter_pattern_rows(pattern_str: str):
 
 # Translation table for ``_iter_pattern_rows_fast``. Maps the three
 # realistically-occurring whitespace ordinals (space, tab, CR) to ``None``,
-# which ``str.translate`` interprets as deletion. Built once at import time.
+# which ``str.translate`` omits from its output.
+# Built once at import time.
 _HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
 
 
@@ -135,7 +136,7 @@ def _iter_pattern_rows_fast(pattern_str: str):
     allocation as ``"".join(raw.split())`` would induce. Strips only space,
     tab, CR; other whitespace (``\\v``, ``\\f``) is left in the row and would
     render as ``OFF`` (unknown char) in mono mode. This is acceptable because
-    those code points do not appear in human-typed pattern strings.
+    those characters do not appear in human-typed pattern strings.
 
     Compared to the cold-path ``_iter_pattern_rows`` this parser is *less*
     whitespace-lenient: it strips only space/tab/CR, not every Python
@@ -204,9 +205,10 @@ def _write_pattern_on_the_fly(
             if x < width:
                 pixels[lut[x * height + y]] = color.get(ch, off)
                 x += 1
-        # reaching the following rows lines means that we have parsed less than height rows
-        # up to the tailing newline (otherwise check `if y >= height` above would have returned).
-        # EDGE case: row with index heigh has missing newline
+        # reaching the following code lines means that we have parsed less than height
+        # rows with non-whitespace characters, up to and including the tailing newline.
+        # (Otherwise check `if y >= height` above would have returned).
+        # EDGE case: the pattern's last row has no trailing newline
 
         if row_has_cell and y < height:  # completing last row if partially-filled
             while x < width:
@@ -238,9 +240,10 @@ def _write_pattern_on_the_fly(
             if x < width:
                 pixels[lut[x * height + y]] = color if ch == "#" else off
                 x += 1
-        # reaching the following rows lines means that we have parsed less than height rows
-        # up to the tailing newline (otherwise check `if y >= height` above would have returned).
-        # EDGE case: row with index heigh has missing newline
+        # reaching the following code lines means that we have parsed less than height
+        # rows with non-whitespace characters, up to and including the tailing newline.
+        # (Otherwise check `if y >= height` above would have returned).
+        # EDGE case: the pattern's last row has no trailing newline
 
         if row_has_cell and y < height:  # completing last row if partially-filled
             while x < width:
@@ -272,7 +275,7 @@ def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> N
     CAUTION: this function is part of the hot path and used to render many icons;
     especially for scrolling this code is performance sensitive.
     """
-    # Cache module globals into function-locals: LOAD_FAST (frame-slot access) is cheaper than LOAD_GLOBAL (module-dict lookup). This is explained in
+    # Cache module-globals into function-locals: LOAD_FAST (frame-slot access) is cheaper than LOAD_GLOBAL (module-dict lookup). This is explained in
     # more detail in MicroPython docs: `docs.micropython.org/en/latest/reference/speed_python.html` § "Caching object references". CircuitPython inherits
     # this unchanged from MicroPython's VM: AI-verified sources are `py/vm.c` (MP_BC_LOAD_FAST_N, MP_BC_LOAD_GLOBAL) and `py/runtime.c` (mp_load_global);
     pixels = _pixels
