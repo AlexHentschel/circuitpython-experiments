@@ -25,4 +25,4 @@ Working notes for Exp16 (BPI-Bit-S2 CircuitPython + PlanetX). Cold-AI resume: re
 | `briefs/` · `returns/` | Sub-agent briefs and payloads | first dispatch 2026-09-04 |
 | `_parked/` | Standing §4 safe-location (move here instead of delete). `README.md` = policy; `MANIFEST.md` = cold-AI index; payloads gitignored | confirmed 2026-09-04 |
 
-Project tree (not under `ai-notes/`): `../lib/display/` — 5×5 Exp14 fork; `../lib/buttons.py` — async A/B/C/D dispatcher. Third-party: `../Notes/bpi_bit_v2_goldfinger.jpg` (CC BY-SA, unmodified) + sidecar `../Notes/bpi_bit_v2_goldfinger.jpg.license` (**still uncommitted**).
+Project tree (not under `ai-notes/`): `../lib/display/` — 5×5 Exp14 fork; `../lib/buttons.py` — async A/B/C/D dispatcher. Third-party: `../Notes/bpi_bit_v2_goldfinger.jpg` (CC BY-SA, unmodified) + sidecar `../Notes/bpi_bit_v2_goldfinger.jpg.license` (already on branch `9806434`; this overnight did not re-commit it).

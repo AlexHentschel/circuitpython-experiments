@@ -11,7 +11,7 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - Font: DAL `pendolino3` MIT vendored (`lib/display/font_makecode_5/` + LICENSE). Table storage, not PCF. Pitchfork not used (no GPL case). `_glyph_columns` is a table lookup; Exp14 PCF algorithm untouched.
 - `PIXEL_PIN=board.NEOPIXEL`, `BRIGHTNESS=0.20`. `_write_pattern_on_the_fly` wired as `render_pattern` hot path; `_iter_pattern_rows_fast` kept.
 - Buttons: `lib/buttons.py`. Fake EventQueue FALL fires C/D. A/B names exist. No student `update()`.
-- **P6:** 146 pytest green. Optional mpy-cross 10.3.0 → mpy v6.3 (`/tmp/exp16-mpy-smoke`, not in tree). Goldfinger JPEG still uncommitted.
+- **P6:** 146 pytest green. Optional mpy-cross 10.3.0 → mpy v6.3 (`/tmp/exp16-mpy-smoke`, not in tree). Goldfinger JPEG was **already tracked** on `9806434` (handoff “uncommitted” was stale); this overnight did not touch it.
 - Cadence: `ai-notes/learnings/p1-p6-overnight.md`. P7/P8 not started.
 
 ## 2026-09-04: Session 5i — [exp16] (P1–P6 overnight kickoff authorized)
