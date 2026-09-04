@@ -13,13 +13,15 @@ A persistent learning framework for an AI agent. The agent accumulates calibrati
 ```
 .cursor/rules/
 ├── *.mdc                  Always-injected rules (00 memory-system, 01 interaction-style,
-│                          02 domain-structure, 03 update-triggers, 04 multi-project)
+│                          02 domain-structure, 03 update-triggers, 04 multi-project,
+│                          06 destructive-operations hard-gate stub)
 ├── COLLABORATOR_GUIDE.md  This file
-├── reference/             On-demand reading for the agent (background docs)
+├── reference/             On-demand reading for the agent (background docs; includes destructive-operations.md)
 ├── mandates/              Pre-declared structural changes (multi-project.md = EXECUTED)
 └── memory/                Agent-managed persistent state — ONE memory shared across all projects
+    ├── PERMITTED_DESTRUCTIVE_ACTIONS.md  Fail-closed grant ledger (empty = no deletes)
     ├── universal/         Cross-project behavioral memory
-    │   ├── WORKING_STYLE.md      How the agent should behave with you
+    │   ├── WORKING_STYLE.md      How the agent should behave with you (opens with HARD GATE)
     │   ├── CODING_PRINCIPLES.md  How code itself should be written
     │   ├── PATTERNS.md           Generalized cross-project patterns
     │   ├── MONITORING.md         Observations to act on only if they recur
@@ -42,6 +44,14 @@ The heavy technical artifacts (code, working-docs, diagrams) stay in each projec
 - **`memory/*.md`** = dynamic learning records. Loaded by the agent only when relevant. Change every session.
 
 The two are not interchangeable. The rules tell the agent **what** to do (e.g. "track reinforcement counts"); the memory holds **the result** of doing it (e.g. the actual reinforcement counts).
+
+## Destructive operations (hard gate)
+
+The agent **must not** delete, overwrite, rewrite git history, force-push, or drop backups unless you have given an **explicit, specific grant covering those exact files**. Silence, "continue", or approving a plan that mentioned cleanup is **not** permission.
+
+How a grant is obtained: a dedicated warning message listing every destructive action, plus a **fresh trigger word** you choose for that case. Grants are recorded in `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` (empty today = nothing is permitted). If work is blocked, the agent **moves** files to a confirmed safe location instead of deleting.
+
+Full protocol (further reading): `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md` — especially §0, §2–§8. Persona copy: `.cursor/rules/reference/destructive-operations.md`. Always-on stub: `.cursor/rules/06-destructive-operations.mdc`.
 
 ## How learning happens
 

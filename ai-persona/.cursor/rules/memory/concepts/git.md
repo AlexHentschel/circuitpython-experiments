@@ -43,5 +43,5 @@ git push --force --mirror <url>          # re-specify URL: filter-repo drops the
 
 ## Cross-references
 - Origin + full narrative: `projects/coding-tutor/SESSION_LOG.md` (2026-07-15 remediation).
-- Reusable *process* (attribution/licensing workflow, not git mechanics): `crossref/BY_PATTERN.md` candidate.
+- Reusable *process* (attribution/licensing workflow, not git mechanics): `universal/PATTERNS.md` (promoted 2026-09-04; provenance `crossref/BY_PATTERN.md`).
 - Behavioral directive derived here: `universal/WORKING_STYLE.md § Judgment & Escalation` ("verify blast radius…").

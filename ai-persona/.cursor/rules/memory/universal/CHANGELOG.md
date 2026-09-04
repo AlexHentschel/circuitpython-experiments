@@ -4,6 +4,35 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-04 — refine: *Cross-runtime citations* lifted `[project]` → `[user]` (MONITORING trigger)
+
+**Trigger:** Alex, Exp16 — do not conflate host Miniconda CPython venv (`CircuitPython_3.13_VsCode`) with CircuitPython firmware; do not assume MicroPython APIs carry over.
+
+**Change:** MONITORING scope-lift candidate removed (action taken). Directive in `CODING_PRINCIPLES.md` broadened to three runtimes (host CPython / CircuitPython / MicroPython). Not lifted to `[universal]` (M3 needs sign-off).
+
+## 2026-09-04 — extend: first `universal/PATTERNS.md` entry (public-repo third-party hygiene)
+
+**Trigger:** exp16 2nd-project occurrence of the coding-tutor (2026-07-15) candidate: BananaPi goldfinger JPEG vendored unmodified under CC BY-SA with a sidecar, vs coding-tutor’s gitignore-by-default papers folder.
+
+**Change** (`extend`; M3 auto-promote to `[cross-experiment]`, not `[universal]`):
+- `universal/PATTERNS.md`: first real pattern (was empty since warm reset).
+- `crossref/BY_PATTERN.md`: occurrence count 2; row retained as provenance.
+
+## 2026-09-04 — extend: instantiate destructive-ops hard gate (always-on stub + fail-closed ledger)
+
+**Trigger**: Alex updated `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings` with `destructive-operations.md` and asked to prominently summarize the core rules in Exp16 notes **and** persona memory so they cannot be missed.
+
+**Change** (`extend`; no compaction):
+- **Always-on identity stub** `06-destructive-operations.mdc` (`alwaysApply: true`) — §0+§3 sentence + pointer. Cursor has **no** pre-tool `rm` hook; reflex coverage is lossy; the stub is the intercept (corpus §10–§11 install recipe).
+- **Fail-closed ledger** `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` — empty Active grants. Absence of a matching entry = no permission.
+- **Capability copy** `.cursor/rules/reference/destructive-operations.md` (corpus treated as potentially ephemeral, same pattern as `cold-ai-paradigm.md`). Live source remains `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md`.
+- **`WORKING_STYLE.md`**: HARD GATE banner immediately under the header (outranks the rest of the file); new Core Principle *Destructive-action hard gate* `[universal]`; split the 2026-09-03 env+destructive row so setup/scripts stay `[user]` Workflow & Artifacts. Invalidates the 2026-09-03 flag that the corpus had no named entry.
+- **File table / M5**: ledger added to `00-memory-system.mdc § File Architecture`; M5 on-demand note in `04-multi-project.mdc` (ledger is **not** a session-start always-read). `COLLABORATOR_GUIDE.md` tree + human-facing section.
+
+**Exp16 (content, not architecture):** prominent banners in `ai-notes/INDEX.md` and `ai-notes/NOTES.md`; pointer in `projects/circuitpython-exp16-planetx/CONTEXT.md`.
+
+**Did not copy the full protocol into always-on context** — stub + banner only; procedure stays on-demand (corpus §10 identity vs capability split).
+
 ## 2026-07-15 — extend: seed `concepts/git.md` (first cross-project tooling domain); log git-hygiene pattern + topic; add escalation directive
 
 **Trigger**: coding-tutor session — an attribution/gitignore task escalated into a full copyright remediation on a public repo (untrack + `git filter-repo` history scrub + accepted PR-ref residual). Yielded reusable, evidence-supported git/publishing knowledge and a repeatable attribution workflow. User then gated a short maintenance iteration.

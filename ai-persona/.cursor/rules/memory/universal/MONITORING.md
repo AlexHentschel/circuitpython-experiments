@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-07-15 (tooling session 13 continuation: added *Concurrent-session write race on shared/central memory files* — no locking/merge protocol exists for `universal/*`, central `SESSION_LOG.md`, `concepts/*`, `crossref/*`, `projects/_INDEX.md` when two agent sessions are open on different projects at the same time.)
+Last updated: 2026-09-04 (MONITORING: *Cross-runtime citations* scope-lift trigger fired — lifted in `CODING_PRINCIPLES.md` to `[user]`, not `[universal]` (M3 sign-off). Origin 2026-07-15 concurrent-session race still live.)
 
 Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
@@ -41,13 +41,6 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 - **Cross-reference on promotion**: when an entry graduates to a full directive / `concepts/<domain>.md` entry / `projects/<slug>/CONCLUSIONS.md` finding, cite this file as the original observation site in the promoted entry's Notes column so the provenance chain is preserved.
 
 ## Entries
-
-- **Scope-lift candidate: *Cross-runtime citations require a grounding note***
-  - **Observation**: directive currently at `[project]` scope, phrased around MicroPython↔CircuitPython specifically.
-  - **Trigger**: any non-MicroPython cross-runtime citation incident (e.g. citing CPython docs from CircuitPython or PyPy code for a feature whose behavior may differ).
-  - **Action on trigger**: lift directive scope to `[universal]`, rename to remove MicroPython-specific framing, update the Notes column of the entry at `CODING_PRINCIPLES.md § Core Principles` with both incidents as evidence. If a second non-MicroPython incident accumulates, the abstraction-lifecycle rule from `WORKING_STYLE.md § Retention` is satisfied.
-  - **First observed**: 2026-04-21 (session 6).
-  - **Scope**: `[project]` → candidate for `[universal]`.
 
 - **Promotion trigger: MicroPython perf-guidance source-verification pattern**
   - **Observation**: one `docs.micropython.org/reference/speed_python.html` claim (LOAD_FAST vs LOAD_GLOBAL) has been source-verified against CircuitPython's `py/vm.c` + `py/runtime.c` and lives in `concepts/circuitpython-runtime.md` (§ "Name loading: LOAD_FAST vs LOAD_GLOBAL"). Other claims from the same doc — e.g. `const()` folding, buffer-protocol access, viper — have not been verified for this port.

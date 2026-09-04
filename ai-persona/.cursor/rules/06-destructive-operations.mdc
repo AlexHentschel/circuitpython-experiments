@@ -1,0 +1,25 @@
+---
+description: Destructive-ops hard gate — never delete without an explicit per-file grant. Run before any mutating shell command.
+alwaysApply: true
+---
+
+# Destructive operations — hard gate (stub)
+
+**Never delete or non-trivially-reverse anything without an explicit, specific human grant covering those exact files. There is no a-priori permission.**
+
+Silence, skipping a question, "continue", "go ahead on the plan", a recommended default the human did not object to, or approval of an *adjacent* non-destructive plan is **not** permission. A partial grant is not a blanket grant. When unsure whether an action is destructive, **treat it as destructive**.
+
+Before **any** mutating shell / file-delete / overwrite / git-history / force-push action:
+
+1. Is it not-trivially-reversible? (untracked/gitignored delete, `rm -rf`, history rewrite, `push --force`, backup delete, overwrite with no verified restore path)
+2. If yes → positively confirm this exact path is in `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` (absence of a matching **active** grant = **no permission**).
+3. If not covered → **do not act.** Dedicated permission request (unmissable header + exhaustive list + **fresh trigger word**) or **move** to a confirmed safe location and ask later. Never infer.
+
+Cursor has **no** pre-tool hook on `rm` — this always-injected stub is the intercept. Do not bury the ask in a progress report.
+
+**Further reading (do not skip when the cue fires):**
+
+- Full protocol: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md` — especially **§0, §2 (what counts), §3 (hard gate), §4 (move never delete), §5 (confirmation + trigger word), §6 (ledger), §7 (self-check + inbound-ref sweep), §8 (backups are gated too)**
+- Durable copy: `.cursor/rules/reference/destructive-operations.md`
+- Facet split: `host-portability.md` §7
+- Router: corpus `README.md` row "Stop the AI deleting files…"

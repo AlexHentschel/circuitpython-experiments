@@ -6,11 +6,12 @@ This is the **central** session log for the unified persona memory. It holds the
 
 **Memory layout (unified, since the 2026-06-14 warm reset)**: ONE persona memory home at `.cursor/rules/memory/`, reachable from every project workspace (NOT federated). Structure:
 - `universal/` — behavioral / cross-project: `WORKING_STYLE.md`, `CODING_PRINCIPLES.md`, `MONITORING.md`, `CHANGELOG.md`, `PATTERNS.md`.
+- `PERMITTED_DESTRUCTIVE_ACTIONS.md` — **fail-closed grant ledger** for destructive ops (empty = nothing permitted). Always-on stub: `06-destructive-operations.mdc`. Protocol: corpus `destructive-operations.md`.
 - `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`).
 - `projects/` — `_INDEX.md` (roster + path-globs) + `<slug>/` digests (`CONTEXT.md` + `SESSION_LOG.md` + `CONCLUSIONS.md`), linking into each project repo's technical artifacts.
 - `crossref/` — `BY_TOPIC.md` + `BY_PATTERN.md` (cross-project lookup; header-only until a 2nd project accrues content).
 
-**Active-project routing (M1)**: detect the active project from the most-recently-edited / open file path against `projects/_INDEX.md` path-globs. `2026-04_Exp14_*/**` → `circuitpython-exp14-display`; `2026-06_Exp15_*/**` → `circuitpython-exp15-microbit`; `Bamboo-Lamp/**` → `bamboo-lamp`. If ambiguous, ask before writing per-project memory. **Write per-project content only into that project's folder; cross-project / boundary content goes to `concepts/` or `universal/` — never bury a cross-scoped insight inside one project** (`WORKING_STYLE.md` Core Principle *Don't guess an association into a deep, specific bucket*; R-7).
+**Active-project routing (M1)**: detect the active project from the most-recently-edited / open file path against `projects/_INDEX.md` path-globs. `2026-04_Exp14_*/**` → `circuitpython-exp14-display`; `2026-06_Exp15_*/**` → `circuitpython-exp15-microbit`; `2026-09_Exp16_*/**` → `circuitpython-exp16-planetx`; `Bamboo-Lamp/**` → `bamboo-lamp`. If ambiguous, ask before writing per-project memory. **Write per-project content only into that project's folder; cross-project / boundary content goes to `concepts/` or `universal/` — never bury a cross-scoped insight inside one project** (`WORKING_STYLE.md` Core Principle *Don't guess an association into a deep, specific bucket*; R-7).
 
 **Reachability model (superseded 2026-07-15 — see below)**: ~~central tree lived at `CircuitPython/.cursor/rules/`, symlinked into `Exp14/.cursor/rules` and `Bamboo-Lamp/.cursor/rules`~~. **Current model (2026-07-15)**: the physical rules tree now lives **only** at `CircuitPython/ai-persona/.cursor/rules/`, a dedicated workspace-root folder — no symlinks anywhere. Root cause: Cursor does not deduplicate `alwaysApply: true` rules across workspace roots in a multi-root session (confirmed open bug, no ETA) — the old symlink-fanout meant every co-attached symlinked root re-injected the full rule set, wasting context tokens. Trade-off accepted: persona now loads **only when `ai-persona` is a folder in the active Cursor workspace** (confirmed present in `/Users/alex/Development/Cursor Workspaces/circuitpython.code-workspace`); opening a project folder standalone, bypassing that workspace file, yields zero persona coverage. Full rationale + rejected alternatives: `universal/CHANGELOG.md § 2026-07-15`.
 
@@ -25,13 +26,15 @@ This is the **central** session log for the unified persona memory. It holds the
 - `circuitpython-exp15-microbit` — **active (early)**; Milestone 1 blink set up, on-device run pending board connection. See `projects/circuitpython-exp15-microbit/`.
 - `bamboo-lamp` — **active**; standby/sleep-mode design discussion pending; S3-vs-C6 MCU divergence open. See `projects/bamboo-lamp/`.
 - `coding-tutor` — **active (knowledge-gathering)**; family `education`. Build an AI tutor persona (distinct from this assisting persona) teaching CircuitPython on micro:bit+Nezha2+PlanetX to student persona "Alice". Setup + Scheiter transcript ingested; **research loop iteration 1 done 2026-07-15** — 17-source corpus downloaded (`CodingTutor/materials/papers/`, git-ignored) + cataloged/triaged/ranked in `CodingTutor/notes-.../05_research-corpus_iteration-1.md` (with a ranked can't-access list for Alex). Next: iteration-2 deep-read/digest T1/T2, then tutor-design guidelines. Design not started. See `projects/coding-tutor/`.
-- exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces).
+- `circuitpython-exp16-planetx` — **active (P1–P6 overnight kickoff 2026-09-04)**; P0 done; executing chat starts `plan_v1.0.md` P1–P6 (host pytest; board unplugged). See `projects/circuitpython-exp16-planetx/`.
+- exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces). Exp09 5×5 LUT/icons are prior art consumed by exp16.
 
 ## Source-of-truth map (which file owns which content; pre-empts duplication-and-drift)
 
 | Content type | Source of truth | Update authority |
 |---|---|---|
 | Collaboration / process / judgment / artifact-convention directives | `universal/WORKING_STYLE.md` | Agent (operational) |
+| Destructive-ops grants (fail-closed) | `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` | Agent records **only after** a dedicated §5 confirmation round; protocol in corpus `destructive-operations.md` |
 | Coding-craft directives (how code itself is written) | `universal/CODING_PRINCIPLES.md` (schema inherited from `WORKING_STYLE.md`) | Agent (operational) |
 | Single-incident observations to act on only if they recur | `universal/MONITORING.md` | Agent (operational) |
 | Cross-project generalized patterns (≥2 projects) | `universal/PATTERNS.md` | Agent; `[universal]` promotion needs Alex sign-off (D2) |
@@ -51,6 +54,14 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Scope-tag dimensions** — two *orthogonal* axes (D4): (1) *directive scope* `[universal]/[user]/[project]/[task]` (authoritative in `WORKING_STYLE.md` header; echoed in `01-interaction-style.mdc`); (2) *content scope* `[universal]/[domain:x]/[family:y]/[project:slug]/...` (authoritative in `04-multi-project.mdc § Scope tagging`; rubric in `working-docs/warm-reset-plan/microcontroller-multi-project-memory-guidelines.md § 5`). Don't collapse the two.
 
 ## Cross-project & tooling sessions
+
+## 2026-09-04: Session — [tooling] (instantiate destructive-ops hard gate from corpus)
+
+- Context: Alex updated `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings` (`destructive-operations.md`) and asked to prominently summarize the core rules in Exp16 notes and persona memory.
+- Installed per corpus §10–§11: always-on stub `06-destructive-operations.mdc`; empty ledger `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md`; capability copy in `reference/destructive-operations.md`; WORKING_STYLE HARD GATE banner + Core Principle; COLLABORATOR_GUIDE + file-table/M5 wiring. Exp16 banners in `ai-notes/{INDEX,NOTES}.md`.
+- Invalidated 2026-09-03 claim that the corpus had no named destructive-ops entry.
+- Cursor: no pre-tool hook — stub is the intercept; reflex coverage lossy (recorded).
+- Full structural record: `universal/CHANGELOG.md § 2026-09-04`.
 
 ## 2026-07-15: Session 13 — [tooling] (dedicated `ai-persona` workspace root replaces symlink-fanout)
 
