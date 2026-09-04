@@ -1,5 +1,5 @@
 """
-MakeCode-style display library for an 8x8 WS2812b NeoPixel matrix.
+MakeCode-style display library for a 5x5 WS2812 NeoPixel matrix.
 
 Covers hardware wiring, the two-tier sync+async API, cooperative
 multitasking via a cancellation-token counter, the column-major bitmap

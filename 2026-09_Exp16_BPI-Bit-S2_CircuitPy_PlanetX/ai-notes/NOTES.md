@@ -10,7 +10,7 @@
 >
 > **Further reading (corpus is source of truth):** `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md` — §0 one-line purpose, §2 what counts, §3 hard gate, §4 move never delete, §5 confirmation protocol, §6 ledger, §7 per-action self-check (+ inbound-ref sweep), §8 backups are gated, §9 directive table. Persona durable copy: `ai-persona/.cursor/rules/reference/destructive-operations.md`. Always-on stub: `ai-persona/.cursor/rules/06-destructive-operations.mdc`. Working-style banner: `memory/universal/WORKING_STYLE.md` (opens with this gate). Facet split: corpus `host-portability.md` §7. Router: corpus `README.md` ("Stop the AI deleting files…").
 
-Checkpoint: **2026-09-04** — overnight **P1–P6 kickoff authorized** (handoff to executing chat). P0 done. Board **unplugged** until Alex instructs otherwise. Host venv: pytest, Adafruit `mpy-cross` 10.3.0, `circuitpython-stubs` 10.3.0. Overnight git: coarse commits on `alex/display-mvp_5x5`.
+Checkpoint: **2026-09-04** — overnight **P1–P6 host-green** (146 pytest; no `board`/`core`). P7/P8 not started. Board **unplugged** until Alex instructs otherwise. Host venv: pytest, Adafruit `mpy-cross` 10.3.0, `circuitpython-stubs` 10.3.0. Overnight git: coarse commits on `alex/display-mvp_5x5`.
 
 **REMINDER — flash the board to CircuitPython 10.3.0** (Alex, 2026-09-04). Host tools are on 10.3.0; the BPI-Bit-S2 is believed still on older firmware. Do this before/at P8.
 

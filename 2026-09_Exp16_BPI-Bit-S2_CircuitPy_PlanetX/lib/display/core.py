@@ -1,9 +1,9 @@
 """
-Runtime display engine for the 8x8 WS2812b NeoPixel matrix.
+Runtime display engine for the 5x5 WS2812 NeoPixel matrix (BPI-Bit-S2).
 
 Owns the live NeoPixel buffer, the coordinate Look-Up Table [LUT] (populated via
-``geometry.build_lut``), the PCF font (loaded from the sibling
-``font_free_mono_8/`` directory via a ``__file__``-relative path), and
+``geometry.build_lut``), the MakeCode-style 5×5 font (sibling
+``font_makecode_5/`` table, ``__file__``-relative path), and
 the ``Display`` + ``Image`` classes.
 
 Two-tier API:
@@ -55,9 +55,8 @@ import board
 import neopixel
 from rainbowio import colorwheel  # noqa: F401 -- re-export for user convenience
 
-from adafruit_bitmap_font import bitmap_font
-
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
+from .font_makecode_5 import glyph_columns as _table_glyph_columns
 from .geometry import build_lut
 from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 
@@ -66,8 +65,8 @@ from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 # Hardware configuration (kept out of _constants.py so that pure sub-modules
 # stay importable on CPython without a device).
 # ---------------------------------------------------------------------------
-PIXEL_PIN = board.GP0
-BRIGHTNESS = 0.05
+PIXEL_PIN = board.NEOPIXEL
+BRIGHTNESS = 0.20
 
 _pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False)
 
@@ -91,12 +90,11 @@ _LUT = build_lut(0)
 #     whitespace via ``"".join(raw.split())`` (matches the design-time idiom
 #     in ``bitmap_codec.pattern_to_colmajor``). Allocations are not
 #     performance-critical here.
-#   - ``_iter_pattern_rows_fast`` -- hot path. Used by ``Display.render_pattern``,
-#     called per Tier 2 frame. Single string allocation per row via
-#     ``str.translate`` (no intermediate list, unlike ``split``+``join``).
-#     Whitespace tolerance is deliberately narrower: only space, tab, CR
-#     are stripped -- the only characters that realistically appear in a
-#     human-typed pattern string.
+#   - ``_iter_pattern_rows_fast`` -- two-stage hot-path parser (kept).
+#     ``Display.render_pattern`` now uses the fused ``_write_pattern_on_the_fly``
+#     scan; this helper remains the row-yielding alternative (single string
+#     allocation per row via ``str.translate``). Whitespace tolerance is
+#     narrower than the cold path: only space, tab, CR are stripped.
 # For strict design-time pattern validation, use
 # ``bitmap_codec.pattern_to_colmajor`` (raises on shape and unknown-cell
 # errors instead of silently dropping or padding).
@@ -129,14 +127,15 @@ _HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
 
 
 def _iter_pattern_rows_fast(pattern_str: str):
-    """Yield non-blank rows from a pattern -- *hot-path* parser.
+    """Yield non-blank rows from a pattern -- *two-stage hot-path* parser.
 
-    Optimised for per-frame use in ``Display.render_pattern``: one string
-    allocation per row via ``str.translate(_HOTPATH_WS)`` -- no list
-    allocation as ``"".join(raw.split())`` would induce. Strips only space,
-    tab, CR; other whitespace (``\\v``, ``\\f``) is left in the row and would
-    render as ``OFF`` (unknown char) in mono mode. This is acceptable because
-    those characters do not appear in human-typed pattern strings.
+    Kept as the row-yielding alternative after ``render_pattern`` switched to
+    the fused ``_write_pattern_on_the_fly`` scan. One string allocation per
+    row via ``str.translate(_HOTPATH_WS)`` -- no list allocation as
+    ``"".join(raw.split())`` would induce. Strips only space, tab, CR; other
+    whitespace (``\\v``, ``\\f``) is left in the row and would render as
+    ``OFF`` (unknown char) in mono mode. This is acceptable because those
+    characters do not appear in human-typed pattern strings.
 
     Compared to the cold-path ``_iter_pattern_rows`` this parser is *less*
     whitespace-lenient: it strips only space/tab/CR, not every Python
@@ -163,10 +162,12 @@ def _write_pattern_on_the_fly(
     width: int,
     height: int,
 ) -> None:
-    """Candidate replacement for ``_iter_pattern_rows_fast`` in ``render_pattern``.
+    """Fused hot-path used by ``render_pattern``: one scan of the pattern string.
 
-    Intentionally unused for now. Sketches the fully-fused hot-path version:
-    scan the source string once, skip only space / tab / CR, write each cell
+    Replaces the two-stage ``_iter_pattern_rows_fast`` + per-row write loop
+    as the live hot path. The fast parser is kept as the two-stage alternative
+    (cold-path ``Image.from_pattern`` still uses ``_iter_pattern_rows``).
+    Scan the source string once, skip only space / tab / CR, write each cell
     directly to the NeoPixel buffer, ignore columns past ``width``, ignore
     rows past ``height``, pad short / missing rows with ``off``. Avoids both
     the per-row string allocation of ``_iter_pattern_rows_fast`` and
@@ -291,66 +292,26 @@ def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> N
 
 
 # ---------------------------------------------------------------------------
-# Font loading -- PCF font via adafruit_bitmap_font.
-# Path is resolved relative to this file so the font ships with the package
-# on both host and device; os.path coverage on CircuitPython is partial so
-# rsplit is preferred over os.path.dirname.
+# Font -- MakeCode-style 5×5 table (DAL pendolino3, MIT). Swap unit is the
+# ``font_makecode_5/`` directory. Path kept as a hook so a later 8×8 PCF
+# can restore the Exp14 loader without touching the feeder / scroll path.
+# os.path coverage on CircuitPython is partial so rsplit is preferred.
 # ---------------------------------------------------------------------------
-_FONT_PATH = __file__.rsplit("/", 1)[0] + "/font_free_mono_8/font.pcf"
-_font = bitmap_font.load_font(_FONT_PATH)
-_font.load_glyphs(range(32, 127))  # preload printable ASCII at import time
+_FONT_PATH = __file__.rsplit("/", 1)[0] + "/font_makecode_5"
 
 
 def _glyph_columns(ch: str) -> bytes:
-    """Convert a font glyph to column-major bytes for the 8-row LED matrix.
+    """Return column-major bytes for one glyph on this HEIGHT-row matrix.
 
-    Returns one byte per column spanning the glyph's advance width.
-    Bit N of each byte = row N (with row 0 = top).
+    Returns one byte per column spanning the glyph's advance width (here
+    always ``WIDTH`` for the 5×5 table). Bit N of each byte = row N
+    (row 0 = top). Blank ``WIDTH`` bytes for unknown characters.
 
-    Font metric terms (from fontio.Glyph / PCF):
-      ascent:       rows from baseline to top of tallest glyph (= display row 0).
-      dy:           rows from baseline to bottom edge of this glyph's bitmap.
-      dx:           columns from current text position to left edge of this glyph's bitmap.
-      glyph.height: the height of the glyph's bitmap in pixels
-      shift_x:      advance width (columns the current text position moves right after this glyph).
-      width/height: pixel dimensions of the glyph's actual bitmap.
-
-    Coordinate systems (formal 2D handedness with +z out of the screen towards the observer;
-    x points right in both, so only the y-axis direction differs). IMPORTANT: glyph properties
-    are defined in the right-handed system, while the glyph bitmap is in the left-handed system.
-      right-handed -- y UP from the baseline:    ``ascent``, ``dy`` (metric offsets).
-      left-handed  -- y DOWN from the top:       ``cx``/``cy``, ``display_row``/``col`` (bitmap rasters).
-      magnitudes are coordinate system agnostic: ``height``, ``width`` (glyph extent).
-    Only the vertical placement crosses coordinate systems: ``dy + height`` is the glyph's top edge in the
-    right-handed system (bottom left pixel being the origin). The transformation ``ascent - (dy + height)``
-    flips it into the left-handed display coordinate system (top left pixel being the origin).
-
-    Coordinate mapping from glyph bitmap (cx, cy) to display (x,y). Note: the glyph bitmap rastering is already stored
-    in the left-handed coordinate system, which happens to be aligned with the display; hence ``cy`` is not fliped:
-      display_row = ascent - height - dy + cy
-        (glyph top edge at font-y = dy + height; display row 0 = ascent)
-      display_col = cx + dx
-        (dx = horizontal offset from current text position to bitmap left edge)
+    Storage is a preconverted column-major table (see ``font_makecode_5``).
+    The Exp14 PCF metric mapping (ascent / dy / dx → display row) is the
+    8×8 swap-unit algorithm and is not used on this 5×5 path.
     """
-    glyph = _font.get_glyph(ord(ch))
-    if glyph is None:
-        return bytes(WIDTH)
-    bm = glyph.bitmap
-    ascent = _font.ascent  # the maximum vertical distance from the baseline to the top of the tallest glyphs
-    cols = bytearray(glyph.shift_x)
-    # row_origin is the top row of glyph bitmap in display coordinates (loop-invariant)
-    row_origin = ascent - glyph.height - glyph.dy
-    for cx in range(glyph.width):
-        col_byte = 0
-        for cy in range(glyph.height):
-            y = row_origin + cy
-            if 0 <= y < HEIGHT and bm[cx + cy * glyph.width]:
-                col_byte |= 1 << y
-        # dx = horizontal offset: current text position -> bitmap left edge
-        x = cx + glyph.dx
-        if 0 <= x < len(cols):
-            cols[x] = col_byte
-    return bytes(cols)
+    return _table_glyph_columns(ch)
 
 
 # ---------------------------------------------------------------------------
@@ -420,15 +381,15 @@ class _GlyphColumnFeeder:
 # Image class
 # ---------------------------------------------------------------------------
 class Image:
-    """Bitmap image for the 8-row LED matrix.
+    """Bitmap image for the HEIGHT-row LED matrix.
 
     Monochrome images store column-major bytes + a single color RGB-triple.
     Multi-color images store a flat sequence of per-pixel RGB tuples (one per pixel).
 
-    The image's height is always assumed to be ``HEIGHT`` (8) rows. Width is independent of the display
-    and may be smaller, equal to, or **larger** than the ``WIDTH`` (8) physical columns of the LED matrix:
-      - ``create_image`` builds an exactly-``WIDTH`` (8-wide) image.
-      - ``create_big_image`` builds a ``2 * WIDTH`` (16-wide) image.
+    The image's height is always assumed to be ``HEIGHT`` rows. Width is independent of the display
+    and may be smaller, equal to, or **larger** than the ``WIDTH`` physical columns of the LED matrix:
+      - ``create_image`` builds an exactly-``WIDTH`` image.
+      - ``create_big_image`` builds a ``2 * WIDTH`` image.
       - ``from_pattern`` accepts any width (the widest kept row).
     An image wider than the display is shown a ``WIDTH``-column window at a
     time: ``show_image(offset)`` picks the window and ``scroll_image`` animates
@@ -659,7 +620,7 @@ class Image:
 # Icons / Arrows -- Image instances constructed once at import from the bulk
 # ``ICONS`` / ``ARROWS`` bytes; names/ordering come from ``ICON_NAMES`` /
 # ``ARROW_NAMES`` in ``icons.py`` (single source of truth). ``bytes``
-# slicing copies, so each Image owns its own 8-byte backing block -- the
+# slicing copies, so each Image owns its own WIDTH-byte backing block -- the
 # bulk arrays exist for deterministic ordering, not byte-sharing.
 # Each Image's stored color is WHITE; ``render_icon`` / ``render_arrow``
 # accept a ``color`` kwarg that overrides it at render time.
@@ -689,7 +650,7 @@ def create_image(
     pattern_str: str,
     color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
 ) -> Image:
-    """Create an 8x8 Image.
+    """Create a WIDTH×HEIGHT Image.
 
     Raises ``ValueError`` if the pattern is not exactly ``WIDTH`` columns
     by ``HEIGHT`` rows (whitespace and blank lines ignored, see
@@ -773,34 +734,12 @@ class Display:
         Short rows are padded with OFF; rows past HEIGHT are ignored.
         """
         self._acquire()
-        # Cache module globals as function-locals so the inner WIDTH * HEIGHT
-        # pixel-write loop hits LOAD_FAST instead of LOAD_GLOBAL. Same idiom
-        # as ``_render_colmajor``; rationale and CPy/MicroPython VM sources
-        # documented there and in ``TECHNICAL.md § Name loading``.
+        # Fused one-pass scan. Locals here are LOAD_FAST args into the helper;
+        # rationale (vs LOAD_GLOBAL) is documented on ``_render_colmajor``.
         pixels = _pixels
         lut = _LUT
         off = OFF
-        width = WIDTH
-        height = HEIGHT
-        is_dict = isinstance(color, dict)
-        y = 0
-        for row in _iter_pattern_rows_fast(pattern):
-            if y >= height:
-                break
-            cap = min(width, len(row))
-            for x in range(cap):
-                ch = row[x]
-                if is_dict:
-                    pixels[lut[x * height + y]] = color.get(ch, off)
-                else:
-                    pixels[lut[x * height + y]] = color if ch == "#" else off
-            for x in range(cap, width):
-                pixels[lut[x * height + y]] = off
-            y += 1
-        while y < height:
-            for x in range(width):
-                pixels[lut[x * height + y]] = off
-            y += 1
+        _write_pattern_on_the_fly(pattern, color, pixels, lut, off, WIDTH, HEIGHT)
         pixels.show()
 
     def render_icon(self, icon: Image, color: tuple[int, int, int] = WHITE) -> None:

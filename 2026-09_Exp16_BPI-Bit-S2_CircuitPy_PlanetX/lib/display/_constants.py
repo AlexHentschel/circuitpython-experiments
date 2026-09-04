@@ -16,8 +16,8 @@ Distinctions preserved here:
 # ---------------------------------------------------------------------------
 # Display geometry
 # ---------------------------------------------------------------------------
-WIDTH = 8
-HEIGHT = 8
+WIDTH = 5
+HEIGHT = 5
 NUM_PIXELS = WIDTH * HEIGHT
 
 # Encoding-imposed hard limit: each column is stored as a single byte, so at

@@ -99,3 +99,25 @@ A4. PlanetX C/D remain two GPIOs, active-low, pull-up — only the pin *identiti
 - Exp14 `lib/display/README.md` — two-tier API
 - LightTower tutorial Watch I.2–I.5 — actual student operations
 - Corpus: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/Flexible Plans for AI Execution.md` (layered commitment); `plan-refinement-loop.md` (checkpoints); `09-RECURSIVE-LEARNING.md` (extraction gets crowded out unless scheduled)
+
+---
+
+## Overnight P1–P6 revisit (2026-09-04)
+
+Host-only. Dated notes; guidelines not frozen.
+
+| Id | Result |
+|----|--------|
+| G1 | **confirm** — `Buttons.on_*_pressed` are letters; pins are constructor args. |
+| G2 | **confirm** — LUT in `geometry.py`; font dir `font_makecode_5/`; `PIXEL_PIN`/`BRIGHTNESS` in `core.py`; button pins on constructor. |
+| G3 | **confirm (names)** — Tier 2 methods exist on `Display` (source AST). Not exercised on-device. |
+| G4 | **confirm** — YES, NO, DIAMOND, NORTH/EAST/SOUTH/WEST present on 5×5. |
+| G5 | no platform switch this overnight |
+| G6 | **confirm** — no motor/light APIs |
+| G7 | stand-in only (public names); Watch I sketch deferred |
+| A1 | keep |
+| A2 | still `unverified` on device (P8) |
+| A3 | locked (unchanged) |
+| A4 | cable still `unverified` (P8) |
+
+No stability-target change. Detail: `../learnings/p1-p6-overnight.md`.

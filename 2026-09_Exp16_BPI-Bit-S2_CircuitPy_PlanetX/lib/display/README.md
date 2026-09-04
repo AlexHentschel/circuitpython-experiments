@@ -5,18 +5,18 @@ For install + usage see the project root [README.md](../../README.md).
 
 ## Purpose
 
-MakeCode-style Python display library driving an 8x8 WS2812b NeoPixel
-matrix from a YD-RP2040 running CircuitPython 10.1.4.
+MakeCode-style Python display library driving a 5x5 WS2812 NeoPixel
+matrix from a BPI-Bit-S2 running CircuitPython 10.3.0.
 
 ## Hardware context
 
 | Component | Detail |
 |-----------|--------|
-| MCU board | YD-RP2040 (RP2040, 264 KB SRAM, 16 MB flash) |
-| LED matrix | 8x8 WS2812b (64 NeoPixels) |
-| Data pin | GP0 -> 3.3V-to-5V level shifter -> WS2812b DIN |
-| Wiring | Progressive left-to-right, bottom-up (strip index 0 = bottom-left) |
-| Level shifter | Required (RP2040 is 3.3 V logic, WS2812b wants 5 V) |
+| MCU board | BPI-Bit-S2 (ESP32-S2, micro:bit form factor) |
+| LED matrix | 5x5 WS2812 (25 NeoPixels, onboard) |
+| Data pin | ``board.NEOPIXEL`` (GPIO18) |
+| Wiring | Column-major, right-to-left; strip index 0 = top-right. Formula ``idx = row + 20 - column * 5``. |
+| Brightness cap | 0.20 inside the library |
 
 The library hides the physical wiring behind a pre-computed coordinate
 LUT (see [geometry.py](geometry.py)); callers use logical coordinates

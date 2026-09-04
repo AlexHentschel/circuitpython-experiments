@@ -43,30 +43,30 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
          who want wrap-around should normalise at their own call site (e.g.
          ``build_lut(degrees % 360)``); modulo is left out of this primitive
          so the cost isn't paid by callers that don't need it.
-      2. Bottom-up progressive wiring: physical (px, py) -> strip index.
-         All rows run left-to-right. Bottom row (py=HEIGHT-1) is represented by
-         strip indices 0-7. The formula for the strip index is:
-         ``idx = (HEIGHT-1-py)*WIDTH + px``.
+      2. BPI-Bit-S2 column-major wiring: physical (px, py) -> strip index.
+         Columns run top-to-bottom (py increases with strip index). Columns are
+         ordered right-to-left on the board: logical column 4 is strip start.
+         For this 5×5 matrix the formula is ``idx = py + 20 - px * 5``
+         (Exp09 / BananaPi sequential list). Equivalently, with the current
+         ``WIDTH``/``HEIGHT`` (both 5): ``idx = py + HEIGHT * (WIDTH - 1 - px)``.
 
     Logical coordinates (x = column, y = row):
 
-            x=0   x=1   x=2   x=3   x=4   x=5   x=6   x=7
-    y=0    (0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0)
-    y=1    (0,1) (1,1) (2,1) (3,1) (4,1) (5,1) (6,1) (7,1)
-    ...
-    y=7    (0,7) (1,7) (2,7) (3,7) (4,7) (5,7) (6,7) (7,7)
+            x=0   x=1   x=2   x=3   x=4
+    y=0    (0,0) (1,0) (2,0) (3,0) (4,0)
+    y=1    (0,1) (1,1) (2,1) (3,1) (4,1)
+    y=2    (0,2) (1,2) (2,2) (3,2) (4,2)
+    y=3    (0,3) (1,3) (2,3) (3,3) (4,3)
+    y=4    (0,4) (1,4) (2,4) (3,4) (4,4)
 
-    Physical strip indices (progressive bottom-up L-to-R, rotation=0):
+    Physical strip indices (column-major, right-to-left, rotation=0):
 
-            x=0   x=1   x=2   x=3   x=4   x=5   x=6   x=7
-    y=0    (56)  (57)  (58)  (59)  (60)  (61)  (62)  (63)  -> top row
-    y=1    (48)  (49)  (50)  (51)  (52)  (53)  (54)  (55)
-    y=2    (40)  (41)  (42)  (43)  (44)  (45)  (46)  (47)
-    y=3    (32)  (33)  (34)  (35)  (36)  (37)  (38)  (39)
-    y=4    (24)  (25)  (26)  (27)  (28)  (29)  (30)  (31)
-    y=5    (16)  (17)  (18)  (19)  (20)  (21)  (22)  (23)
-    y=6    ( 8)  ( 9)  (10)  (11)  (12)  (13)  (14)  (15)
-    y=7    ( 0)  ( 1)  ( 2)  ( 3)  ( 4)  ( 5)  ( 6)  ( 7)  -> bottom row (strip start)
+            x=0   x=1   x=2   x=3   x=4
+    y=0     20    15    10     5     0     -> top row
+    y=1     21    16    11     6     1
+    y=2     22    17    12     7     2
+    y=3     23    18    13     8     3
+    y=4     24    19    14     9     4     -> bottom row (edge connector)
     """
     if dest is None:
         lut = bytearray(WIDTH * HEIGHT)
@@ -76,45 +76,49 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
         lut = dest
     if rotation == 0:
         # px, py = x, y
-        #   =>  idx  =  (HEIGHT - 1 - y) * WIDTH + x  =  (HEIGHT - 1) * WIDTH + x - y * WIDTH
-        #            =  _x_offset - y * WIDTH     where _x_offset = (HEIGHT - 1) * WIDTH + x
-        _c = (HEIGHT - 1) * WIDTH
+        #   =>  idx  =  py + HEIGHT * (WIDTH - 1 - px)
+        #            =  y + HEIGHT * (WIDTH - 1 - x)
+        #            =  _x_offset + y     where _x_offset = HEIGHT * (WIDTH - 1 - x)
+        # 5×5 numeric form: idx = y + 20 - x * 5
         for x in range(WIDTH):
             x_base = x * HEIGHT
-            _x_offset = _c + x
+            _x_offset = HEIGHT * (WIDTH - 1 - x)
             for y in range(HEIGHT):
-                lut[x_base + y] = _x_offset - y * WIDTH
+                lut[x_base + y] = _x_offset + y
     elif rotation == 90 or rotation == -270:
         # px, py = (WIDTH-1)-y, x
-        #   =>  idx  =  (HEIGHT - 1 - x) * WIDTH + (WIDTH - 1 - y)  =  (HEIGHT - x) * WIDTH - 1 - y
-        #            =  HEIGHT * WIDTH - 1 - x * WIDTH - y
-        #            =  _x_offset - y              where _x_offset = (HEIGHT * WIDTH - 1) - x * WIDTH
-        _c = HEIGHT * WIDTH - 1
+        #   =>  idx  =  x + HEIGHT * (WIDTH - 1 - ((WIDTH - 1) - y))
+        #            =  x + y * HEIGHT
+        # Start at idx = x (y=0) and accumulate +HEIGHT per row.
+        # invariant: _x_offset == x + y * HEIGHT
         for x in range(WIDTH):
             x_base = x * HEIGHT
-            _x_offset = _c - x * WIDTH
+            _x_offset = x
             for y in range(HEIGHT):
-                lut[x_base + y] = _x_offset - y
+                lut[x_base + y] = _x_offset
+                _x_offset += HEIGHT
     elif rotation == 180 or rotation == -180:
         # px, py = (WIDTH-1)-x, (HEIGHT-1)-y
-        #   =>  idx  =  (HEIGHT - 1 - (HEIGHT-1-y)) * WIDTH + (WIDTH - 1 - x)
-        #            =  y * WIDTH + (WIDTH - 1 - x)  =  _x_offset + y * WIDTH
-        #   where _x_offset = WIDTH - 1 - x
-        _c = WIDTH - 1
+        #   =>  idx  =  (HEIGHT - 1 - y) + HEIGHT * x
+        #            =  _x_offset - y     where _x_offset = x * HEIGHT + (HEIGHT - 1)
+        for x in range(WIDTH):
+            x_base = x * HEIGHT
+            _x_offset = x * HEIGHT + (HEIGHT - 1)
+            for y in range(HEIGHT):
+                lut[x_base + y] = _x_offset - y
+    elif rotation == 270 or rotation == -90:
+        # px, py = y, (HEIGHT-1)-x
+        #   =>  idx  =  (HEIGHT - 1 - x) + HEIGHT * (WIDTH - 1 - y)
+        #            =  WIDTH * HEIGHT - 1 - x - y * HEIGHT
+        # Start at idx = WIDTH*HEIGHT-1-x (y=0) and accumulate -HEIGHT per row.
+        # invariant: _x_offset == (WIDTH * HEIGHT - 1 - x) - y * HEIGHT
+        _c = WIDTH * HEIGHT - 1
         for x in range(WIDTH):
             x_base = x * HEIGHT
             _x_offset = _c - x
             for y in range(HEIGHT):
-                lut[x_base + y] = _x_offset + y * WIDTH
-    elif rotation == 270 or rotation == -90:
-        # px, py = y, (HEIGHT-1)-x
-        #   =>  idx  =  (HEIGHT - 1 - (HEIGHT-1-x)) * WIDTH + y
-        #            =  x * WIDTH + y  =  _x_offset + y       where _x_offset = x * WIDTH
-        for x in range(WIDTH):
-            x_base = x * HEIGHT
-            _x_offset = x * WIDTH
-            for y in range(HEIGHT):
-                lut[x_base + y] = _x_offset + y
+                lut[x_base + y] = _x_offset
+                _x_offset -= HEIGHT
     else:
         raise ValueError(f"rotation must be one of 0, 90, 180, 270, -90, -180, -270; got {rotation!r}")
     return lut
