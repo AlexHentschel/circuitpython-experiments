@@ -13,12 +13,14 @@ Status tiers: `unverified` · `evidence-supported` · `disputed` · `invalidated
 | Lancaster DAL `MicroBitFont.cpp` / `pendolino3` is **MIT** (Copyright 2016 BBC; Lancaster by arrangement with the BBC). | `[exp16]` `[domain:fonts]` | File header + https://github.com/lancaster-university/microbit-dal/blob/master/LICENSE (fetched 2026-09-04). Apache-2.0 hypothesis **invalidated**. | 2026-09-04 |
 | BananaPi Docs site-wide footer licenses page content (including `bpi_bit_v2_goldfinger.jpg`) as CC BY-SA by BananaPi. Unmodified copy may sit in a public repo as a collection item; ShareAlike does not infect the rest of the tree. Site does not print a CC version. | `[exp16]` | Footer text on https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2 (and other docs.banana-pi.org pages). Sidecar: exp16 `Notes/bpi_bit_v2_goldfinger.jpg.license`. | 2026-09-04 |
 | Official 5×5 WS2812 sequential list matches Exp09 (top row `20 15 10 5 0` … bottom `24 19 14 9 4`). | `[exp16]` `[cross-experiment]` | Same BananaPi Bit-S2 page, “5*5 LED Sequential List”. | 2026-09-04 |
+| Host visual-fixture tests pin the 5×5 LUT (corners, interior, rotations) to that sequential grid. | `[exp16]` | `tests/test_geometry.py` `_VISUAL_ROT0` (not the wiring formula). On-device LUT still P8. | 2026-09-04 |
+| DAL `pendolino3` row-bytes convert to Exp14 column-major via `(row_byte >> (4-c)) & 1`. MIT notice vendored beside the table. | `[exp16]` `[domain:fonts]` | DAL header `!` example + Exp16 `lib/display/font_makecode_5/` + `tests/test_font.py`. | 2026-09-04 |
 
 ## Unverified
 
 | Finding | Scope | Why noted | Date |
 |---------|-------|-----------|------|
-| 20% brightness cap = `NeoPixel(brightness=0.2)` (Exp09 used 0.1). | `[exp16]` | Literal reading of the goal; not yet implemented. | 2026-09-03 |
+| 20% brightness cap = `NeoPixel(brightness=0.2)` (Exp09 used 0.1). | `[exp16]` | Set in `core.py` (`BRIGHTNESS = 0.20`); on-device LED current still P8. | 2026-09-04 |
 | PlanetX C/D **connectors** electrically hit goldfinger P13/P14. | `[exp16]` | Firmware maps those edge names to GPIO36/37; physical PlanetX cable not probed this project. Overnight tests fake FALL events. | 2026-09-04 |
 | Device `import asyncio` works after copying the **bundle** `asyncio` + `adafruit_ticks` onto CIRCUITPY (not CPython stdlib). | `[exp16]` `[domain:circuitpython-runtime]` | Adafruit learn: library is not built in; matrix lists `_asyncio` only. P8 `circup install asyncio`. | 2026-09-04 |
 

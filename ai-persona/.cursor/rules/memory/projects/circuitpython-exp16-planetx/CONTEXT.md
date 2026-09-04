@@ -1,6 +1,6 @@
 # Context — circuitpython-exp16-planetx
 
-**Family**: `circuitpython` · **Status:** P1–P6 overnight executing (kickoff 2026-09-04) · **Repo folder**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`.
+**Family**: `circuitpython` · **Status:** P6 host-green (overnight 2026-09-04); P7/P8 not started · **Repo folder**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`.
 
 ## Scope & goal
 
@@ -47,4 +47,4 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
-**2026-09-04 — overnight P1–P6 kickoff authorized** (handoff; this planning chat did not execute). Execute `ai-notes/plan/plan_v1.0.md` P1–P6. **First action:** `_constants.WIDTH = HEIGHT = 5`. **Hard stop at P6 green** (host pytest, no board). Do **not** P7 `.vscode/` / shared CircuitPythonSync, do **not** P8 / USB-probe the board until Alex says so. Host: CPython 3.13 Miniconda + Adafruit mpy-cross 10.3.0 + stubs 10.3.0. Locks: `ai-notes/NOTES.md`.
+**2026-09-04 — overnight P1–P6 host-green.** 146 pytest passed (no `board` / `display.core`). Stopped at the overnight bar. Do **not** P7 `.vscode/` / shared CircuitPythonSync, do **not** P8 / USB-probe until Alex says so. Flash board to CP 10.3.0 at P8. Locks: `ai-notes/NOTES.md`. Learnings: `ai-notes/learnings/p1-p6-overnight.md`.

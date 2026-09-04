@@ -4,6 +4,16 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-04: Session 6 — [exp16] (overnight P1–P6 executed; host-green)
+
+- First action: `_constants.WIDTH = HEIGHT = 5`. LUT stage-2 = BPI-Bit-S2 `py + 20 - px*5` (rotation branches kept). Visual-fixture tests (not the wiring formula).
+- Icons: Exp09 row-major → 5 column bytes. G4 names present. Arrows stay in `icons.py`.
+- Font: DAL `pendolino3` MIT vendored (`lib/display/font_makecode_5/` + LICENSE). Table storage, not PCF. Pitchfork not used (no GPL case). `_glyph_columns` is a table lookup; Exp14 PCF algorithm untouched.
+- `PIXEL_PIN=board.NEOPIXEL`, `BRIGHTNESS=0.20`. `_write_pattern_on_the_fly` wired as `render_pattern` hot path; `_iter_pattern_rows_fast` kept.
+- Buttons: `lib/buttons.py`. Fake EventQueue FALL fires C/D. A/B names exist. No student `update()`.
+- **P6:** 146 pytest green. Optional mpy-cross 10.3.0 → mpy v6.3 (`/tmp/exp16-mpy-smoke`, not in tree). Goldfinger JPEG still uncommitted.
+- Cadence: `ai-notes/learnings/p1-p6-overnight.md`. P7/P8 not started.
+
 ## 2026-09-04: Session 5i — [exp16] (P1–P6 overnight kickoff authorized)
 
 - Alex: board stays unplugged overnight; do not USB-check until instructed. Ready for first autonomous plan section → `/handoff-exec-prompt`.
@@ -103,4 +113,5 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - On-device P8: `help("modules")` + `circup install asyncio` (firmware matrix already lists `keypad`/`_asyncio`; user `asyncio` is bundle).
 - LightTower extras (servo, light sensor) — out of first milestone; capture when that phase starts.
 - PlanetX C/D **cable** on P13/P14 (firmware names now known: `board.IO13`/`IO14`).
-- Pitchfork-5x5 into `lib/` — written GPLv3 combination case at P3, or take DAL MIT.
+- Pitchfork-5x5 into `lib/` — not used overnight (DAL MIT taken). Written GPLv3 combination case only if that path is chosen later.
+- **P7** `.vscode/` / **P8** on-device — log-only until Alex opens a human device window. Flash to 10.3.0 first.

@@ -26,7 +26,7 @@ This is the **central** session log for the unified persona memory. It holds the
 - `circuitpython-exp15-microbit` — **active (early)**; Milestone 1 blink set up, on-device run pending board connection. See `projects/circuitpython-exp15-microbit/`.
 - `bamboo-lamp` — **active**; standby/sleep-mode design discussion pending; S3-vs-C6 MCU divergence open. See `projects/bamboo-lamp/`.
 - `coding-tutor` — **active (knowledge-gathering)**; family `education`. Build an AI tutor persona (distinct from this assisting persona) teaching CircuitPython on micro:bit+Nezha2+PlanetX to student persona "Alice". Setup + Scheiter transcript ingested; **research loop iteration 1 done 2026-07-15** — 17-source corpus downloaded (`CodingTutor/materials/papers/`, git-ignored) + cataloged/triaged/ranked in `CodingTutor/notes-.../05_research-corpus_iteration-1.md` (with a ranked can't-access list for Alex). Next: iteration-2 deep-read/digest T1/T2, then tutor-design guidelines. Design not started. See `projects/coding-tutor/`.
-- `circuitpython-exp16-planetx` — **active (P1–P6 overnight kickoff 2026-09-04)**; P0 done; executing chat starts `plan_v1.0.md` P1–P6 (host pytest; board unplugged). See `projects/circuitpython-exp16-planetx/`.
+- `circuitpython-exp16-planetx` — **P6 host-green 2026-09-04**; P7/P8 not started. See `projects/circuitpython-exp16-planetx/`.
 - exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces). Exp09 5×5 LUT/icons are prior art consumed by exp16.
 
 ## Source-of-truth map (which file owns which content; pre-empts duplication-and-drift)

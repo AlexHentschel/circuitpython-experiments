@@ -24,6 +24,7 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 ### `fonts.md` — `[domain:fonts]` `[cross-experiment]`, `evidence-supported`
 - **Outline fonts unsuitable at small pixel sizes** — TTF/OTF auto-raster below ~10 px loses Latin stroke topology; use hand-designed bitmap fonts (candidates listed).
 - **Glyph coordinate model (metrics y-up, raster y-down)** — why `_glyph_columns`'s `display_row = ascent - height - dy + cy` is correct; verified against `adafruit_bitmap_font/pcf.py`.
+- **DAL pendolino3 row-bytes vs column-major** — MakeCode 5×5 font is five row bytes (bit4=left); Exp14 storage is one byte per column (bit0=top). MIT; notice travels.
 
 ### `power.md` — `[domain:power]` `[cross-experiment]`, `evidence-supported` (≥2 sources each, verified 2026-06-15)
 - **Battery self-discharge = standby floor** — LiPo ~2–5 %/mo room temp (≈165–420 µA-equiv for 6000 mAh); temp ~doubles per +10 °C. Push standby below this floor → diminishing returns; shelf-life becomes battery-limited.
