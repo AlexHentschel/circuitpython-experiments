@@ -4,6 +4,22 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-04: Session 8 — [exp16] (README interface JPEG)
+
+- Alex added `Notes/bpi_bit_v2_interface_en.jpg` from BananaPi Hardware interface section. Same CC BY-SA footer as goldfinger.
+- License file `Notes/bpi_bit_v2_interface_en.jpg.license` (unmodified collection item). README eye-catcher + caption attribution. JPEG not cropped/re-encoded.
+- Alex: “Sidecar” in the README caption is jargon. Caption now says **License file:**. Keep “sidecar” in license/REUSE notes if useful.
+- Caption wrapped in `<small>` (portable fine print; Markdown has no font-size). Stays under the figure, not a bottom-of-page footnote.
+- Commit+push this batch on `alex/display-mvp_5x5` (icons, tests, README, interface JPEG, memory).
+
+## 2026-09-04: Session 7 — [exp16] (MakeCode GHOST / LEFT_TRIANGLE)
+
+- Alex: overnight `GHOST` and `LEFT_TRIANGLE` disagreed with MakeCode screenshots. `TRIANGLE` (isosceles, slot 32) was not in the attachments — left as Exp09.
+- Cause: P2 ported Exp09 `Image.*` faithfully. Exp09 `GHOST` lights top corners; Exp09 `TRIANGLE_LEFT` drops the base row. Comments matched those wrong bytes.
+- Fix: MakeCode grids. `GHOST` `0x1E,0x0D,0x1F,0x0D,0x1E`. `LEFT_TRIANGLE` `0x1F,0x12,0x14,0x18,0x10`.
+- Tests: comment↔byte parse of all 40+8 blocks; independent MakeCode fixtures for the two names. Codec round-trip was invertibility only (shared-derivation). 149 pytest green.
+- Later same session: cover/how docstrings on every test; root `README.md`; `<path-to-venv>` stub. Alex: say **experiment** not repo; host venv example is tangible only. Grep: no absolute host paths in `lib/` or `tests/*.py`. Notes: `ai-notes/learnings/host-venv-paths.md`.
+
 ## 2026-09-04: Session 6 — [exp16] (overnight P1–P6 executed; host-green)
 
 - First action: `_constants.WIDTH = HEIGHT = 5`. LUT stage-2 = BPI-Bit-S2 `py + 20 - px*5` (rotation branches kept). Visual-fixture tests (not the wiring formula).

@@ -28,6 +28,8 @@ across the API.
 
 Bitmaps are converted from Exp09 ``microbit.Image.*`` 25-byte row-major
 (brightness 0–9, any non-zero = on) to this column-major 1-bit form.
+``GHOST`` and ``LEFT_TRIANGLE`` follow MakeCode grids, not Exp09 (Exp09
+``GHOST`` lights the top corners; Exp09 ``TRIANGLE_LEFT`` drops the base).
 """
 
 from ._constants import WIDTH  # noqa: F401 -- documents the lookup math
@@ -91,6 +93,8 @@ ARROW_NAMES = (
 )
 
 
+# Black / Ruff: do not reflow the per-icon hex lines or the ASCII-art comments beside them.
+# Unmatched ``fmt: off`` already runs to EOF; ``fmt: on`` below is only the matching closer.
 # fmt: off
 
 # ---------------------------------------------------------------------------
@@ -259,12 +263,12 @@ ICONS = bytes([
     0x12, 0x0A, 0x07, 0x0A, 0x12,
 
     # 20: GHOST
-    #    # # # # #
+    #    . # # # .
     #    # . # . #
     #    # # # # #
     #    # # # # #
     #    # . # . #
-    0x1F, 0x0D, 0x1F, 0x0D, 0x1F,
+    0x1E, 0x0D, 0x1F, 0x0D, 0x1E,
 
     # 21: SWORD
     #    . . # . .
@@ -366,9 +370,9 @@ ICONS = bytes([
     #    # . . . .
     #    # # . . .
     #    # . # . .
-    #    . . . # .
-    #    . . . . .
-    0x07, 0x02, 0x04, 0x08, 0x00,
+    #    # . . # .
+    #    # # # # #
+    0x1F, 0x12, 0x14, 0x18, 0x10,
 
     # 34: CHESSBOARD
     #    . # . # .

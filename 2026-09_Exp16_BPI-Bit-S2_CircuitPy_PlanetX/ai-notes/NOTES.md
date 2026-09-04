@@ -44,7 +44,7 @@ BPI-Bit-S2 CP **10.3.0** support matrix includes `_asyncio`, `keypad.Keys`, froz
 ## Constraints
 
 - PoC, not production; library-level code upgradable with moderate effort. TODOs in code for future work; git for history; `ai-notes/` for reasoning.
-- Stock CircuitPython **10.3.0** `bpi_bit_s2` on the **board**. **Host (Mac/Cursor) interpreter:** `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode` = **CPython 3.13 Miniconda** (folder name is not the language). Pytest and host scripts only. Blinka imports in that venv are not CircuitPython. MicroPython docs/APIs are not CircuitPython until the CircuitPython tree says so (K1 = P8).
+- Stock CircuitPython **10.3.0** `bpi_bit_s2` on the **board**. **Host (this machine, example only):** `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode` = **CPython 3.13 Miniconda** (folder name is not the language). Not an experiment requirement — another checkout uses its own venv. Pytest and host scripts only. Blinka imports in that venv are not CircuitPython. MicroPython docs/APIs are not CircuitPython until the CircuitPython tree says so (K1 = P8). **Code:** no absolute host paths in `lib/` or `tests/*.py` (`tests/conftest.py` prepends `lib/` via `__file__`). Detail: `learnings/host-venv-paths.md`. Vocabulary: **experiment** (self-contained), not “the repo.”
 - **Host `mpy-cross` (2026-09-04):** Adafruit CircuitPython binary `…/bin/mpy-cross` → `mpy-cross-macos-10.3.0-arm64` (S3 `bin/mpy-cross/macos/`, **not** PyPI `mpy-cross` which is MicroPython). Reports `CircuitPython 10.3.0 … emitting mpy v6.3`. Uninstall: remove those two names under `bin/`.
 - **Host `circuitpython-stubs` (2026-09-04):** 10.0.3 → **10.3.0** (PEP 561 `.pyi` only; Blinka `keypad.py` unchanged). Types for the IDE, not MCU proof.
 - No working-setup mutation without explicit yes. Max 5 agent scripts, spec + uninstall in this folder.
@@ -54,6 +54,7 @@ BPI-Bit-S2 CP **10.3.0** support matrix includes `_asyncio`, `keypad.Keys`, froz
 ## Third-party in-tree (public-repo)
 
 - `Notes/bpi_bit_v2_goldfinger.jpg` — BananaPi docs goldfinger pinout, **unmodified**. License: CC BY-SA as declared on https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2 (footer does not print a version). Sidecar: `Notes/bpi_bit_v2_goldfinger.jpg.license`. Allowed in a public repo as a collection item; ShareAlike does **not** infect the rest of the tree. Do not treat any repo-root LICENSE as covering this file.
+- `Notes/bpi_bit_v2_interface_en.jpg` — same page, Hardware interface figure, **unmodified**. Same CC BY-SA grant. Sidecar: `Notes/bpi_bit_v2_interface_en.jpg.license`. Used as the Exp16 README eye-catcher with attribution in the caption.
 
 ## LUT (from Exp09, not yet on-device in this project)
 

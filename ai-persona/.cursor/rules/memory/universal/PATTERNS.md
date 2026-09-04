@@ -11,7 +11,7 @@ Entry schema (mirror the concept-entry template where the pattern is domain know
 ### Public-repo third-party material: confirm grant, then gitignore **or** vendor with a sidecar  `[cross-experiment]`
 
 - **Statement:** A repo-root LICENSE does not cover vendored third-party files. Before a public commit: confirm the grant. Default = do not redistribute (gitignore + a register of license/status). If the grant allows a copy into the repo, commit the file **with attribution + a license sidecar next to it**; do not relicense it as the project license. Copyleft/ShareAlike of an *unmodified collection item* does not infect the rest of the tree; **combining** copyleft into `lib/` (import/convert into library code) is a different analysis — write a short case on that candidate; do not coarse-reject on the license name. Adaptations of a copyleft work stay under that copyleft.
-- **Evidence:** coding-tutor 2026-07-15 (papers gitignored + `REFERENCES.md`; default not-redistributable). exp16 2026-09-04 (BananaPi `bpi_bit_v2_goldfinger.jpg` unmodified under site CC BY-SA + `Notes/bpi_bit_v2_goldfinger.jpg.license`).
+- **Evidence:** coding-tutor 2026-07-15 (papers gitignored + `REFERENCES.md`; default not-redistributable). exp16 2026-09-04 (BananaPi `bpi_bit_v2_goldfinger.jpg` + `bpi_bit_v2_interface_en.jpg`, unmodified under site CC BY-SA + matching `Notes/*.jpg.license` sidecars; README caption on the interface figure).
 - **Status:** `evidence-supported` at `[cross-experiment]`. Promotion to `[universal]` needs Alex sign-off (D2).
 - **Not this pattern:** git history-scrub mechanics (`concepts/git.md`).
 - **Provenance:** `crossref/BY_PATTERN.md` candidate row, 2nd occurrence 2026-09-04.

@@ -21,8 +21,8 @@ Working notes for Exp16 (BPI-Bit-S2 CircuitPython + PlanetX). Cold-AI resume: re
 | `plan/loop-setup.md` | Plan-refinement instance lock | locked 2026-09-04; **loop closed** |
 | `plan/plan_v1.0.md` | Overnight PoC execution plan | **P1–P6 host-green 2026-09-04**; P7/P8 later |
 | `digests/` | Cold-AI extracts | live 2026-09-04 — `digests/INDEX.md` |
-| `learnings/` | Cadence extracts | `p-plan-digest-collection.md`; overnight `p1-p6-overnight.md` |
+| `learnings/` | Cadence extracts | `p-plan-digest-collection.md`; overnight `p1-p6-overnight.md`; `host-venv-paths.md` (code has no host paths; talk *experiment* not parent git repo) |
 | `briefs/` · `returns/` | Sub-agent briefs and payloads | first dispatch 2026-09-04 |
 | `_parked/` | Standing §4 safe-location (move here instead of delete). `README.md` = policy; `MANIFEST.md` = cold-AI index; payloads gitignored | confirmed 2026-09-04 |
 
-Project tree (not under `ai-notes/`): `../lib/display/` — 5×5 Exp14 fork; `../lib/buttons.py` — async A/B/C/D dispatcher. Third-party: `../Notes/bpi_bit_v2_goldfinger.jpg` (CC BY-SA, unmodified) + sidecar `../Notes/bpi_bit_v2_goldfinger.jpg.license` (already on branch `9806434`; this overnight did not re-commit it).
+Project tree (not under `ai-notes/`): `../lib/display/` — 5×5 Exp14 fork; `../lib/buttons.py` — async A/B/C/D dispatcher. Third-party: `../Notes/bpi_bit_v2_goldfinger.jpg` and `../Notes/bpi_bit_v2_interface_en.jpg` (CC BY-SA, unmodified) + matching `.license` sidecars.

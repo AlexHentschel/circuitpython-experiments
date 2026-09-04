@@ -29,8 +29,10 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 | What | Path |
 |------|------|
+| Project README (goal, hardware, tests, deploy) | `…/2026-09_Exp16_…/README.md` |
 | Goal / working prefs | `…/2026-09_Exp16_…/Notes/overall_goal.md` |
 | Goldfinger pinout (CC BY-SA, unmodified) | `…/Notes/bpi_bit_v2_goldfinger.jpg` + `bpi_bit_v2_goldfinger.jpg.license` |
+| Board interface photo (CC BY-SA, unmodified; README eye-catcher) | `…/Notes/bpi_bit_v2_interface_en.jpg` + `bpi_bit_v2_interface_en.jpg.license` |
 | Button brainstorm (ChatGPT, micro:bit v2 then RP2350) | `…/Notes/Button_chat.md` |
 | Alternate button sketch | `…/CodingTutor/mini-project-scatches/button-library.md` |
 | Display library to copy | `…/2026-04_Exp14_…/lib/display/` (`README.md`, `geometry.py`, `_constants.py`, `core.py`, `icons.py`) — **style + algorithm SoT**; Exp16 works on its copy |

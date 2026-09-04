@@ -39,6 +39,11 @@ def queue_and_buttons():
 
 
 def test_constructor_exposes_a_b_c_d_pressed_names(queue_and_buttons):
+    """Student press-handler registration exists for A, B, C, and D.
+
+    - Covers: overnight bar that A/B names exist even if C/D are the PlanetX pair.
+    - How: ``getattr`` each ``on_*_pressed``; must be callable. Does not fire events.
+    """
     _, buttons = queue_and_buttons
     for name in ("on_a_pressed", "on_b_pressed", "on_c_pressed", "on_d_pressed"):
         assert callable(getattr(buttons, name))
@@ -46,6 +51,11 @@ def test_constructor_exposes_a_b_c_d_pressed_names(queue_and_buttons):
 
 @pytest.mark.asyncio
 async def test_c_pressed_fires_on_fake_fall(queue_and_buttons):
+    """A FALL on key_number 2 runs the C pressed handler.
+
+    - Covers: C not wired, or index 2 mapped to another letter.
+    - How: inject ``FakeEvent(2, pressed=True)``; one ``run()`` tick; ``fired == ["c"]``.
+    """
     queue, buttons = queue_and_buttons
     fired = []
     buttons.on_c_pressed(lambda: fired.append("c"))
@@ -60,6 +70,11 @@ async def test_c_pressed_fires_on_fake_fall(queue_and_buttons):
 
 @pytest.mark.asyncio
 async def test_d_pressed_fires_on_fake_fall(queue_and_buttons):
+    """A FALL on key_number 3 runs the D pressed handler.
+
+    - Covers: D not wired, or index 3 mapped to another letter.
+    - How: inject ``FakeEvent(3, pressed=True)``; one ``run()`` tick; ``fired == ["d"]``.
+    """
     queue, buttons = queue_and_buttons
     fired = []
     buttons.on_d_pressed(lambda: fired.append("d"))
@@ -73,6 +88,11 @@ async def test_d_pressed_fires_on_fake_fall(queue_and_buttons):
 
 
 def test_clear_drops_c_handler(queue_and_buttons):
+    """``clear()`` removes previously registered C handlers.
+
+    - Covers: ``clear`` as a no-op, or only clearing A/B.
+    - How: register C, ``clear()``, ``_dispatch`` a C FALL; ``fired`` stays empty.
+    """
     queue, buttons = queue_and_buttons
     fired = []
     buttons.on_c_pressed(lambda: fired.append("c"))
@@ -82,6 +102,11 @@ def test_clear_drops_c_handler(queue_and_buttons):
 
 
 def test_a_and_b_pressed_exist_need_not_fire_overnight(queue_and_buttons):
+    """A and B handler registration is callable (overnight does not require a FALL).
+
+    - Covers: missing ``on_a_pressed`` / ``on_b_pressed`` after C/D were added.
+    - How: call both with a no-op. Does not pump the queue.
+    """
     _, buttons = queue_and_buttons
     buttons.on_a_pressed(lambda: None)
     buttons.on_b_pressed(lambda: None)
