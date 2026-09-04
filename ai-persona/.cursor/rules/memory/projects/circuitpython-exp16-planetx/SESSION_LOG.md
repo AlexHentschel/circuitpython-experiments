@@ -10,6 +10,7 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - License file `Notes/bpi_bit_v2_interface_en.jpg.license` (unmodified collection item). README eye-catcher + caption attribution. JPEG not cropped/re-encoded.
 - Alex: “Sidecar” in the README caption is jargon. Caption now says **License file:**. Keep “sidecar” in license/REUSE notes if useful.
 - Caption wrapped in `<small>` (portable fine print; Markdown has no font-size). Stays under the figure, not a bottom-of-page footnote.
+- GitHub: `<small>` is ~90% body (looks unchanged). Switched to documented `<sub>` (75%).
 - Commit+push this batch on `alex/display-mvp_5x5` (icons, tests, README, interface JPEG, memory).
 
 ## 2026-09-04: Session 7 — [exp16] (MakeCode GHOST / LEFT_TRIANGLE)
