@@ -9,7 +9,7 @@ Display architecture: [`lib/display/README.md`](lib/display/README.md).
 
 ![BPI-Bit-S2 hardware interface, front and back](Notes/bpi_bit_v2_interface_en.jpg)
 
-<sub>BananaPi BPI-Bit-S2 hardware interface, unmodified. Source: [BananaPi docs](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2). Content available under the Creative Commons Attribution-ShareAlike License, by BananaPi. License file: [`Notes/bpi_bit_v2_interface_en.jpg.license`](Notes/bpi_bit_v2_interface_en.jpg.license).</sub>
+<sub>BananaPi BPI-Bit-S2 hardware; unmodified source: [BananaPi docs](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2). Content available under the Creative Commons Attribution-ShareAlike License, by BananaPi. [License file`](Notes/bpi_bit_v2_interface_en.jpg.license).</sub>
 
 
 | Piece | Detail |
