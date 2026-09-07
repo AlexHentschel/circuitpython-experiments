@@ -4,6 +4,14 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-07: Session 9 — [exp16] (persona-less AI persist: emulation research)
+
+- Alex asked a **persona-less** LLM (Exp16 folder only) to research and persist into `ai-notes/`. This chat analyzed the uncommitted writes, then applied agreed trims (no merge / no new folder / no persona copy).
+- **Payload (kept):** `ai-notes/design/rp2350-emulation-macos.md` (hypothetical RP2350 switch) and `ai-notes/digests/local-mcu-emulation.md` (current `bpi_bit_s2` / pre-P8). Different chips; same shape of answer (no stock-CP emulation that discharges P8; host-pytest stays the oracle).
+- **Trims applied:** dropped both README Further-reading rows; folded NOTES Pre-P8 heading into § Research pointers (not locks); load-only-if on INDEX rows, portability See-also, both research headers; RP2350 switch-table → links to portability/NOTES/Exp15; host inventory → re-run commands; reverted `plan_v1.0.md` See-also inline; `digests/INDEX.md` keeps P0 vs post-loop split. Cross-link between the two research files.
+- **Not done:** move S2 digest into `design/` (would delete an untracked path; P0-vs-post-loop split already isolates it). No `concepts/tooling.md`. No persona CONCLUSIONS copy. `.kilo/` + workspace folder adds still unrelated noise.
+- Headlines stay `unverified` (web self-descriptions) except `[local]` host *commands*.
+
 ## 2026-09-04: Session 8 — [exp16] (README interface JPEG)
 
 - Alex added `Notes/bpi_bit_v2_interface_en.jpg` from BananaPi Hardware interface section. Same CC BY-SA footer as goldfinger.

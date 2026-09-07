@@ -94,6 +94,7 @@ A4. PlanetX C/D remain two GPIOs, active-low, pull-up — only the pin *identiti
 
 ## See also
 
+- `rp2350-emulation-macos.md` — **load only if** the RP2350-switch / RP2350-emulation question is live this session (research 2026-09-07; negative result on stock-CP emulation; host-pytest stays the oracle)
 - `../plan/reflection-cadence.md` — when to re-open this file
 - `../NOTES.md` — locked product decisions
 - Exp14 `lib/display/README.md` — two-tier API

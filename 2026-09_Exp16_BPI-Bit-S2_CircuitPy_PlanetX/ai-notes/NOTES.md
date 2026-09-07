@@ -67,3 +67,10 @@ Exp09 `lib/microbit.py` already has the standard micro:bit `Image.*` set (HEART,
 ## Font
 
 Target: MakeCode 5×5 compromise (legible at 5 rows). Exp14 FreeMono-at-8px is known-illegible (`concepts/fonts.md`). Glyph **source** not locked. **License (restated 2026-09-04):** hobby + vendor-with-notice; copyleft into `lib/` only after a written case. Recommended default: DAL `pendolino3` (**MIT**). Pitchfork-5x5 is promising but GPLv3-combination must be analyzed, not auto-rejected.
+
+## Research pointers (not locks)
+
+Load the target file only if that question is live this session.
+
+- **2026-09-07 (current board, pre-P8):** can `bpi_bit_s2` be emulated locally? → `digests/local-mcu-emulation.md`. Headline: **no tool discharges K1/K2**; Wokwi is the only plausible smoke (CP-on-S2 **unverified**). P8 stays the gate.
+- **2026-09-07 (hypothetical RP2350 switch):** local emulation on the dev Mac → `design/rp2350-emulation-macos.md`. Headline: **no emulator boots stock CircuitPython `raspberry_pi_pico2` today**; host-pytest stays the hardware-free oracle; revisit triggers listed there (QEMU #3125, Renode/Wokwi).

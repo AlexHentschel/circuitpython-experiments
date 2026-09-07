@@ -17,10 +17,12 @@ Working notes for Exp16 (BPI-Bit-S2 CircuitPython + PlanetX). Cold-AI resume: re
 | `INDEX.md` | This router | live |
 | `NOTES.md` | Locked decisions + current checkpoint | live 2026-09-04 |
 | `design/student-api-portability.md` | Is a stable LightTower student API across BPI-Bit-S2→RP2350 realistic? Guidelines G1–G7 + assumptions A1–A4 with revisit triggers | live 2026-09-03; **re-open at every cadence gate** |
+| `design/rp2350-emulation-macos.md` | RP2350 local-emulation research (hypothetical switch): no stock-CP-emulator today; host-pytest stays the oracle | live 2026-09-07; **load only if** that question is live; re-scan on switch decision |
+| `digests/local-mcu-emulation.md` | Pre-P8 local emulation of **this** board (`bpi_bit_s2` / ESP32-S2): no tool discharges K1/K2; Wokwi only plausible smoke, CP-on-S2 unverified | live 2026-09-07; **load only if** that question is live; not a P0 digest |
 | `plan/reflection-cadence.md` | Fixed constraint: Observe/Evaluate/Revise **and** extract/distill/record at every planning+execution checkpoint | live 2026-09-03; execution plan must import, not copy |
 | `plan/loop-setup.md` | Plan-refinement instance lock | locked 2026-09-04; **loop closed** |
 | `plan/plan_v1.0.md` | Overnight PoC execution plan | **P1–P6 host-green 2026-09-04**; P7/P8 later |
-| `digests/` | Cold-AI extracts | live 2026-09-04 — `digests/INDEX.md` |
+| `digests/` | Cold-AI extracts (P0 pack + post-loop research) | live — `digests/INDEX.md` |
 | `learnings/` | Cadence extracts | `p-plan-digest-collection.md`; overnight `p1-p6-overnight.md`; `host-venv-paths.md` (code has no host paths; talk *experiment* not parent git repo) |
 | `briefs/` · `returns/` | Sub-agent briefs and payloads | first dispatch 2026-09-04 |
 | `_parked/` | Standing §4 safe-location (move here instead of delete). `README.md` = policy; `MANIFEST.md` = cold-AI index; payloads gitignored | confirmed 2026-09-04 |
