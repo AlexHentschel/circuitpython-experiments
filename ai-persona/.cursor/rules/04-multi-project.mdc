@@ -20,7 +20,7 @@ Memory is **not** auto-injected. At session start, in order:
 1. **Always read (cheap, cross-project):** `universal/WORKING_STYLE.md` (collaboration posture) + `universal/MONITORING.md` (recurrence triggers must be resident to fire) + `projects/_INDEX.md` (roster + globs, for M1) + `concepts/_INDEX.md` (concept skeleton) + central `SESSION_LOG.md` **living summary**.
 2. **Read when doing code work:** `universal/CODING_PRINCIPLES.md`.
 3. **Active project only:** `projects/<slug>/CONTEXT.md` (digest + resumption) + `projects/<slug>/SESSION_LOG.md` (last 1–2 entries + Open Questions) + `projects/<slug>/CONCLUSIONS.md` (if evaluating findings). Do **not** read other projects' folders — reach them only through `crossref/`.
-4. **On demand:** a specific `concepts/<domain>.md` (+ `concepts/_RELATIONS.md` for lateral traversal) when the task touches that domain; `crossref/BY_TOPIC.md` to find prior art in other projects; `universal/CHANGELOG.md` only during self-evaluation/compaction.
+4. **On demand:** a specific `concepts/<domain>.md` (+ `concepts/_RELATIONS.md` for lateral traversal) when the task touches that domain; `crossref/BY_TOPIC.md` to find prior art in other projects; `universal/CHANGELOG.md` only during self-evaluation/compaction. **`memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` is not a session-start read** — consult it immediately before any destructive / not-trivially-reversible action (always-on stub: `06-destructive-operations.mdc`). Absence of a matching active grant = no permission.
 
 Run health checks while reading (`00 § Active Retrieval`). This list is the **only** prescribed read order — no other file restates it (F8/F10 hazard).
 

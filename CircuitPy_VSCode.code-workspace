@@ -20,6 +20,10 @@
 			"name": "Exp15: micro:bit alternative (RP2350)"
 		},
 		{
+			"path": "2026-04_Exp14_DisplayLibrary_CPy_on_RPi-Pico-2040",
+			"name": "Exp14: WS2812b Display Library (RP2350)"
+		},
+		{
 			"path": "2026-03_Exp11_Ws2812_with_CPy_RP2350-Bit-Board",
 			"name": "Exp11: WS2812b & DotStar (RP2350)"
 		},
@@ -43,10 +47,17 @@
 			"name": "Exp06: VSCode Setup (archived)"
 		},
 		{
+			"path": "2026-03_Exp12_AirLift_on_generic_ESP32",
+			"name": "Exp12: AirLift on generic ESP32"
+		},
+		{
 			"path": "../../Isana/Crash-Sensor_Mini-Challenge"
 		},
 		{
-			"path": "2026-03_Exp12_AirLift_on_generic_ESP32"
+			"path": "../../Isana/LightTower-challenge"
+		},
+		{
+			"path": "CodingTutor"
 		}
 	],
 	"settings": {

@@ -2,17 +2,28 @@
 
 Living list. Resolved items move to the session log / picture; new ones append here.
 
-## Next steps (explicitly queued by Alex — do NOT start until directed)
-1. **Ingest `materials/They Talk Tech transcript.txt`**: translate to English → create a detailed digest in
-   `digests/` (focus: concrete recommendations for helping children/people learn) → distill a very short
-   domain-coverage summary into persona memory (`ai-persona` `memory/projects/coding-tutor/CONTEXT.md`).
-2. **Research the professor** featured in that transcript: study their work in detail, extract concrete learnings,
-   fold into the knowledge base.
-3. **Compile a detailed guidelines list** for designing the tutor (grounded in the research above).
-4. Broader: survey **recent research on learning/tutoring of early-high-school children**, esp. teaching software
-   engineering to kids with prior coding experience.
+## Next steps
+1. **DONE (2026-07-15)**: ingested `materials/They Talk Tech transcript.txt` → English translation
+   (`..._EN.txt`) + detailed digest (`digests/scheiter-they-talk-tech_digest.md`) + high-level overview
+   (`04_pre-design-considerations-and-research-agenda.md`). Short summary mirrored into persona memory.
+2. **DONE (2026-07-15) — research loop iteration 1**: assembled + downloaded a 17-source corpus across all agenda cells
+   (Scheiter's own AI-effects synthesis, Your Brain on ChatGPT, LLM tutoring systems, programming-ed pedagogy, SRL/teachable
+   agents, productive failure, cognitive load, metacognitive laziness). Catalog + triage + ranked can't-access list:
+   `05_research-corpus_iteration-1.md`. Local PDFs in `../materials/papers/`. **Scheiter's *specific* tutorial-dialogue paper
+   remains unconfirmed** (not in her Potsdam list) — flagged for Alex (`05...md § B.2`).
+3. **NEXT — iteration 2 (deep read)**: digest the T1/T2 set (`05...md § A`), starting with Bauer/Scheiter-2025, Kosmyna-2025,
+   Ruffle&Riley, Kasneci-2026-sycophancy, Weintrop-2019, Fan-2024. Produce per-source digests + fold concrete learnings into `04...`.
+4. **Awaiting Alex — obtaining sources**:
+   - **Email SENT to Prof. Scheiter (2026-08-14)**: friendly German outreach referencing the podcast; asked for **non-paper
+     resources** — specifically a public **GitHub repository / prompts / materials / open-source system** for the
+     tutorial-dialogue system she mentioned, plus pointers to further work. Awaiting reply. Capture whatever she sends into
+     `materials/` + `REFERENCES.md`; if she names/points to the specific system, that closes `05...md § B.2` (the top
+     unconfirmed lead).
+   - **Alex to fetch** the ranked gated *publications* (`MISSING-REFERENCES.md`; also `05...md § B` / `REFERENCES.md § 2b`) —
+     esp. #1 Blocks-to-Text-Misconceptions (our exact micro:bit->Python transition).
+5. **Then**: compile a detailed, research-grounded tutor-design guidelines list; survey remaining secondary leads (`05...md § C`).
 
-Only after the above: begin designing the tutor.
+Only after the research: begin designing the tutor.
 
 ## Open questions (need Alex input or later resolution)
 | # | Question | Why it matters | Status |
@@ -23,6 +34,8 @@ Only after the above: begin designing the tutor.
 | Q4 | How is **Alice simulated** during tutor development/testing (to validate anti-gaming behavior)? Real child, Alex role-play, or an AI Alice? | Determines how we can test the social-engineering-resistance. | open |
 | Q5 | **Image generation**: can the tutor generate figures in its runtime, or must it emit prompts for Alex (as the exemplar prompts assumed for Copilot Chat)? | Exemplars lean heavily on figures; affects tutorial delivery. | open |
 | Q6 | Where are the **tutorials/tasks authored and stored** for the CircuitPython era — new versions of feeder/lighthouse, or new problems? | Defines the problem corpus the tutor works from. | open |
+| Q7 | How to **operationally classify an Alice-turn** as "understanding the problem" (help freely) vs "seeking the solution" (withhold)? | This boundary is exactly where social-engineering attacks land. Raised by the Scheiter digest. | open |
+| Q8 | Which CircuitPython/hardware concepts are **must-internalize** vs **fine-to-look-up**? | Scheiter: can't reason without base knowledge in-head; needs Q1 (the actual API). | open (depends on Q1) |
 
 ## Notes to self (assisting persona)
 - Keep the anti-gaming discipline (picture §3) front-of-mind in *every* future design decision — it is the single most

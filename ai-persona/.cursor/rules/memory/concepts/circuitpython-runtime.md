@@ -2,7 +2,7 @@
 
 **Content scope**: `[domain:circuitpython-runtime]` `[family:circuitpython]` — applies across every CircuitPython project in this persona (exp09/11/13/14/15), with concrete-evidence anchors on the RP2040 port. Provenance: surfaced during the exp14 display-library refactor (`[project:circuitpython-exp14-display]`), but the knowledge is family-wide, so it lives centrally, not in a project folder (R-7 / *Don't guess an association into a deep, specific bucket*).
 **Status**: `evidence-supported` for the source-tagged claims; `[inferred]` / Verification-Queue items are explicitly marked below.
-**Concepts in this domain** (one `### …` section each): heap structure (RP2040 split-heap doubling) · `gc` module surface · preallocate-mutate-in-place · `memoryview` · `const()` · no native/viper · name loading (LOAD_FAST vs LOAD_GLOBAL) · `neopixel.NeoPixel` allocation · import-time vs hot-path allocation. Project-application notes + known gaps + a runtime Verification Queue follow.
+**Concepts in this domain** (one `### …` section each): heap structure (RP2040 split-heap doubling) · `gc` module surface · preallocate-mutate-in-place · `memoryview` · `const()` · no native/viper · name loading (LOAD_FAST vs LOAD_GLOBAL) · `neopixel.NeoPixel` allocation · import-time vs hot-path allocation · user-facing `asyncio` vs builtin `_asyncio` · **`mpy-cross` is CircuitPython’s binary, not PyPI MicroPython**. Project-application notes + known gaps + a runtime Verification Queue follow.
 **Related concepts** (`_RELATIONS.md`): `preallocate` / `neopixel allocation` will *compose-with* a future `led-driving` domain; `memoryview` *complemented-by* `fonts` (glyph-raster access). See `_RELATIONS.md`.
 **Provenance / history**: produced 2026-04-20 (exp14 P1.7) via the Researcher + independent-Verifier + Editor loop; extended 2026-04-21 (LOAD_FAST/LOAD_GLOBAL). Reshaped from the monolithic `TECHNICAL.md § Memory Management on CircuitPython` into this concept-domain file at the 2026-06-14 warm reset (R-9 — content reproduced faithfully below; only the concept-graph wrapper is new). Source-tag legend: `[CPy-src]` = `github.com/adafruit/circuitpython` source tree, `[CPy-docs]` = `docs.circuitpython.org`, `[CPy-lib]` = Adafruit CircuitPython library repo, `[Adafruit-learn]` = learn.adafruit.com guide explicitly marked CircuitPython, `[inferred]` = reasoned from general-Python semantics or unverified MicroPython-adjacent evidence, `[on-device-experiment]` = measured on the project's YD-RP2040.
 
@@ -72,6 +72,25 @@ Happy-path cost comparison: `LOAD_FAST_*` is one array subscript; `LOAD_GLOBAL` 
 Caveat: in this pass the native `shared-module/_pixelbuf/PixelBuf.c` was not retrievable, so the above is verified via the pure-Python fallback and the NeoPixel library source. On CircuitPython RP2040 builds the native `_pixelbuf` module is shipped; the buffer layout is designed to be API-identical to the fallback, but the native C implementation's exact allocation behavior is not source-verified here — flagged in "Known gaps."
 
 Iterating `for p in pixels:` allocates a per-element tuple because `PixelBuf.__getitem__` returns a tuple [inferred from general-Python semantics]. Prefer `pixels[i] = (r, g, b)` or slice assignment `pixels[i:j] = seq` over iteration-based mutation in hot loops.
+
+### User-facing `asyncio` vs builtin `_asyncio`
+
+CircuitPython does **not** ship CPython’s stdlib `asyncio`. Two different modules:
+
+| Name | What it is | Where it lives |
+|------|------------|----------------|
+| `_asyncio` | Internal helper, not an end-user API | Compiled into firmware when `MICROPY_PY_ASYNC_AWAIT` / `MICROPY_PY_ASYNCIO` follow `CIRCUITPY_FULL_BUILD` (`py/circuitpy_mpconfig.mk`, `[CPy-src]` 10.3.0) |
+| `asyncio` | Cooperative scheduler the sketches `import` | **Library bundle** (plus `adafruit_ticks`). Not frozen on `bpi_bit_s2` 10.3.0 — matrix lists `_asyncio` only (`[CPy-docs]` support matrix; `[Adafruit-learn]` “Cooperative Multitasking in CircuitPython with asyncio”) |
+
+A successful `import asyncio` on host **CPython 3.13** (the Miniconda venv) is not evidence the board has `asyncio`. On device: copy bundle `asyncio` + `adafruit_ticks` onto CIRCUITPY (`circup install asyncio`). Host pytest of `async def` / `await asyncio.sleep` checks **shape** against CPython’s scheduler, not CircuitPython’s subset.
+
+**Status:** `evidence-supported` for the split (docs + 10.3.0 mk + matrix). Device copy step still `[on-device-experiment]` until P8.
+
+### `mpy-cross` is CircuitPython’s binary, not PyPI MicroPython
+
+Host bytecode compile for a CircuitPython board must use **Adafruit’s** `mpy-cross` matching the firmware series (S3 `bin/mpy-cross/macos/`, e.g. `mpy-cross-macos-10.3.0-arm64`). Adafruit: do **not** use `pip install mpy-cross` / pypi.org — that tool is MicroPython and emits the wrong `.mpy` ([Adafruit-learn] “Creating an .mpy file”; [CPy-src] issue #10032). CP **10.3.0** emits **mpy v6.3** (binary `--version`, 2026-09-04). Installed in Alex’s scratch venv as `…/CircuitPython_3.13_VsCode/bin/mpy-cross`. Compiling `.py` → `.mpy` catches CP-rejected syntax; it is not an on-device run.
+
+**Status:** `evidence-supported` for the warning + 10.3.0 → v6.3 on this Mac.
 
 ### Import-time vs. hot-path allocation
 

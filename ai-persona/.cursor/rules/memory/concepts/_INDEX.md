@@ -18,10 +18,13 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 - **Name loading: LOAD_FAST vs LOAD_GLOBAL** — bind globals as function-locals in hot loops; mechanism-verified against `py/vm.c` + `py/runtime.c`.
 - **`neopixel.NeoPixel` allocation** — one-time `__init__` buffer; no per-`show()` alloc (pure-Python fallback verified; native C in Verification Queue).
 - **Import-time vs hot-path allocation** — allocate large items early on a contiguous heap.
+- **User-facing `asyncio` vs builtin `_asyncio`** — bundle library + `adafruit_ticks` on CIRCUITPY; `_asyncio` is compiled-in helper; host CPython `asyncio` ≠ device.
+- **`mpy-cross` is CircuitPython’s binary, not PyPI MicroPython** — Adafruit S3 build matching firmware; CP 10.3.0 emits mpy v6.3.
 
 ### `fonts.md` — `[domain:fonts]` `[cross-experiment]`, `evidence-supported`
 - **Outline fonts unsuitable at small pixel sizes** — TTF/OTF auto-raster below ~10 px loses Latin stroke topology; use hand-designed bitmap fonts (candidates listed).
 - **Glyph coordinate model (metrics y-up, raster y-down)** — why `_glyph_columns`'s `display_row = ascent - height - dy + cy` is correct; verified against `adafruit_bitmap_font/pcf.py`.
+- **DAL pendolino3 row-bytes vs column-major** — MakeCode 5×5 font is five row bytes (bit4=left); Exp14 storage is one byte per column (bit0=top). MIT; notice travels.
 
 ### `power.md` — `[domain:power]` `[cross-experiment]`, `evidence-supported` (≥2 sources each, verified 2026-06-15)
 - **Battery self-discharge = standby floor** — LiPo ~2–5 %/mo room temp (≈165–420 µA-equiv for 6000 mAh); temp ~doubles per +10 °C. Push standby below this floor → diminishing returns; shelf-life becomes battery-limited.
@@ -39,8 +42,13 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 - **Clock stretching** — target holds SCL low for flow control; optional, unbounded, not all hosts support it (interop hazard).
 - **Back-feeding (ESD-diode)** — bus-high forward-biases a dead device's pin→VDD diode, back-powers it to ~Vbus−0.4 V. Mitigate: pull-ups on the switched rail (free) / series-R (partial) / pulldown (float-only) / powered-off-protection "Ioff" switch (only hard guarantee; TS5A23166 fails on floating VDD).
 
+### `git.md` — `[domain:git]` `[cross-experiment]`, `evidence-supported` (verified 2026-07-15)
+- **History rewrite ≠ removal via merged-PR refs** — `filter-repo`+force-push can't touch server-side `refs/pull/*`; scrubbed file stays browsable via the merged PR + by bare SHA + across fork networks; only GitHub Support purges. Check `gh api … forks_count/network_count/visibility`.
+- **Scrub-a-file-from-history recipe** — `clone --mirror` → `git filter-repo --path … --invert-paths` → `push --force --mirror`; re-sync working clones after.
+- **`git rm --cached` is all-or-nothing** — aborts (removes nothing) if any pathspec is untracked; `.gitignore` doesn't untrack already-tracked files.
+
 ## Candidate domains (NOT yet seeded — no concrete concept in evidence)
 
 Per seed-on-evidence (C7): create when the first concrete concept arrives. From the rubric (`microcontroller-multi-project-memory-guidelines.md § 3.1`): `deep-sleep` (MCU sleep modes, wake sources, `alarm`), `led-driving` (WS2812 timing, level-shifting, current), `display` (matrix render, column-major — the glyph-coordinate concept currently folded into `fonts`), `tooling` (schemdraw, circup, VS Code config). `deep-sleep` is inherently cross-project — pollination pays once a 2nd project accrues content.
 
-**Seeded since the warm reset:** `i2c` (2026-06-15), `power` (2026-06-15). **`fuel-gauge` is NOT a separate domain** — folded into `power` (MAX17048 is power/SoC management; per-device domains stay near-empty; D8 graduation rule). **`sensors` taxonomy decision (2026-06-15):** power-*measurement* devices (fuel gauge, current/voltage monitor) live in `power`; **environmental/physical sensors** (temperature LM75A, motion, light, …) → a future **`sensors`** domain, seeded when the first concrete sensing concept arrives (none in evidence yet — LM75A is only address-known so far). A device spanning domains lives in its primary domain and is cross-referenced from the other (e.g. MAX17048 → `power`, cross-ref `i2c`). See `universal/CHANGELOG.md § 2026-06-15`.
+**Seeded since the warm reset:** `i2c` (2026-06-15), `power` (2026-06-15), `git` (2026-07-15 — first non-CircuitPython, cross-project tooling domain). **`fuel-gauge` is NOT a separate domain** — folded into `power` (MAX17048 is power/SoC management; per-device domains stay near-empty; D8 graduation rule). **`sensors` taxonomy decision (2026-06-15):** power-*measurement* devices (fuel gauge, current/voltage monitor) live in `power`; **environmental/physical sensors** (temperature LM75A, motion, light, …) → a future **`sensors`** domain, seeded when the first concrete sensing concept arrives (none in evidence yet — LM75A is only address-known so far). A device spanning domains lives in its primary domain and is cross-referenced from the other (e.g. MAX17048 → `power`, cross-ref `i2c`). See `universal/CHANGELOG.md § 2026-06-15`.

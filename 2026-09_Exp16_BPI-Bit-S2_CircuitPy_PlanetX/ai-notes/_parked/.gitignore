@@ -1,0 +1,5 @@
+# Park payloads (dated subfolders). Keep the policy files tracked.
+*
+!.gitignore
+!README.md
+!MANIFEST.md

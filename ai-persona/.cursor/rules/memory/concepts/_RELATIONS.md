@@ -16,5 +16,6 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 
+- `fonts: DAL pendolino3 row-bytes`  —alternative-to—  `fonts: glyph coordinate model`   (5×5 table lookup vs PCF metrics; same `_glyph_columns` hook).
 - `fonts: glyph coordinate model`  —pairs-with—  `display: matrix render` (when a `display` domain is seeded; the concept currently lives in `fonts.md`).
 - `circuitpython-runtime: preallocate` / `neopixel allocation`  —composes-with—  `led-driving: WS2812 timing` (when `led-driving` is seeded — exp11/13 ws2812 work).

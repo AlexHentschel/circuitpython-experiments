@@ -21,6 +21,8 @@ CircuitPython memory model, name-loading, neopixel allocation → `../../concept
 
 ## Resumption point
 
+**Session 9 started 2026-08-23** (gap since 2026-06-12). Parallel Bamboo-Lamp work is in a *different* chat — this session writes only this folder + the exp14 repo (see `SESSION_LOG.md` living-summary isolation note).
+
 Phase 3 in progress: P3.1–P3.5 done (type hints; `deinit()`; `build_lut(dest=)`; README refresh; consistency sweep). **Remaining**: P3.6 (Tier-1 already 137/137 green + on-device smoke covering `deinit`, in-place `set_rotation`, carried-over font legibility) and P3.7 (audit loop), then the L1–L8 retrospective. Carry-over open items: Pattern-A-vs-PEP-563 uniformity in `bitmap_codec.py`/`geometry.py`; `colmajor_to_pattern` `bytes`/`bytearray` widening; cryptic `IndexError` on `width > len(data)`. The font swap (illegible `font_free_mono_8`) is tracked in `../../universal/MONITORING.md`.
 
 ## Outstanding follow-up (carried from session 4 open question)

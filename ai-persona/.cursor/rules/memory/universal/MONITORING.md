@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-07-15 (tooling session 13 continuation: added *Concurrent-session write race on shared/central memory files* — no locking/merge protocol exists for `universal/*`, central `SESSION_LOG.md`, `concepts/*`, `crossref/*`, `projects/_INDEX.md` when two agent sessions are open on different projects at the same time.)
+Last updated: 2026-09-04 (MONITORING: *Cross-runtime citations* scope-lift trigger fired — lifted in `CODING_PRINCIPLES.md` to `[user]`, not `[universal]` (M3 sign-off). Origin 2026-07-15 concurrent-session race still live.)
 
 Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
@@ -42,13 +42,6 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 
 ## Entries
 
-- **Scope-lift candidate: *Cross-runtime citations require a grounding note***
-  - **Observation**: directive currently at `[project]` scope, phrased around MicroPython↔CircuitPython specifically.
-  - **Trigger**: any non-MicroPython cross-runtime citation incident (e.g. citing CPython docs from CircuitPython or PyPy code for a feature whose behavior may differ).
-  - **Action on trigger**: lift directive scope to `[universal]`, rename to remove MicroPython-specific framing, update the Notes column of the entry at `CODING_PRINCIPLES.md § Core Principles` with both incidents as evidence. If a second non-MicroPython incident accumulates, the abstraction-lifecycle rule from `WORKING_STYLE.md § Retention` is satisfied.
-  - **First observed**: 2026-04-21 (session 6).
-  - **Scope**: `[project]` → candidate for `[universal]`.
-
 - **Promotion trigger: MicroPython perf-guidance source-verification pattern**
   - **Observation**: one `docs.micropython.org/reference/speed_python.html` claim (LOAD_FAST vs LOAD_GLOBAL) has been source-verified against CircuitPython's `py/vm.c` + `py/runtime.c` and lives in `concepts/circuitpython-runtime.md` (§ "Name loading: LOAD_FAST vs LOAD_GLOBAL"). Other claims from the same doc — e.g. `const()` folding, buffer-protocol access, viper — have not been verified for this port.
   - **Trigger**: a second `speed_python.html` claim becomes relevant to a hot path in this workspace.
@@ -83,6 +76,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: (1) confirm the race via timestamps/git history (did two sessions write the same file within the same short window?); (2) recover the lost edit from the losing session's transcript if still available (`agent-transcripts/`) or from git history if committed; (3) escalate to Alex rather than silently re-applying — he may be running concurrent sessions deliberately and want a real fix (e.g. serialize shared-file writes through a single session, or adopt append-only/section-scoped edits for the highest-contention files) rather than an ad-hoc patch. Do not attempt to design a locking mechanism speculatively before a real incident — the shape of the fix should follow the shape of the actual collision.
   - **First observed**: 2026-07-15 (tooling session 13).
   - **Scope**: `[universal]` — applies to any file-based, multi-session persistent memory system, not specific to this persona or to CircuitPython.
+
+- **Tooling: arXiv (and other hosts) off the Cursor *sandbox* network allowlist; use `full_network` for research downloads**
+  - **Observation**: `curl https://arxiv.org/...` 403s inside the default command sandbox ("CONNECT tunnel failed, response 403") even with no elevated perms — arXiv, Springer, etc. are not on the sandbox allowlist. Downloads succeed only with `required_permissions:["full_network"]`. On 2026-07-15 Alex tried to *allow-list arXiv* and asked me to retry; the sandbox still 403'd, i.e. his allowlist attempt did not affect the command sandbox this session. Practical impact: nil (full_network works), but it wastes a round-trip to re-discover each research session.
+  - **Trigger**: any future research/download task in this workspace where a source host 403s in the sandbox, OR Alex again reports having allow-listed a host and expects plain sandboxed access to work.
+  - **Action on trigger**: skip the sandbox retry — go straight to `required_permissions:["full_network"]` for the download. If Alex specifically wants sandbox-level allowlisting to work (so full_network isn't needed), that's a Cursor settings question (may require restart / a different allowlist mechanism than he tried) — surface it rather than silently working around it. Note: SSRN 403s even *with* full_network (bot-blocks non-browser clients) → needs a manual browser download, not a permissions bump.
+  - **First observed**: 2026-07-15 (coding-tutor session 15).
+  - **Scope**: `[user]` — applies to any research-download work in Alex's Cursor environment, not specific to coding-tutor.
 
 - **Promotion candidate: body-size threshold for *consolidate duplicated code in a shared function***
   - **Observation**: the consolidation rule (P2.1 audit established it for the previously-shared `_iter_pattern_rows`) has a body-size threshold below which it stops carrying weight, plus an interaction with call-site-profile distinctness. For the `_iter_pattern_rows` case (4 lines of body, two distinct call-site profiles — cold parse-once vs hot parse-per-frame), the right answer turned out to be two specialised functions, not one shared function with a configuration knob. Single incident so far; pattern not yet promoted.
