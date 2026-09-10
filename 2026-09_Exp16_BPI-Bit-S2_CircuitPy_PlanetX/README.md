@@ -9,7 +9,7 @@ Display architecture: [`lib/display/README.md`](lib/display/README.md).
 
 ![BPI-Bit-S2 hardware interface, front and back](Notes/bpi_bit_v2_interface_en.jpg)
 
-<sub>BananaPi BPI-Bit-S2 hardware; unmodified source: [BananaPi docs](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2). Content available under the Creative Commons Attribution-ShareAlike License, by BananaPi. [License file`](Notes/bpi_bit_v2_interface_en.jpg.license).</sub>
+<sub>BananaPi BPI-Bit-S2 hardware; unmodified source: [BananaPi docs](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2), available under Creative Commons Attribution-ShareAlike License, by BananaPi. (local [license file](Notes/bpi_bit_v2_interface_en.jpg.license))</sub>
 
 
 | Piece | Detail |
@@ -50,6 +50,12 @@ This experiment has **no** per-folder CircuitPythonSync settings yet. The shared
 
 On-device `keypad` / bundle `asyncio` / PlanetX cable still need a first human device window after the flash.
 
+## Status
+
+**P6 host-green (2026-09-04):** 146 pytest passed (suite does not import `board` / `display.core`). **P7** (per-experiment `.vscode/`) and **P8** (on-device) are not started. Keep the board unplugged until a human device window. Flash CircuitPython **10.3.0** at P8 (host tools are already on 10.3.0).
+
+Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
+
 ## Folder structure
 
 ```
@@ -57,10 +63,9 @@ lib/display/     5×5 display package (copy of Exp14; work here, not in Exp14)
 lib/buttons.py   Async A/B/C/D dispatcher
 tests/           Host pytest (no board / no display.core); see tests/README.md
 Notes/           Human spec + BananaPi photos (CC BY-SA, unmodified)
-ai-notes/        Execution notes, plan, digests (start at INDEX.md)
 ```
 
-No `code.py` or per-experiment `.vscode/` yet.
+No `code.py` or per-experiment `.vscode/` yet. A local `ai-notes/` folder may exist as a gitignored working store; this tree does not depend on it.
 
 ## Further reading
 
@@ -69,9 +74,7 @@ No `code.py` or per-experiment `.vscode/` yet.
 | Display package architecture | [`lib/display/README.md`](lib/display/README.md) |
 | Host tests (local interpreter path) | [`tests/README.md`](tests/README.md) |
 | Spec / working prefs | [`Notes/overall_goal.md`](Notes/overall_goal.md) |
+| Student-API portability (5×5 → 8×8) | [`Notes/student-api-portability.md`](Notes/student-api-portability.md) |
 | Goldfinger pinout (CC BY-SA) | [`Notes/bpi_bit_v2_goldfinger.jpg`](Notes/bpi_bit_v2_goldfinger.jpg) |
 | Board interface photo (CC BY-SA) | [`Notes/bpi_bit_v2_interface_en.jpg`](Notes/bpi_bit_v2_interface_en.jpg) |
-| Locks + current checkpoint | [`ai-notes/NOTES.md`](ai-notes/NOTES.md) |
-| Notes router | [`ai-notes/INDEX.md`](ai-notes/INDEX.md) |
-| Execution plan | [`ai-notes/plan/plan_v1.0.md`](ai-notes/plan/plan_v1.0.md) |
 | Firmware | [circuitpython.org/board/bpi_bit_s2](https://circuitpython.org/board/bpi_bit_s2/) |

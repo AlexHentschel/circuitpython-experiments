@@ -26,3 +26,6 @@ bundles/
 # Cursor per-root plan scratch (plans live in the master; sub-root plan dirs are transient).
 # Uses **/ to match at any depth so per-experiment .cursor/plans/ folders are also ignored.
 **/.cursor/plans/
+
+# AI task working store (per experiment). Durable claims live in Notes/ or persona memory.
+**/ai-notes/

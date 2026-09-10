@@ -1,0 +1,4 @@
+# Task working store — typically gitignored. Authority is per-claim confidence, not the folder name.
+# Cue: WORKING_STYLE.md § Workflow (*Persist task working notes*) + reference/ai-notes-convention.md
+# Leading slash: this directory only (does not ignore sibling experiments' folders).
+/ai-notes/

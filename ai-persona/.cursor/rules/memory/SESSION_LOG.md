@@ -7,9 +7,10 @@ This is the **central** session log for the unified persona memory. It holds the
 **Memory layout (unified, since the 2026-06-14 warm reset)**: ONE persona memory home at `.cursor/rules/memory/`, reachable from every project workspace (NOT federated). Structure:
 - `universal/` — behavioral / cross-project: `WORKING_STYLE.md`, `CODING_PRINCIPLES.md`, `MONITORING.md`, `CHANGELOG.md`, `PATTERNS.md`.
 - `PERMITTED_DESTRUCTIVE_ACTIONS.md` — **fail-closed grant ledger** for destructive ops (empty = nothing permitted). Always-on stub: `06-destructive-operations.mdc`. Protocol: corpus `destructive-operations.md`.
-- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`).
+- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`).
 - `projects/` — `_INDEX.md` (roster + path-globs) + `<slug>/` digests (`CONTEXT.md` + `SESSION_LOG.md` + `CONCLUSIONS.md`), linking into each project repo's technical artifacts.
-- `crossref/` — `BY_TOPIC.md` + `BY_PATTERN.md` (cross-project lookup; header-only until a 2nd project accrues content).
+- `crossref/` — `BY_TOPIC.md` (topic→projects) + `BY_PATTERN.md` (promotion-ladder working surface). First `universal/PATTERNS.md` entry landed 2026-09-04 (public-repo third-party hygiene).
+- `reference/` (sibling of `memory/`, not inside it) — dated corpus **snapshots** (recipe, not house SOT). Last ingest **2026-09-07**. House SOT remains always-injected `.mdc` + `memory/universal/WORKING_STYLE.md`.
 
 **Active-project routing (M1)**: detect the active project from the most-recently-edited / open file path against `projects/_INDEX.md` path-globs. `2026-04_Exp14_*/**` → `circuitpython-exp14-display`; `2026-06_Exp15_*/**` → `circuitpython-exp15-microbit`; `2026-09_Exp16_*/**` → `circuitpython-exp16-planetx`; `Bamboo-Lamp/**` → `bamboo-lamp`. If ambiguous, ask before writing per-project memory. **Write per-project content only into that project's folder; cross-project / boundary content goes to `concepts/` or `universal/` — never bury a cross-scoped insight inside one project** (`WORKING_STYLE.md` Core Principle *Don't guess an association into a deep, specific bucket*; R-7).
 
@@ -17,7 +18,11 @@ This is the **central** session log for the unified persona memory. It holds the
 
 **Bamboo-Lamp (unified 2026-06-14; reachability superseded 2026-07-15)**: its high-level memory still lives centrally at `projects/bamboo-lamp/`; its technical artifacts (`AI-Notes.md`, `diagrams/`, `open-discussions/`) stay in the `~/Projects/Family/Bamboo-Lamp` repo, linked from `projects/bamboo-lamp/CONTEXT.md`. `Bamboo-Lamp/memory/` still holds only a pointer back to central. **Historical note**: reachability was via a `Bamboo-Lamp/.cursor/rules` symlink → central tree (created + verified resolving 2026-06-14; standalone-open test R-6 PASSED 2026-06-14). **That symlink was deleted 2026-07-15** as part of the dedicated-root move above — R-6's standalone-open guarantee no longer holds. Bamboo-Lamp now reaches the persona only via the combined Cursor workspace (same as every other project).
 
-**Provisional marker (C7)**: the new structure is `provisional (as of 2026-06-14)`. Cold-AI-testable watch-for lives in `concepts/_INDEX.md` and `projects/_INDEX.md` headers. Re-evaluate after ~5 real memory additions or at the next maintenance session; remove the marker if no refute signal fires.
+**Retrieval/placement (confirmed 2026-09-08):** June-14 experiment banners dropped. Confirm = one-hop index→domain/project→detail + deterministic placement; evidence exceeded the ~5-addition watch-for with no refute (`power`/`i2c`/`git`; five projects). Dedicated-root attachment remains the 2026-07-15 settlement — not re-opened. See `universal/CHANGELOG.md § 2026-09-08`. Future *new* structure still gets a provisional marker (`00-memory-system.mdc § Content vs structure`).
+
+**Corpus ingest (2026-09-07):** complete (gap-close, not a second warm-reset). Durable record: `universal/CHANGELOG.md § 2026-09-07`. PROVISIONAL-marker promotion was left unbundled then; **executed 2026-09-08** (this living-summary block).
+
+**`ai-notes/` (2026-09-09):** task working store; typically gitignored. **Authority = per-claim confidence.** `ai-persona/ai-notes/` never tracked. Exp16 `ai-notes/` **untracked** (grant `G-2026-09-08-1`); files kept on disk. Cue: `WORKING_STYLE.md § Workflow` *Persist task working notes*.
 
 **Available skills**: `circuit-drawing-generator` at `Bamboo-Lamp/.claude/skills/circuit-drawing-generator/SKILL.md` — Schemdraw code → SVG. Python env `/Users/alex/Development/PythonVEs/MicroControllers/bin/python`; render `python scripts/render_circuit.py input.py output.svg` from the Bamboo-Lamp root. Smoke-tested 2026-05-25 (Schemdraw v0.22). Label-placement notes in `Bamboo-Lamp/Notes.md`.
 
@@ -45,6 +50,8 @@ This is the **central** session log for the unified persona memory. It holds the
 | Cross-project / tooling / persona-level session narrative + this map | `memory/SESSION_LOG.md` (this file) | Agent (operational) |
 | Cross-project topic/pattern lookup | `crossref/BY_TOPIC.md`, `crossref/BY_PATTERN.md` | Agent (operational) |
 | Project roster + active-project path-globs | `projects/_INDEX.md` | Agent (operational) |
+| Corpus recipe snapshots (dated; not house SOT) | `.cursor/rules/reference/` (ingest 2026-09-07; `ai-notes-convention.md` 2026-09-08) | Agent copies on an explicit ingest grant; house SOT stays `.mdc` + `WORKING_STYLE.md` |
+| Task working store (`ai-notes/`) | local gitignored folder at the work unit; **authority is per-claim confidence** | Agent writes freely; mark confidence. Wrap-up later compresses into `memory/` / versioned deliverable. Do not untrack a checked-in copy without a grant. |
 | Active plan for a project | the project's plan store (e.g. exp14: `~/.cursor/plans/display_library_refactor_d42ccd55.plan.md`) | Agent maintains; phase-close revisions presented to Alex |
 
 When the same fact must live in two places (rare; only when duplication serves distinct consumers), log it here and add a sync-check to the next maintenance reflection.
@@ -54,6 +61,57 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Scope-tag dimensions** — two *orthogonal* axes (D4): (1) *directive scope* `[universal]/[user]/[project]/[task]` (authoritative in `WORKING_STYLE.md` header; echoed in `01-interaction-style.mdc`); (2) *content scope* `[universal]/[domain:x]/[family:y]/[project:slug]/...` (authoritative in `04-multi-project.mdc § Scope tagging`; rubric in `working-docs/warm-reset-plan/microcontroller-multi-project-memory-guidelines.md § 5`). Don't collapse the two.
 
 ## Cross-project & tooling sessions
+
+## 2026-09-09: Session — [exp16] (`ai-notes/` split + untrack)
+
+- Grant `G-2026-09-08-1`. Durable lift: `Notes/student-api-portability.md`, README Status, CONTEXT, CONCLUSIONS (emulation `unverified`). Then `git rm -r --cached` (34 files, working tree kept). Gitignore: exp16 `.gitignore` + repo `**/ai-notes/`. Not committed; no history scrub; no delete.
+
+## 2026-09-08: Session — [tooling] (PROVISIONAL-marker pass: **executed**)
+
+- Grant: Alex “please proceed with pass” (`plan_v1.0.md`). Notes: `ai-notes/provisional-marker-pass/`.
+- Confirmed retrieval/placement; did not re-open dedicated-root. Hygiene: `BY_PATTERN`/`BY_TOPIC`/`_RELATIONS` lying headers + `02-domain-structure.mdc` seeded-domain list. Left: `00.mdc` L37 standing rule, DN-MP-1, hypothesis-test first entry, Exp16 untrack, wrap-up skill, per-concept split.
+- Durable record: `universal/CHANGELOG.md § 2026-09-08`. Backlog item struck.
+
+## 2026-09-08: Session — [tooling] (PROVISIONAL-marker pass: plan only)
+
+- Refined against post-ingest persona. **Not executed.** Notes: `ai-notes/provisional-marker-pass/` (`NOTES.md`, `analysis/marker-inventory.md`, `plan_v1.0.md`).
+- Verdict: confirm retrieval/placement (watch-for exceeded, no refute). Do not re-open 2026-07-15 dedicated-root. Expand edit set past backlog’s 3 files: `00.mdc` L10 echo, living-summary echo, lying `BY_PATTERN`/`BY_TOPIC`/`_RELATIONS` headers. Leave `00.mdc` L37 standing rule.
+- Out of scope unless separately granted: DN-MP-1, hypothesis-test first entry, Exp16 untrack, wrap-up skill, per-concept split.
+- Digest for a later session: open the notes folder if executing; this log is only the breadcrumb.
+
+## 2026-09-08: Session — [tooling] (`ai-notes/` authority correction)
+
+- Alex: folder can be SOT; depends on marked confidence of the analysis/source. Typical exploratory unpack, not required. Lighter structure than `memory/`; wrap-up later compresses. Same-persona cold-AI reader (vanilla dumps incorporated when asked).
+- Corpus `ai-notes-convention.md` did say “scratch, not source of truth” (§2) — refined (git vs authority split). Companion `working-notes-lean-context.md` + corpus router aligned.
+- Persona WS working-notes row updated (r3). Wrap-up skill **not** copied into this persona.
+
+## 2026-09-08: Session — [tooling] (`ai-notes/` git/lifecycle)
+
+- Alex gitignored `ai-persona/ai-notes/` (never tracked) and pointed at corpus `ai-notes-convention.md`.
+- Integrated into the **existing** WS working-notes row (no second directive, no 5th `03-triggers` item). Shelf: `reference/ai-notes-convention.md`.
+- House default: gitignored at the work unit; durable claims lift to `memory/` / versioned deliverable; do not untrack without grant.
+- Exp16 `ai-notes/` still tracked (34 files) — flagged in `MONITORING.md`; not untracked.
+- Living summary no longer treats gitignored ingest notes as SOT (CHANGELOG § 2026-09-07 is the durable ingest record).
+
+## 2026-09-07: Session — [tooling] (memory-sync after ingest)
+
+- Notes/META/risks/gap-matrix brought to executed-current-state (planning inventory kept as audit trail).
+- Living summary: ingest complete (not “pending”); concepts list + crossref line corrected; `reference/` added to structure + SoT map.
+- R1/R2 decided (plan defaults); R3 still open — `MAINTENANCE_BACKLOG.md`, needs a fresh grant.
+
+## 2026-09-07: Session — [tooling] (execute corpus → persona ingest)
+
+- Grant: Alex “Please execute. Sign-off granted.” on `plan_v1.0.md`.
+- P0: corpus mtimes unchanged vs planning. P1: `reference/` snapshot 2026-09-07 (21 files). P2: WS/MONITORING cues. P3: reachability hygiene + COLLABORATOR_GUIDE table. P4: CHANGELOG + this entry.
+- Defaults: R1 seed hypothesis-test section; R2 copy `host-adaptation-claude-code.md` (not instantiated); R3 PROVISIONAL markers left (still recommend a separate lifecycle pass).
+- Preserve-list intact. `03-triggers` still four items.
+- Detail: `ai-notes/corpus-persona-integration/` (`analysis/p4-claims-coverage.md`).
+
+## 2026-09-07: Session — [tooling] (plan corpus → persona ingest; superseded same day by execute session above)
+
+- Context: Alex asked to analyze `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/` against this persona (bootstrapped from a precursor of that corpus) and plan integration. Execution gated on explicit approval.
+- Notes folder (working-notes discipline): `ai-persona/ai-notes/corpus-persona-integration/` (`NOTES.md`, `INDEX.md`, `plan_v1.0.md`, `analysis/gap-matrix.md`, `risks.md`).
+- Finding (planning; confirmed at execute session same day): this is a **gap-close**, not a second warm-reset. Multi-project layout, destructive-ops, cold-AI, and flexible-plans were already operational. Main gaps then: stale/missing `reference/` copies (09–11, working-notes, plan-refinement, host-portability, PR-authoring, EBG); fireable cues for working-notes + plan-loop; hygiene (`00.mdc` still claimed symlink C4). Preserve: no `verified` tier, dedicated-root (no symlink fanout), D8 domain files not per-concept files.
 
 ## 2026-09-04: Session — [tooling] (instantiate destructive-ops hard gate from corpus)
 

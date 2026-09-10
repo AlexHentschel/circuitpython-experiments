@@ -25,6 +25,8 @@ Status tiers: `unverified` · `evidence-supported` · `disputed` · `invalidated
 | 20% brightness cap = `NeoPixel(brightness=0.2)` (Exp09 used 0.1). | `[exp16]` | Set in `core.py` (`BRIGHTNESS = 0.20`); on-device LED current still P8. | 2026-09-04 |
 | PlanetX C/D **connectors** electrically hit goldfinger P13/P14. | `[exp16]` | Firmware maps those edge names to GPIO36/37; physical PlanetX cable not probed this project. Overnight tests fake FALL events. | 2026-09-04 |
 | Device `import asyncio` works after copying the **bundle** `asyncio` + `adafruit_ticks` onto CIRCUITPY (not CPython stdlib). | `[exp16]` `[domain:circuitpython-runtime]` | Adafruit learn: library is not built in; matrix lists `_asyncio` only. P8 `circup install asyncio`. | 2026-09-04 |
+| No local emulator discharges on-device K1/K2 for stock CP 10.3.0 `bpi_bit_s2`. Wokwi is the only plausible pre-P8 smoke; CircuitPython-on-S2 in Wokwi is unverified. espressif QEMU and Renode have no usable ESP32-S2 story. | `[exp16]` | Web-docs scan 2026-09-07 in local `ai-notes/digests/local-mcu-emulation.md`. Re-check before spending time. P8 stays the on-device gate. | 2026-09-07 |
+| Stock CircuitPython `raspberry_pi_pico2` does not boot in a local emulator (2026-09-07). Host-pytest remains the hardware-free oracle for an RP2350 switch. | `[exp16]` | Web research 2026-09-07 in local `ai-notes/design/rp2350-emulation-macos.md` (projects' own statements, not runs). Revisit if QEMU #3125 lands or an emulator demonstrates CP-on-RP2350. | 2026-09-07 |
 
 ## Disputed
 

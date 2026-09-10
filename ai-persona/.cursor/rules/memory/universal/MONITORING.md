@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-04 (MONITORING: *Cross-runtime citations* scope-lift trigger fired — lifted in `CODING_PRINCIPLES.md` to `[user]`, not `[universal]` (M3 sign-off). Origin 2026-07-15 concurrent-session race still live.)
+Last updated: 2026-09-09 (Exp16 `ai-notes/` untracked; files kept. Prior: 2026-09-08 ingest quality-risk watch.)
 
 Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
@@ -83,6 +83,20 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: skip the sandbox retry — go straight to `required_permissions:["full_network"]` for the download. If Alex specifically wants sandbox-level allowlisting to work (so full_network isn't needed), that's a Cursor settings question (may require restart / a different allowlist mechanism than he tried) — surface it rather than silently working around it. Note: SSRN 403s even *with* full_network (bot-blocks non-browser clients) → needs a manual browser download, not a permissions bump.
   - **First observed**: 2026-07-15 (coding-tutor session 15).
   - **Scope**: `[user]` — applies to any research-download work in Alex's Cursor environment, not specific to coding-tutor.
+
+- **09 Attempt 4: sub-agent memory/reflection — quality-risk of shallow offload**
+  - **Observation**: corpus `09-recursive-learning.md` records an emergent pattern: offloading memory/reflection to a parallel sub-agent removes priority-3 crowding. Endorsed there; **not** a standing "always delegate" rule here. Risk: mechanical filing without genuine reflection.
+  - **Trigger**: a session actually delegates memory/reflection/working-style updates to a sub-agent, **or** Alex asks whether that pattern should become a directive.
+  - **Action on trigger**: compare the sub-agent's memory edit against what an inline update would have been (specificity, provenance, cold-AI gate). If quality holds, consider promoting an `(experimental)` WS cue. If shallow (checklist compliance, no reason persisted), record as refute and do not promote. Until then, prefer inline updates on lightweight turns (`03-memory-update-triggers.mdc`).
+  - **First observed**: 2026-09-07 (corpus ingest; no in-persona incident yet — seeded from corpus Attempt 4).
+  - **Scope**: `[universal]` candidate.
+
+- **Exp16 `ai-notes/` untracked 2026-09-09 (grant `G-2026-09-08-1`; files kept on disk)**
+  - **Observation**: checked-in `ai-notes/` is a cleanup opportunity, not a template. House default: gitignored. Durable bits lifted to `Notes/student-api-portability.md` + persona CONTEXT/CONCLUSIONS before untrack.
+  - **Trigger**: a new experiment's `ai-notes/` is about to be committed by reflex.
+  - **Action on trigger**: do **not** copy Exp16's old committed notes as a template. Gitignore at the work unit (`**/ai-notes/` in this repo). Do not `git rm --cached` another folder without a fresh grant.
+  - **First observed**: 2026-09-08 (transitional tracked state). **Closed**: 2026-09-09 untrack.
+  - **Scope**: `[user]` for the default; Exp16 instance done.
 
 - **Promotion candidate: body-size threshold for *consolidate duplicated code in a shared function***
   - **Observation**: the consolidation rule (P2.1 audit established it for the previously-shared `_iter_pattern_rows`) has a body-size threshold below which it stops carrying weight, plus an interaction with call-site-profile distinctness. For the `_iter_pattern_rows` case (4 lines of body, two distinct call-site profiles — cold parse-once vs hot parse-per-frame), the right answer turned out to be two specialised functions, not one shared function with a configuration knob. Single incident so far; pattern not yet promoted.

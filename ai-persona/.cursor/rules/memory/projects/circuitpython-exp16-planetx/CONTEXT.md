@@ -10,7 +10,7 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 1. Async LED-matrix library — fork Exp14 `lib/display/` onto 5×5 (brightness cap 20%). **Hardware scope (locked):** square WS2812 / NeoPixel only, max 8 on a side; realistic sizes **5×5** and **8×8**. Charlieplexed matrices out of scope. **5×5 ↔ 8×8 via file replacement and/or localized edits**: geometry/LUT, icons, arrows, font. Not a second library. Exp14: arrows live in `icons.py` beside icons; font is `font_*/` + `_FONT_PATH` in `core.py`.
 2. Async button library — PlanetX C/D (+ board A/B later for LightTower).
 
-**Portability (design goal, not a Hardware Abstraction Layer [HAL]):** student-facing LightTower **operations** should survive a later RP2350+8×8 switch. Constructor parameters and config may change in student code and in the library. Analysis: exp16 `ai-notes/design/student-api-portability.md`. Realistic for display+buttons now; motor/light later as semantic APIs.
+**Portability (design goal, not a Hardware Abstraction Layer [HAL]):** student-facing LightTower **operations** should survive a later RP2350+8×8 switch. Constructor parameters and config may change in student code and in the library. Spec: exp16 `Notes/student-api-portability.md`. Realistic for display+buttons now; motor/light later as semantic APIs.
 
 **End demonstration:** `/Users/alex/Development/Isana/LightTower-challenge` requirements (`2026-05-15_lighthouse-keeper_requirements_v1.0.md`). Needs more than LED+buttons (servo sweep, light sensor) — later.
 
@@ -20,9 +20,9 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 - Host Python: `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode` (Mac/Cursor; pytest).
 - Focus: **asynchronous** programming.
 - Do not change Alex's working setup without explicit permission. Workspace-level CircuitPythonSync currently still points at Exp14's YD-RP2040 / 10.1.3 — override per-experiment, do not rewrite the shared workspace settings without asking.
-- **Destructive ops hard gate** (persona-wide, Exp16 reminder): never delete/overwrite/rewrite-history without a ledger grant. Banner: exp16 `ai-notes/NOTES.md` (top) + `ai-notes/INDEX.md`. Protocol: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md`. Ledger: `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md` (empty). Always-on stub: `06-destructive-operations.mdc`.
+- **Destructive ops hard gate** (persona-wide, Exp16 reminder): never delete/overwrite/rewrite-history without a ledger grant. Protocol: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md`. Ledger: `memory/PERMITTED_DESTRUCTIVE_ACTIONS.md`. Always-on stub: `06-destructive-operations.mdc`. Local reminder banners: exp16 `ai-notes/NOTES.md` + `INDEX.md` (gitignored working store).
 - **Standing §4 park (confirmed 2026-09-04):** `…/2026-09_Exp16_…/ai-notes/_parked/` — move here instead of delete. Policy `_parked/README.md`; index `_parked/MANIFEST.md`. Deleting parked copies still gated. Exp16 only.
-- Working notes: `ai-notes/` in the exp16 folder. Cold-AI plan on disk; chat stays high-level.
+- Working notes: local gitignored `ai-notes/` in the exp16 folder (untracked 2026-09-08). Durable claims: `Notes/` + this persona folder. Chat stays high-level.
 - Coarse git commits on working branches when a chunk is done or enters revision. History of *reasoning* → `ai-notes/`, not git messages alone.
 
 ## Entry points (links, not copies)
@@ -39,7 +39,8 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 | 5×5 LUT / orientation (formula `index = row + 20 - column * 5`) | `…/2026-02_Exp09_…/lib/display_v0.py`, `lib/microbit.py` |
 | Micro:bit 5×5 pictograms (already in Exp09 `Image.*`) | `…/2026-02_Exp09_…/lib/microbit.py` (~line 245+) |
 | LightTower requirements | `…/Isana/LightTower-challenge/2026-05-15_lighthouse-keeper_requirements_v1.0.md` |
-| Portability analysis + reflection cadence | `…/2026-09_Exp16_…/ai-notes/design/student-api-portability.md`, `…/ai-notes/plan/reflection-cadence.md` |
+| Portability spec (student operations across 5×5 → 8×8) | `…/2026-09_Exp16_…/Notes/student-api-portability.md` |
+| Working notes (local, gitignored) | `…/2026-09_Exp16_…/ai-notes/` (`INDEX.md`, `NOTES.md`, cadence `plan/reflection-cadence.md`) |
 
 ## Domain knowledge (central)
 
@@ -49,4 +50,4 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
-**2026-09-04 — overnight P1–P6 host-green.** 146 pytest passed (no `board` / `display.core`). Stopped at the overnight bar. Do **not** P7 `.vscode/` / shared CircuitPythonSync, do **not** P8 / USB-probe until Alex says so. Flash board to CP 10.3.0 at P8. Locks: `ai-notes/NOTES.md`. Learnings: `ai-notes/learnings/p1-p6-overnight.md`.
+**2026-09-04 — overnight P1–P6 host-green.** 146 pytest passed (no `board` / `display.core`). Stopped at the overnight bar. Do **not** P7 `.vscode/` / shared CircuitPythonSync, do **not** P8 / USB-probe until Alex says so. Flash board to CP 10.3.0 at P8. Locks and plan remain in local `ai-notes/` (`NOTES.md`, `plan/plan_v1.0.md`). Learnings already in this folder's `SESSION_LOG.md` + overnight extract in `ai-notes/learnings/p1-p6-overnight.md`.

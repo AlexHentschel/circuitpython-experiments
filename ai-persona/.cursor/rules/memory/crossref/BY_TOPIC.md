@@ -4,7 +4,7 @@
 
 **How to use**: scan for your topic → follow to the listed project folder(s) / concept file(s). When a topic appears in **2+ projects**, that is the signal to (a) seed or enrich a shared `concepts/<domain>.md`, and (b) consider a `[cross-experiment]` entry. When a *directive* recurs across projects, promote per `universal/PATTERNS.md` / the promotion ladder.
 
-> **PROVISIONAL (2026-06-14 warm reset).** Sparse by design — only 3 projects, most cross-links anticipated not realized. Watch-for: see `concepts/_INDEX.md` header. Refute = a cross-project lookup that should have surfaced prior art but didn't because the topic wasn't indexed here.
+> Index grows with topics. Roster has **5** projects (was 3 at the 2026-06-14 seed). Refute of this index = a cross-project lookup that should have surfaced prior art but didn't because the topic wasn't indexed here.
 
 ## Topics
 
@@ -25,3 +25,4 @@
 | Deep sleep / standby / low-power | bamboo-lamp | repo `open-discussions/Standby-sleep-mode.md`; `projects/bamboo-lamp/CONCLUSIONS.md` (S3-vs-C6) | Candidate `deep-sleep` concept domain. |
 | Diagram tooling (schemdraw) | bamboo-lamp | repo `*.py` generators + `diagrams/` | Candidate `tooling` concept domain. |
 | Git history/publishing hygiene (scrub, PR-ref persistence, attribution/licensing) | coding-tutor, exp16 | `concepts/git.md` (mechanics); `universal/PATTERNS.md` (vendor-or-gitignore with sidecar); trail in `projects/coding-tutor/SESSION_LOG.md`, exp16 `Notes/*.jpg.license` | coding-tutor verified 2026-07-15; exp16 CC BY-SA sidecars 2026-09-04 (goldfinger + interface). |
+| AI working-notes (`ai-notes/`) | persona (gitignored); exp16 (untracked 2026-09-09, files kept); exp14 (`working-docs/` is a *committed* sibling, not a template) | `WORKING_STYLE.md § Workflow` *Persist task working notes*; `reference/ai-notes-convention.md`; `reference/working-notes-lean-context.md` | Task working store. Authority = per-claim confidence. House default: gitignore at the work unit. |
