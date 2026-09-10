@@ -23,7 +23,7 @@ Detect the active project by matching the most-recently-edited / open file path 
 
 Post-warm-reset, domain knowledge is **not** stored in a monolithic per-project `TECHNICAL.md`. It lives in the **concept graph** (`memory/concepts/`, D8): one `concepts/<domain>.md` per evidenced domain, indexed by `concepts/_INDEX.md`, related by `concepts/_RELATIONS.md`. Seed a domain only on evidence (C7); split a domain to per-concept files only when it grows unwieldy (graduation rule).
 
-The categories below are **organizing lenses / candidate concept domains** (not storage sections): Terminology · Boards & MCUs (+ pin maps) · CircuitPython Library Map · Hardware-Interfacing Patterns · Pin / Peripheral Assumptions · Toolchain · Code Map · Verification Queue. Seeded domains today: `circuitpython-runtime`, `fonts` (see `concepts/_INDEX.md`); candidate-but-unseeded: `power`, `i2c`, `deep-sleep`, `led-driving`, `display`, `fuel-gauge`, `tooling`. A per-concept "Verification Queue" lives inside the relevant `concepts/<domain>.md`.
+The categories below are **organizing lenses / candidate concept domains** (not storage sections): Terminology · Boards & MCUs (+ pin maps) · CircuitPython Library Map · Hardware-Interfacing Patterns · Pin / Peripheral Assumptions · Toolchain · Code Map · Verification Queue. Seeded domains today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git` (see `concepts/_INDEX.md`). Candidate-but-unseeded: `deep-sleep`, `led-driving`, `display`, `tooling`, `sensors`. `fuel-gauge` is folded into `power` (not a separate domain). A per-concept "Verification Queue" lives inside the relevant `concepts/<domain>.md`.
 
 ## CONCLUSIONS.md Conventions
 

@@ -1,3 +1,11 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/07-META-LEARNINGS.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+-->
+
 # Meta-Learnings: Higher-Order Lessons About Learning
 
 These are not directives. They are observations about the learning process itself — patterns that emerged from watching the system evolve over 7 weeks and ~20 sessions.
@@ -35,6 +43,8 @@ When a directive receives no feedback (positive or negative), two hypotheses are
 You cannot distinguish these without actively monitoring. The safe default is hypothesis 1 (retain). But periodically evaluate: "Has this directive actually been applied recently? If not, is it because the situation hasn't arisen, or because I've been ignoring it?"
 
 This is the core of the **"silence ≠ irrelevance"** principle — the most important retention rule in the system.
+
+**Related, higher-stakes: silence ≠ permission.** The same ambiguity that makes "no feedback" uninformative for *retention* makes "the human didn't object to a recommended default" uninformative for *authorization of irreversible actions*. Absence of objection is not a grant. The destructive-ops hard gate (`destructive-operations.md`; `06-FAILURE-MODES.md` F11) is this lesson applied where the cost of a wrong inference is unrecoverable data.
 
 ---
 
@@ -232,7 +242,8 @@ The loop is the product. Everything else — the files, the directives, the fail
 
 ## Cross-References
 
-- Concrete failure examples underlying these meta-learnings → `06-FAILURE-MODES.md`
+- Concrete failure examples underlying these meta-learnings → `06-FAILURE-MODES.md` (F11 = silence-as-permission, the higher-stakes sibling of §3)
+- Destructive-ops hard gate (silence ≠ permission, operationalized) → `destructive-operations.md`
 - The learning process operationalized → `03-SELF-IMPROVEMENT.md`
 - The persistence infrastructure → `01-MEMORY-SYSTEM.md`
 - How to start from scratch → `08-BOOTSTRAPPING.md`

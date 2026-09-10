@@ -4,7 +4,7 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 
 **Graduation rule (D8 = (c))**: each domain starts as one `concepts/<domain>.md` with a `### <concept>` section per concept (one-hop preserved). Split a domain into a folder of per-concept files only when it grows unwieldy or a concept accumulates enough refinement-history/relations to warrant its own file (accumulate-then-split). Seed only domains with ≥1 concrete concept now — do **not** pre-create empty domains.
 
-> **PROVISIONAL (as of 2026-06-14 warm reset).** This structure is an in-flight experiment. **Confirm** = a real domain query resolves one-hop (this index → domain → concept) with no speculative file scanning. **Refute** = a query needs scanning multiple files / speculative search, or a new finding has no deterministic home under the placement gate (`04-multi-project.mdc § Placement gate`). **Trigger** = re-evaluate after ~5 real memory additions land post-reset, or at the next maintenance session. Remove this marker once ~5 additions land with no refute signal.
+> **Confirmed 2026-09-08.** Retrieval/placement (this index → domain → concept; deterministic home under the placement gate) held through post-reset additions (`power`, `i2c`, `git` — 15 concepts in new domains; five projects; no recorded wrong-bucket write or no-home finding). See `universal/CHANGELOG.md § 2026-09-08`. Dedicated-root attachment (2026-07-15) is a separate settled decision — not re-opened.
 
 ## Concepts by domain
 

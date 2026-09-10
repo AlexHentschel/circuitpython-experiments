@@ -16,7 +16,7 @@ A persistent learning framework for an AI agent. The agent accumulates calibrati
 │                          02 domain-structure, 03 update-triggers, 04 multi-project,
 │                          06 destructive-operations hard-gate stub)
 ├── COLLABORATOR_GUIDE.md  This file
-├── reference/             On-demand reading for the agent (background docs; includes destructive-operations.md)
+├── reference/             On-demand corpus snapshots (recipe, not house SOT). See table below.
 ├── mandates/              Pre-declared structural changes (multi-project.md = EXECUTED)
 └── memory/                Agent-managed persistent state — ONE memory shared across all projects
     ├── PERMITTED_DESTRUCTIVE_ACTIONS.md  Fail-closed grant ledger (empty = no deletes)
@@ -85,44 +85,38 @@ This prevents false confidence from propagating while keeping the agent autonomo
 
 ## Where this came from
 
-Generalized from a prior human-AI collaboration on a different domain. Design rationale and broader context: `reference/00-overview.md` → `reference/08-bootstrapping.md` (on-demand reading).
+Generalized from a prior human-AI collaboration on a different domain. The live recipe corpus (optional) is `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/`. Durable snapshots live in `reference/` (ingest 2026-09-07; `ai-notes-convention.md` added 2026-09-08). House source of truth remains the always-injected `.mdc` files + `memory/`.
 
-**Divergence note**: the prior project ran a "validation gate" where the human elevated technical findings to `verified`. That does not apply here — see § Evidence-status discipline above. Other framings in `reference/` may or may not transfer; the always-injected `.mdc` files under `.cursor/rules/` are authoritative for *this* workspace.
+**Divergence note**: the corpus still describes a "validation gate" where the human elevates technical findings to `verified`. That does not apply here — see § Evidence-status discipline above. Other framings in `reference/` may or may not transfer.
+
+## On-demand `reference/` capabilities
+
+These are **recipe snapshots**, not extra always-on rules. The agent should load the matching file when the task calls for it. Claude Code files are **not instantiated**.
+
+| I want… | Open |
+|---|---|
+| Working notes so chat stays a cache | `reference/working-notes-lean-context.md` (what goes inside) + `reference/ai-notes-convention.md` (gitignored default; authority is per-claim confidence, not folder name) |
+| A plan that survives execution | `reference/flexible-plans-for-ai-execution.md` + `reference/plan-refinement-loop.md` |
+| Write memory a future session can use | `reference/cold-ai-paradigm.md` |
+| Destructive-ops full protocol | `reference/destructive-operations.md` |
+| How to write a directive that fires | `reference/effective-behavioral-guidelines.md` |
+| Evolve memory *structure* (not just content) | `reference/10-adaptive-memory-structure.md` |
+| When learning-about-learning stalls | `reference/09-recursive-learning.md` |
+| Multi-project bootstrap (already executed here, adapted) | `reference/11-multi-project-bootstrap.md` — do not re-run |
+| Port this persona to another host | `reference/host-portability.md` (Claude Code instance: `host-adaptation-claude-code.md`, not instantiated) |
+| Commit vs PR altitude | `reference/pull-request-and-commit-message-authoring.md` (Alex's commit *format* stays in `WORKING_STYLE.md`) |
 
 ## What's deployed right now
 
-- Rules and the single unified memory live at `/Users/alex/Development/VsCode/CircuitPython/.cursor/rules/` (canonical).
-- Attached via symlink: **`2026-04_Exp14_DisplayLibrary_CPy_on_RPi-Pico-2040/`** (`<exp14>/.cursor/rules`), and **`/Users/alex/Projects/Family/Bamboo-Lamp/`** (cross-tree symlink added at the warm reset).
-  - ⚠️ **Pending your verification (R-6)**: confirm Cursor's rule loader follows the Bamboo-Lamp symlink when that repo is opened **standalone** (CircuitPython workspace *not* attached). If it doesn't, the fallback is to promote `.cursor/rules` to a user-level root reachable by all projects.
-- Attach another project with (relative link within the CircuitPython tree, or absolute for a cross-tree repo):
-  ```bash
-  mkdir -p "<other-project>/.cursor"
-  ln -s "/Users/alex/Development/VsCode/CircuitPython/.cursor/rules" "<other-project>/.cursor/rules"
-  ```
-- Memory is **shared** across whichever projects opt in (one persona memory); per-project content stays isolated under `projects/<slug>/` while behavioral calibration accumulates across all of them.
-
-### Verifying attachment
-
-From the repo root, this one-liner lists every experiment that has the persona attached and confirms the symlink resolves correctly:
-
-```bash
-for d in 2026-*/; do
-  link="${d}.cursor/rules"
-  if [ -L "$link" ]; then
-    target="$(readlink "$link")"
-    resolved="$(cd "$d.cursor" && cd "$target" 2>/dev/null && pwd || echo MISSING)"
-    echo "[attached] $d -> $target (resolves: $resolved)"
-  fi
-done
-```
-
-Expected output with the current deployment: one line for `Exp14`, resolving to `/Users/alex/Development/VsCode/CircuitPython/.cursor/rules`.
+- Rules and the single unified memory live **only** at `/Users/alex/Development/VsCode/CircuitPython/ai-persona/.cursor/rules/`.
+- The persona loads when `ai-persona` is a folder in the open Cursor workspace (currently `/Users/alex/Development/Cursor Workspaces/circuitpython.code-workspace`). Opening a project folder **standalone** yields **zero** persona coverage — that is the accepted 2026-07-15 trade-off (Cursor does not dedupe `alwaysApply` rules across multi-root folders; the old per-project symlink-fanout was deleted).
+- Memory is **shared** across projects that are co-opened with `ai-persona`; per-project content stays isolated under `projects/<slug>/`.
 
 ### First-session smoke test
 
 Within the first real session on an attached experiment, listen for these three behaviours as a sanity check that the persona loaded:
 
-1. **Cold-start self-awareness** — the agent acknowledges empty memory files and runs a bootstrap-style health check (`reference/08-bootstrapping.md § First Session Protocol`) rather than silently proceeding.
+1. **Cold-start self-awareness** — the agent follows the session-start read order (`04-multi-project.mdc` M5) rather than silently proceeding from chat context alone.
 2. **Scope tagging** — when it proposes adding any `concepts/<domain>.md`, `projects/<slug>/SESSION_LOG.md`, or `projects/<slug>/CONCLUSIONS.md` entry, it tags the scope (content scope `[project:<slug>]`/`[domain:<d>]`/`[cross-experiment]`/`[universal]`; directive scope `[universal]`/`[user]`/`[project]`/`[task]`). If it doesn't, the rules in `03-memory-update-triggers.mdc` / `04-multi-project.mdc` aren't reaching it — check that `.mdc` files are actually being injected (right panel in Cursor → "Rules" should list them).
 3. **Evidence-status discipline** — any CircuitPython claim it produces is marked `unverified` by default, or `evidence-supported` only when accompanied by a cited independent source (datasheet, official CircuitPython doc, on-device observation, or mechanical verification). The agent should flag the status explicitly when proactively presenting a finding.
 

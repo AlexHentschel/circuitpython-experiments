@@ -45,3 +45,4 @@ git push --force --mirror <url>          # re-specify URL: filter-repo drops the
 - Origin + full narrative: `projects/coding-tutor/SESSION_LOG.md` (2026-07-15 remediation).
 - Reusable *process* (attribution/licensing workflow, not git mechanics): `universal/PATTERNS.md` (promoted 2026-09-04; provenance `crossref/BY_PATTERN.md`).
 - Behavioral directive derived here: `universal/WORKING_STYLE.md § Judgment & Escalation` ("verify blast radius…").
+- `ai-notes/` git/lifecycle (gitignored default; never untrack without grant): `universal/WORKING_STYLE.md § Workflow` *Persist task working notes* + `reference/ai-notes-convention.md`. Mechanic for "gitignore does not untrack": this file's `git rm --cached` concept.

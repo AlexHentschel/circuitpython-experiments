@@ -2,7 +2,7 @@
 
 Roster of all projects under this unified persona memory, with **path-globs for active-project detection (M1)**. At session start, match the most-recently-edited / open file path against the globs below to pick the active project; read only that project's folder (+ `universal/*`, `concepts/_INDEX.md`, central `SESSION_LOG.md`). If a path matches none or is ambiguous, **ask before writing per-project memory** (cross-contamination is the top failure mode). Workspace root for the CircuitPython family: `/Users/alex/Development/VsCode/CircuitPython/`.
 
-> **PROVISIONAL (as of 2026-06-14 warm reset).** Watch-for: see `concepts/_INDEX.md` header (one-hop retrieval + deterministic placement). Refute also = a session writes into the wrong project's memory because a glob was ambiguous. Re-evaluate after ~5 real additions.
+> **Confirmed 2026-09-08.** Same retrieval/placement confirm as `concepts/_INDEX.md`. No recorded glob-ambiguity mis-route. Ask-if-ambiguous remains operational hygiene (not a remaining experiment). See `universal/CHANGELOG.md § 2026-09-08`. Dedicated-root (2026-07-15) is settled separately.
 
 ## Roster
 

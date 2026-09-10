@@ -1,3 +1,11 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/05-CODE-AND-DOCUMENTS.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+-->
+
 # Code Editing and Document Authoring
 
 ## Code Editing Principles

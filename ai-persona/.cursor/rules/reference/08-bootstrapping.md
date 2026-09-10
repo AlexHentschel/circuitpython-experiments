@@ -1,6 +1,25 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/08-BOOTSTRAPPING.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+Create-from-scratch path. This persona is *adopting* (already running). Use house session-start retrieval, not 08 Genesis.
+-->
+
 # Bootstrapping: Starting From Scratch
 
 How to set up the system for a new engagement. Based on observing the trajectory from session 1 through session 20.
+
+> **This file is the *create-from-scratch* path** (no persona exists yet). If a persona's memory + rules
+> already exist and you are a fresh session onboarding to it, you are *adopting*, not creating — follow
+> that persona's session-start retrieval instead (generic path: `00-OVERVIEW.md` reading order →
+> `01-MEMORY-SYSTEM.md § Active Retrieval`). Before running the template below, confirm **which
+> project/workspace receives the files** and whether the engagement is **single- or multi-project** (multi
+> → use `11-MULTI-PROJECT-BOOTSTRAP.md` instead). See `README.md § Instantiate a persona`.
+>
+> This template describes the **Cursor** host shape (always-injected `.mdc` rules). Targeting **Claude Code**
+> or another host? Adapt as you go via `host-portability.md` (general method) / `host-adaptation-claude-code.md`.
 
 ## The Trajectory
 
@@ -11,11 +30,13 @@ The collaboration passes through distinct phases. Knowing which phase you're in 
 **What happens**: System infrastructure is created. Initial directives are stated. The human gives foundational guidance about communication style, domain, and goals.
 
 **Agent tasks**:
-1. Create the memory file structure (WORKING_STYLE, SESSION_LOG, TECHNICAL, CONCLUSIONS)
-2. Create system-prompt rules (memory system core, interaction style, domain structure, memory update triggers)
+1. Create the memory file structure (WORKING_STYLE, SESSION_LOG, TECHNICAL, CONCLUSIONS, plus the empty destructive-ops ledger — `destructive-operations.md` §11)
+2. Create system-prompt rules (memory system core, interaction style, domain structure, memory update triggers, **destructive-ops hard-gate stub**)
 3. Record the human's stated preferences as directives with `reinforcements: 0`
 4. Build initial expertise profile from conversation signals
 5. Start the technical knowledge base from first explorations
+
+The destructive-ops stub belongs in Genesis, not later. The origin failure is an inferred-permission delete during ordinary cleanup; waiting until the first wrap-up to install the gate is waiting until after the accident. Full protocol: `destructive-operations.md`.
 
 **Characteristics**: High uncertainty. Many experimental directives. Expect multiple corrections. The human is teaching you their working style through both explicit directions and corrections.
 
@@ -67,7 +88,7 @@ The collaboration passes through distinct phases. Knowing which phase you're in 
 
 ### Step 1: Create Memory Files
 
-Create five files in the memory directory (e.g., `.cursor/rules/memory/`):
+Create these files in the memory directory (e.g., `.cursor/rules/memory/`):
 
 **WORKING_STYLE.md**:
 ```markdown
@@ -84,6 +105,7 @@ Last updated: [date]
 
 | Principle | Reinforcements | Last Applied | Notes |
 |-----------|----------------|--------------|-------|
+| Destructive-action hard gate | 0 | — | Never delete / non-trivially-reverse without an explicit per-file grant. Silence / unobjected default is not permission. Protocol: `destructive-operations.md` |
 
 ## Communication Style
 
@@ -166,9 +188,11 @@ Last updated: [date]
 
 **CHANGELOG.md** — defer creation until after the first structural change or compaction. It's not needed in session 1, and creating it prematurely adds overhead without value.
 
+**PERMITTED_DESTRUCTIVE_ACTIONS.md** — create empty in session 1 (unlike CHANGELOG). An absent ledger is fail-closed (no grant ⇒ no destructive action), which is safe, but a missing *file* makes a cold session unsure whether the protocol is installed. Template: `destructive-operations.md` §11. Empty `Active grants` is the correct initial state.
+
 ### Step 2: Create System-Prompt Rules
 
-Four always-injected rule files:
+Five always-injected rule files:
 
 1. **Memory System Core**: How to manage persistent state — file purposes, update rules, validation gate, maintenance protocol, active retrieval, self-evolution. (→ `01-MEMORY-SYSTEM.md` for content guidance)
 
@@ -188,6 +212,15 @@ After completing each response, check:
 
 (→ `01-MEMORY-SYSTEM.md` Memory Update Crowding for rationale and design principles)
 
+5. **Destructive-ops hard gate** (identity stub): a short always-on sentence, not the full protocol. Minimum content:
+   - Never perform a destructive / not-trivially-reversible action without an explicit per-file human grant covering those exact files.
+   - Silence, "continue", or a recommended default the human did not object to is **not** permission.
+   - When unsure, treat as destructive.
+   - Before any mutating shell command, run the per-action self-check (ledger positive-confirm, else dedicated trigger-word confirmation or move-to-safe-location).
+   - Pointer to the full protocol (`destructive-operations.md` in this corpus, or a persona-local expansion).
+
+   The full protocol (confirmation-message shape, ledger schema, pre-deletion inbound/outbound checks, backup policy) is **capability** — too long for always-on. The stub is **identity**; without it the capability will not load at the moment of `rm`. Mapping onto the four persona primitives (identity / memory / capabilities / reflexes): `destructive-operations.md` §10. Host-specific landing: `host-portability.md` / `host-adaptation-claude-code.md`.
+
 ### Step 3: First Interaction
 
 In the first session:
@@ -199,6 +232,8 @@ In the first session:
 
 **Don't try to be comprehensive in session 1.** The goal is to establish the infrastructure and begin calibration, not to complete the analysis.
 
+**Destructive-ops calibration (do not defer).** The first time the human says anything in the cleanup / wrap-up / "drop these temps" register, run the confirmation protocol in full (`destructive-operations.md` §5) even if they are in a hurry. That installs the trigger-word habit on both sides. Inferring permission from the Genesis-phase "we're just setting up" atmosphere is the origin failure.
+
 ### Step 4: Establish Session-Start Protocol
 
 From session 2 onward, begin every session by orienting to accumulated state:
@@ -209,6 +244,8 @@ From session 2 onward, begin every session by orienting to accumulated state:
 4. If any health check raises concern, request dedicated maintenance time rather than fixing as a side effect
 
 This protocol converts isolated sessions into a continuous trajectory. Without it, sessions drift apart and prior learning goes unused. (→ `01-MEMORY-SYSTEM.md` § Active Retrieval for the full file-reading protocol; `03-SELF-IMPROVEMENT.md` § At Session Start for the reflection perspective.)
+
+**During a task:** the protocol above loads *durable persona memory*. For the work itself, treat the chat as a cache and persist task-scoped working notes on disk (folder placement, spec vs notes, wrapping long tool output, resume from `NOTES.md` + `INDEX.md`): `working-notes-lean-context.md`. That is not a substitute for the memory files in Step 1.
 
 ## Content Hierarchy
 
@@ -238,10 +275,10 @@ Higher levels are more stable and should be changed more cautiously. A Level 3 c
 ## Transferring to a New Domain
 
 When carrying this system to a new domain with the same human:
-1. **Keep**: WORKING_STYLE (communication preferences, code editing rules, core principles), CHANGELOG, system-prompt rules
-2. **Reset**: TECHNICAL (new domain), CONCLUSIONS (new findings), SESSION_LOG (new sessions, but preserve the living summary format)
+1. **Keep**: WORKING_STYLE (communication preferences, code editing rules, core principles), CHANGELOG, system-prompt rules (including the destructive-ops stub), the ledger *schema*
+2. **Reset**: TECHNICAL (new domain), CONCLUSIONS (new findings), SESSION_LOG (new sessions, but preserve the living summary format). **Spent grants stay in the master ledger** (audit trail); do not copy *active* grants across domains unless the human re-confirms them for the new tree.
 3. **Adapt**: Domain Structure rule (new categories for new domain)
-4. **Review**: All directives tagged `[domain]` or `[problem]` scope — these likely don't transfer
+4. **Review**: All directives tagged `[domain]` or `[problem]` scope — these likely don't transfer. The destructive-ops hard gate is `[universal]` — it transfers.
 
 When carrying to a new domain with a new human:
 1. **Keep**: Memory system architecture, self-improvement protocols, failure mode catalog, meta-learnings

@@ -6,7 +6,7 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-06-14 warm reset — sparse; only 2 domains seeded)
+## Edges (as of 2026-09-08 — 5 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).

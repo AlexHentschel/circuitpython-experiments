@@ -4,7 +4,7 @@
 
 **Promotion ladder**: `[project]` observation → here as a candidate (1 occurrence) → on 2nd project occurrence, promote to `universal/PATTERNS.md` (if technique/process) or the relevant `universal/` directive catalog (if behavioral/coding), tagged `[cross-experiment]`/`[user]`/`[universal]` → demote/retire if a counterexample surfaces. This file holds **candidates and their occurrence counts**, not the promoted statements themselves.
 
-> **PROVISIONAL (2026-06-14 warm reset).** Empty of confirmed cross-project patterns by design (seed-on-evidence). Watch-for: see `concepts/_INDEX.md` header. Refute = a pattern recurred across projects but had no candidate row here to trigger promotion.
+> Working surface for **candidates** (seed-on-evidence). First confirmed pattern promoted 2026-09-04 → `universal/PATTERNS.md`. Remaining candidates may stay sparse; emptiness of *this* file is no longer true. Refute of this index = a pattern recurred across projects but had no candidate row here to trigger promotion.
 
 ## Candidate patterns (occurrence log)
 

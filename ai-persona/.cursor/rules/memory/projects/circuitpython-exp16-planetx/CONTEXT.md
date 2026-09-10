@@ -1,6 +1,6 @@
 # Context — circuitpython-exp16-planetx
 
-**Family**: `circuitpython` · **Status:** P6 host-green (overnight 2026-09-04); P7/P8 not started · **Repo folder**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`.
+**Family**: `circuitpython` · **Status:** P6 host-green; P7/P8 not started; **next = discuss round-1 hands-on coverage** · **Repo folder**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`.
 
 ## Scope & goal
 
@@ -50,4 +50,4 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
-**2026-09-04 — overnight P1–P6 host-green.** 146 pytest passed (no `board` / `display.core`). Stopped at the overnight bar. Do **not** P7 `.vscode/` / shared CircuitPythonSync, do **not** P8 / USB-probe until Alex says so. Flash board to CP 10.3.0 at P8. Locks and plan remain in local `ai-notes/` (`NOTES.md`, `plan/plan_v1.0.md`). Learnings already in this folder's `SESSION_LOG.md` + overnight extract in `ai-notes/learnings/p1-p6-overnight.md`.
+**2026-09-09 — discuss first-round hands-on coverage** (Session 11). Host P1–P6 already green. Do **not** start P7 or USB/flash/P8 in the coverage-discussion chat unless Alex opens that window. Flash to CP **10.3.0** before any on-device run. Detail: this folder’s `SESSION_LOG.md` Session 11. Locks/plan: local `ai-notes/NOTES.md`, `ai-notes/plan/plan_v1.0.md` (P8, K1/K2/K5).

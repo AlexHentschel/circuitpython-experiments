@@ -4,10 +4,16 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-09: Session 11 — [exp16] (handoff: first hands-on coverage discussion)
+
+- **Next chat (discussion only):** first round of **human / on-device** tests — what they should cover. Not P1–P6 (host-green). Not P7 `.vscode/` / shared CircuitPythonSync. Do **not** USB-probe, flash, or deploy until Alex opens that window in that chat.
+- Plan pointers: `ai-notes/plan/plan_v1.0.md` P8 + Known unknowns **K1** (bundle `asyncio`), **K2** (PlanetX C/D cable), **K5** (onboard A/B); cadence **P-device / P-human**. Locks: `ai-notes/NOTES.md` (flash 10.3.0 first; human testing rare/strategic).
+- Deliverable of that chat: an agreed coverage list (and what is *out* of round 1). Implementation / `code.py` / flash only if Alex then asks.
+
 ## 2026-09-09: Session 10 — [exp16] (`ai-notes/` split + untrack)
 
 - Grant `G-2026-09-08-1` (`untracking granted`). Lifted student-API guidelines to committed `Notes/student-api-portability.md`; checkpoint into README Status; emulation headlines into CONCLUSIONS (unverified). README no longer links into `ai-notes/`.
-- `git rm -r --cached` on `ai-notes/` (34 files); working tree kept. Gitignore: experiment `.gitignore` + repo `**/ai-notes/`. Commit + local history scrub 2026-09-09 (`G-2026-09-09-1`). **Alex runs:** force-push, working-tree delete. Merged PR #2 still holds pre-rewrite SHAs until GitHub Support.
+- `git rm -r --cached` on `ai-notes/` (34 files); working tree kept. Gitignore: experiment `.gitignore` + repo `**/ai-notes/`. Commit `ae8ac09`. History scrub was prepped + verified locally (`G-2026-09-09-1`) but **abandoned** — Alex clarified the ai-notes are noise, not confidential, and may remain in GitHub history. **Revised non-destructive plan:** fast-forward `git push origin alex/display-mvp_5x5` (publishes `ae8ac09`); master untouched; no force-push. Optional `rm -rf` on-disk `ai-notes/` (gitignored). Runbook: `/tmp/circuitpython-experiments-scrub-20260909-INSTRUCTIONS.md`.
 - Local notes remain the plan/locks/cadence store (`INDEX.md`, `NOTES.md`, `plan/`).
 
 ## 2026-09-07: Session 9 — [exp16] (persona-less AI persist: emulation research)

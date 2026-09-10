@@ -1,3 +1,11 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/03-SELF-IMPROVEMENT.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+-->
+
 # Self-Improvement: Reflection, Learning, and Generalization
 
 This is the most important file in this collection. The specific directives in other files will need to be re-derived for new domains. The _process_ of deriving them — reflection, pattern extraction, generalization, experimentation — is what carries forward.
@@ -220,3 +228,4 @@ The litmus test: "Am I changing this because I have evidence of a better approac
 - Experimentation → the content hierarchy (`07-META-LEARNINGS.md` §10b) determines how cautiously to experiment at each level
 - Bootstrapping the learning process from scratch → `08-BOOTSTRAPPING.md`
 - Generalization awareness (directive application) → `02-INTERACTION-STYLE.md` §7
+- The recursive case study: applying this file's principles to fix the learning process itself → `09-RECURSIVE-LEARNING.md`

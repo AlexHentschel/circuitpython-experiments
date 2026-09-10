@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Multi-Project Memory
 
-This persona keeps **one unified memory** shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future), reachable from each workspace via the `.cursor/rules` symlink. This file is the **single source of truth** for *routing and the session-start read order* — `00`/`02`/`03` defer here. Layout overview + file table: `00-memory-system.mdc § File Architecture`. Migration record: `universal/CHANGELOG.md § 2026-06-14`. Authored at the 2026-06-14 warm reset (plan `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md`, mandate `mandates/multi-project.md`).
+This persona keeps **one unified memory** shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future). Physical home: `CircuitPython/ai-persona/.cursor/rules/` (dedicated workspace root since 2026-07-15; the 2026-06-14 `.cursor/rules` symlink-fanout was dropped). This file is the **single source of truth** for *routing and the session-start read order* — `00`/`02`/`03` defer here. Layout overview + file table: `00-memory-system.mdc § File Architecture`. Migration record: `universal/CHANGELOG.md` §§ 2026-06-14 warm reset, 2026-07-15 dedicated-root, 2026-09-08 retrieval/placement confirm. Authored at the 2026-06-14 warm reset (plan `working-docs/warm-reset-plan/warm-reset-plan_v1.0.md`, mandate `mandates/multi-project.md`).
 
-> **PROVISIONAL (as of 2026-06-14).** The layout is an in-flight experiment. **Confirm** = real queries resolve one-hop (index→domain/project→detail) with deterministic placement. **Refute** = a query needs multi-file scanning/speculative search, a write lands in the wrong project, or a finding has no deterministic home here. **Trigger** = re-evaluate after ~5 real memory additions land post-reset, or next maintenance session. Remove the marker (here + `concepts/_INDEX.md` + `projects/_INDEX.md`) once ~5 additions land with no refute.
+> **Confirmed 2026-09-08.** Retrieval/placement (one-hop index→domain/project→detail, deterministic home) held; no refute. See `concepts/_INDEX.md` / `projects/_INDEX.md` / `universal/CHANGELOG.md § 2026-09-08`. Dedicated-root / no symlink-fanout (2026-07-15) is already settled — this confirm does not re-open it.
 
 ## M1 — Active-project detection (do this first, every session)
 

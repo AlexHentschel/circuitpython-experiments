@@ -22,7 +22,7 @@ This is the **central** session log for the unified persona memory. It holds the
 
 **Corpus ingest (2026-09-07):** complete (gap-close, not a second warm-reset). Durable record: `universal/CHANGELOG.md § 2026-09-07`. PROVISIONAL-marker promotion was left unbundled then; **executed 2026-09-08** (this living-summary block).
 
-**`ai-notes/` (2026-09-09):** task working store; typically gitignored. **Authority = per-claim confidence.** `ai-persona/ai-notes/` never tracked. Exp16 `ai-notes/` **untracked** (grant `G-2026-09-08-1`); files kept on disk. Cue: `WORKING_STYLE.md § Workflow` *Persist task working notes*.
+**`ai-notes/` (2026-09-09):** task working store; typically gitignored. **Authority = per-claim confidence.** `ai-persona/ai-notes/` never tracked. Exp16 `ai-notes/` **untracked** (`G-2026-09-08-1`, commit `ae8ac09`). History scrub was prepped+verified locally but **abandoned** — Alex clarified the history noise is not confidential and may remain; plan is now non-destructive fast-forward push of `ae8ac09`, master untouched. On-disk notes still present. Cue: `WORKING_STYLE.md § Workflow` *Persist task working notes*.
 
 **Available skills**: `circuit-drawing-generator` at `Bamboo-Lamp/.claude/skills/circuit-drawing-generator/SKILL.md` — Schemdraw code → SVG. Python env `/Users/alex/Development/PythonVEs/MicroControllers/bin/python`; render `python scripts/render_circuit.py input.py output.svg` from the Bamboo-Lamp root. Smoke-tested 2026-05-25 (Schemdraw v0.22). Label-placement notes in `Bamboo-Lamp/Notes.md`.
 
@@ -62,9 +62,10 @@ When the same fact must live in two places (rare; only when duplication serves d
 
 ## Cross-project & tooling sessions
 
-## 2026-09-09: Session — [exp16] (`ai-notes/` split + untrack)
+## 2026-09-09: Session — [exp16] (`ai-notes/` split + untrack + local scrub)
 
-- Grant `G-2026-09-08-1`. Durable lift: `Notes/student-api-portability.md`, README Status, CONTEXT, CONCLUSIONS (emulation `unverified`). Then `git rm -r --cached` (34 files, working tree kept). Gitignore: exp16 `.gitignore` + repo `**/ai-notes/`. Not committed; no history scrub; no delete.
+- Grant `G-2026-09-08-1`. Durable lift: `Notes/student-api-portability.md`, README Status, CONTEXT, CONCLUSIONS (emulation `unverified`). Then `git rm -r --cached` (34 files, working tree kept). Gitignore: exp16 `.gitignore` + repo `**/ai-notes/`. Commit `ae8ac09` on `alex/display-mvp_5x5`.
+- Grant `G-2026-09-09-1` **spent (unused)**. Local `filter-repo` scrub prepped + verified on origin-mirror (ai-notes unreachable from all heads/objects; rewritten `master` vs GitHub `9f64681` differ by exactly the 34 ai-notes files; `ae8ac09^{tree}==1cb43d2^{tree}`). **Then abandoned:** Alex clarified the ai-notes are **noise, not confidential — may remain in GitHub history**. Revised plan strictly non-destructive: fast-forward `git push origin alex/display-mvp_5x5` (publishes `ae8ac09`); **master untouched, no force-push, no history rewrite**. Uncommitted persona edits never touched by a plain push (no reset/stash needed). Optional: `rm -rf` on-disk `ai-notes/` (gitignored), delete /tmp scrub. **Learning:** confirm the driver (confidentiality vs tidiness) *before* proposing a high-blast-radius history rewrite — reinforced `WORKING_STYLE § Judgment` blast-radius directive. Runbook: `/tmp/circuitpython-experiments-scrub-20260909-INSTRUCTIONS.md`.
 
 ## 2026-09-08: Session — [tooling] (PROVISIONAL-marker pass: **executed**)
 

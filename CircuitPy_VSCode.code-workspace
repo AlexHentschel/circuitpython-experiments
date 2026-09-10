@@ -58,6 +58,12 @@
 		},
 		{
 			"path": "CodingTutor"
+		},
+		{
+			"path": "ai-persona"
+		},
+		{
+			"path": "2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX"
 		}
 	],
 	"settings": {
