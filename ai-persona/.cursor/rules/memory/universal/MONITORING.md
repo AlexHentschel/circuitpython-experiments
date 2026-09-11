@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-11 (CIRCUITPY-vs-OTA slot-count conflation. Prior: `**/.kilo/` gitignored. Prior: 2026-09-09 Exp16 `ai-notes/` untracked.)
+Last updated: 2026-09-11 (same day, cont'd: two new entries from a retrospective plan-refinement-loop pass on exp16's Session 16→17 handoff prompt — *chat-only deliverables have no durable-retrieval path* and *autonomy-envelope granularity: read-only probes vs. writes*. Prior: CIRCUITPY-vs-OTA slot-count conflation. Prior: `**/.kilo/` gitignored. Prior: 2026-09-09 Exp16 `ai-notes/` untracked.)
 
 Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
@@ -111,6 +111,20 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: log the second incident's resolution against the shape of the code, then if the decision criteria match this one, write a `(experimental)` directive in `CODING_PRINCIPLES.md` covering the threshold and the call-site-distinctness factor. Until then, single-incident — keep here.
   - **First observed**: 2026-04-25 (session 7 continuation, this entry).
   - **Scope**: `[universal]` candidate (the calculation isn't language-specific or experiment-specific — just code-shape-specific).
+
+- **Chat-only deliverables in no-plan-mode handoff sessions have no durable-retrieval path**
+  - **Observation**: exp16 Session 17 (executing a no-plan-mode `/handoff-exec-prompt`) produced a 4-stage LED-matrix test-plan summary as a "Then"-step deliverable, presented to Alex entirely in-chat and deliberately not duplicated into a file (reasonable in isolation — avoids re-listing `README.md`/`lib/display/README.md` API surfaces). `SESSION_LOG.md` records *that* it happened and its shape, not its content — a future cold AI needing "the actual test plan from Session 17" has no file to read. Surfaced during a retrospective plan-refinement-loop pass on the Session-16→17 handoff prompt (`ai-notes/handoff-prompt-refinement-2026-09-11/`), single incident, no recurrence yet.
+  - **Trigger**: a future session actually needs the content of a chat-only deliverable from a prior no-plan-mode handoff and it isn't retrievable except via raw transcript.
+  - **Action on trigger**: add explicit persistence guidance to `~/.cursor/skills/handoff-exec-prompt/` (SKILL.md output-shape table or `reference.md`) — a "Then"-step deliverable produced during the executing chat should default to a small persisted file (even a pointer-only one) unless it's pure re-derivation of already-documented API surface, in which case a `SESSION_LOG.md` shape-summary is enough. Until triggered, no skill edit — this is one clean, defensible judgment call, not yet a pattern.
+  - **First observed**: 2026-09-11 (exp16 Session 17, discovered retrospectively same day).
+  - **Scope**: `[user]` candidate (the skill is Alex's own global tool, not project-specific) — held at `[project:circuitpython-exp16-planetx]` incident scope until a second occurrence.
+
+- **Autonomy-envelope granularity: read-only device/serial probes vs. writes, in handoff-prompt autonomy envelopes**
+  - **Observation**: the exp16 Session-16→17 handoff prompt's autonomy envelope lumped "interpreting on-device test results (serial output, visual LED behavior)" together as "collaborative, in real time with Alex present." But `scripts/read_serial_log.py` (exp16, built Session 16) was purpose-built for autonomous, non-interactive serial reads (VID auto-detect, bounded duration, never calls `.write()`) — only *visual* LED confirmation is source-grounded as needing Alex physically present. Session 17 never exercised this clause (no device write happened that round), so the ambiguity is theoretical so far, not yet a real friction incident.
+  - **Trigger**: a future exp16 (or other project's) handoff-prompt autonomy envelope again collapses "read-only device/serial probe" and "visual/physical confirmation" into one clause, AND a session actually needs the autonomous-read half and the wording gets in the way (hesitates, asks unnecessarily, or over-reaches).
+  - **Action on trigger**: split the envelope clause going forward — read-only, non-interactive device/serial probes via a purpose-built script are autonomous by default (same tier as local file edits); anything requiring a human's eyes/hands (visual confirmation, physical board manipulation, any write) stays collaborative/never-autonomous. Add this split as a standing pattern in the `handoff-exec-prompt` skill's autonomy-envelope guidance once it recurs.
+  - **First observed**: 2026-09-11 (exp16, retrospective review of Session 16→17 handoff, `ai-notes/handoff-prompt-refinement-2026-09-11/`).
+  - **Scope**: `[project:circuitpython-exp16-planetx]`, candidate `[user]`-scope skill pattern on 2nd occurrence.
 
 - **Inferring CIRCUITPY size from OTA slot count**
   - **Observation**: treating `ota_*` as the user volume; conflating firmware-slot growth with user-FS shrink.
