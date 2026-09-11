@@ -51,6 +51,7 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 - **Espressif 4MB CircuitPython upgrade (TinyUF2 + ROM/esptool)** — three layers (ROM / TinyUF2 ≥0.33 / CircuitPython); esptool v5 hyphenated CLI; `combined.bin` @ 0x0 wipes CIRCUITPY. BPI-Bit-S2: `BITS2BOOT`, chip **esp32s2**. 4MB-only; ≥8MB boards skip this TinyUF2 CP10 path. Tables: `tooling-4mb-partitions.md`.
 - **Two similarly-named CircuitPython extensions do different jobs** — `padgettholdings.circuitpythonsync` is the real file-sync tool (commands only, no file-based board/drive config); `wmerkens.vscode-circuitpython-v2` is Pylance stubs only (its `circuitpython.*` workspace-file keys don't control sync). Don't conflate.
 - **`circuitpythonsync`'s "Copy Files/Libs to Board" only works for `workspaceFolders[0]`** — not multi-root-aware (verified in its own bundled source); every other open experiment's copy command fails with a misleading "no files exist" error. Open that experiment alone to fix, no shared-file edit needed.
+- **Cursor's own `.cursor/rules/` discovery is NOT gated by folder order** in multi-root workspaces (unlike the extension above) — every root is scanned independently; the real caveat is a mixed flat/subdir `.mdc` layout silently dropping a root's rules entirely (order-independent). Staff-confirmed forum evidence, not formal docs.
 - **TinyUF2 4MB partition CSVs** (`tooling-4mb-partitions.md`) — dual-OTA vs no-OTA; `ffat` 960K both; `ota_0` 1408K→2816K. Stream on demand.
 
 ## Candidate domains (NOT yet seeded — no concrete concept in evidence)
