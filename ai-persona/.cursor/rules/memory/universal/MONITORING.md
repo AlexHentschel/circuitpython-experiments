@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-09 (Exp16 `ai-notes/` untracked; files kept. Prior: 2026-09-08 ingest quality-risk watch.)
+Last updated: 2026-09-11 (CIRCUITPY-vs-OTA slot-count conflation. Prior: `**/.kilo/` gitignored. Prior: 2026-09-09 Exp16 `ai-notes/` untracked.)
 
 Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
 
@@ -98,9 +98,23 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **First observed**: 2026-09-08 (transitional tracked state). **Closed**: 2026-09-09 untrack.
   - **Scope**: `[user]` for the default; Exp16 instance done.
 
+- **Kilo Code `.kilo/` is local tool state (gitignored 2026-09-11)**
+  - **Observation**: Exp16 grew an untracked `.kilo/` (`kilo.jsonc` + nested `.gitignore`). Same category as `ai-notes/`: not experiment source. House default: `**/.kilo/` at repo root (+ experiment `.gitignore`). Folder stays on disk.
+  - **Trigger**: a new experiment (or persona folder) is about to commit `.kilo/`, `.kilocode/`, or similar IDE-agent tool state by reflex.
+  - **Action on trigger**: gitignore at repo root (`**/<dir>/`); do not track. Do not `git rm --cached` if it was never indexed. Do not delete the folder unless Alex asks.
+  - **First observed**: 2026-09-09 (left untracked at commit `172e5ef`); ignore added 2026-09-11.
+  - **Scope**: `[user]`.
+
 - **Promotion candidate: body-size threshold for *consolidate duplicated code in a shared function***
   - **Observation**: the consolidation rule (P2.1 audit established it for the previously-shared `_iter_pattern_rows`) has a body-size threshold below which it stops carrying weight, plus an interaction with call-site-profile distinctness. For the `_iter_pattern_rows` case (4 lines of body, two distinct call-site profiles — cold parse-once vs hot parse-per-frame), the right answer turned out to be two specialised functions, not one shared function with a configuration knob. Single incident so far; pattern not yet promoted.
   - **Trigger**: a second incident where the question "extract this duplicate into a shared helper, or keep two specialised copies" comes up on a code shape *other than* a pattern-row generator (e.g. a small render helper, a small validator, a small encoding step). The decision point is: does the body cross the drift-risk threshold, and how distinct are the call-site optimization profiles?
   - **Action on trigger**: log the second incident's resolution against the shape of the code, then if the decision criteria match this one, write a `(experimental)` directive in `CODING_PRINCIPLES.md` covering the threshold and the call-site-distinctness factor. Until then, single-incident — keep here.
   - **First observed**: 2026-04-25 (session 7 continuation, this entry).
   - **Scope**: `[universal]` candidate (the calculation isn't language-specific or experiment-specific — just code-shape-specific).
+
+- **Inferring CIRCUITPY size from OTA slot count**
+  - **Observation**: treating `ota_*` as the user volume; conflating firmware-slot growth with user-FS shrink.
+  - **Trigger**: a second time CIRCUITPY / user-FS size is deduced from how many OTA app partitions exist, without naming `ffat`.
+  - **Action on trigger**: add a `WORKING_STYLE.md` Domain-Specific row — do not infer user-FS size from OTA slot count; named flash partition ≠ mounted volume. Cite this entry as provenance. Then remove this observation.
+  - **First observed**: 2026-09-11 (agent claimed pre-0.33 CIRCUITPY would be larger). Tables: `concepts/tooling-4mb-partitions.md`.
+  - **Scope**: `[user]`.

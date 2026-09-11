@@ -1,3 +1,6 @@
 # Task working store — local. Durable claims: Notes/ + persona memory.
 # House default: ai-notes-convention.md (gitignored ≠ non-authoritative).
 ai-notes/
+
+# Kilo Code tool state — local. Covered by repo-root **/.kilo/ as well.
+.kilo/

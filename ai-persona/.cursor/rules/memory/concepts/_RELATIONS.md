@@ -6,13 +6,15 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-09-08 — 5 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`)
+## Edges (as of 2026-09-11 — 6 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
 - `i2c: back-feeding (ESD-diode)`  —pairs-with—  `power: power-domain isolation & powered-off protection (Ioff)`   (same ESD-diode mechanism; `i2c` = the SDA/SCL-bus instantiation, `power` = the general domain-boundary framing + Ioff part-selection. Read both; neither duplicates the other).
 - `i2c: open-drain / wired-AND`  —composes-with—  `power: fuel gauge (MAX17048)`   (the MAX17048 SDA/SCL-low sleep entry is a direct consequence of open-drain line behaviour).
 - `i2c: pull-up sizing`  —pairs-with—  `power: standby current budgeting`   (held-low / idle-high pull-up current is a standby-power line item).
+- `tooling: Espressif 4MB CircuitPython upgrade`  —composes-with—  `circuitpython-runtime: mpy-cross is CircuitPython’s binary`   (host flash version must match the Adafruit `mpy-cross` / stub pin; exp16 lock = CP 10.3.0).
+- `tooling: TinyUF2 4MB partitions`  —refines—  `tooling: Espressif 4MB CircuitPython upgrade`   (CSV rows / arithmetic; stream `tooling-4mb-partitions.md`).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 

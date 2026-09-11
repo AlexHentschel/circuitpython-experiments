@@ -8,6 +8,7 @@ Fireable cue: WORKING_STYLE.md § Workflow (*Persist task working notes*).
 Companion for *what goes inside*: `working-notes-lean-context.md`.
 House instance: `ai-persona/ai-notes/` gitignored (never tracked). Exp16 `ai-notes/` gitignored + untracked 2026-09-09 (files kept on disk).
 2026-09-08 refine: gitignored ≠ non-authoritative; a marked high-confidence claim can be SOT for the task.
+House overlay 2026-09-11: wrap-up assumes this folder may vanish; non-confidential must land in `memory/` (parent + ≤1 KB sidecar if needed) before cleanup. Remainder here = confidential/security-sensitive only unless Alex specifies otherwise. Cue: `WORKING_STYLE.md § Workflow` *Wrap-up assumes `ai-notes/` may vanish*.
 -->
 
 # The `ai-notes/` folder convention

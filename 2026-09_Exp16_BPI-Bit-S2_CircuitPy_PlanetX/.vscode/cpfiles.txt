@@ -1,0 +1,6 @@
+# CircuitPythonSync file copy manifest
+# Lines starting with # are comments (ignored).
+# Format:  source_file  or  source_file -> /destination_on_board
+#
+# ACTIVE milestone (change the active line to switch milestones):
+code.py

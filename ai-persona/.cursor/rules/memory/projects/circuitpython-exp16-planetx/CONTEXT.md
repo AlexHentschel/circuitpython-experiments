@@ -50,4 +50,6 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
-**2026-09-09 — discuss first-round hands-on coverage** (Session 11). Host P1–P6 already green. Do **not** start P7 or USB/flash/P8 in the coverage-discussion chat unless Alex opens that window. Flash to CP **10.3.0** before any on-device run. Detail: this folder’s `SESSION_LOG.md` Session 11. Locks/plan: local `ai-notes/NOTES.md`, `ai-notes/plan/plan_v1.0.md` (P8, K1/K2/K5).
+**2026-09-11 — UID `0740D10F1BE9` is CP 10.3.0** (Session 14). Path A: TinyUF2 was already 0.35.0; CP UF2 copy preserved CIRCUITPY (LED-icon `code.py` still running). Other boards not assumed. Exp16 on-device (P8) now unblocked on **this** unit. Do not flash Path B on this unit unless TinyUF2 is later damaged.
+
+**Session 11/15 coverage discussion (separate chat) — unresolved reconciliation:** round-1 coverage list drafted (`ai-notes/NOTES.md` § Current checkpoint), but Alex answered "board still needs flashing" in that chat *after* Session 14 had already flashed `0740D10F1BE9` — conflict flagged to Alex, not resolved. Confirm which unit round-1 targets before finalizing the list. `ai-notes/` was also found empty (Alex's own accidental delete) and fully recovered from git history in Session 15 — see `ai-notes/learnings/2026-09-11_ai-notes-deletion-recovery.md`.

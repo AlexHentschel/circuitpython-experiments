@@ -4,6 +4,23 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-11 — extend: 4MB-partition sidecar + wrap-up destillation (notes may vanish)
+
+**Trigger:** Alex — compile the enumerated TinyUF2 4MB CSV tables (the only home was gitignored `ai-notes/esp32-4mb-circuitpy-vs-ota/`) into a ≤1 KB durable artifact; wrap-up must assume `ai-notes/` may later be gone; notes remainder = confidential/sensitive only unless specified. This research and Exp16 are not confidential (Exp16 dump-all deferred to that wrap-up).
+
+**Change** (`extend`; same domain `tooling`, not a C7 new domain; D8 stream-on-demand detail file, not a per-concept folder split):
+
+- New `concepts/tooling-4mb-partitions.md` (789 B; Adafruit 4MB CSV rows + 1408+1408 arithmetic + 0.32≡0.35 identity). `_INDEX` line + `_RELATIONS` —refines— edge. Pointers retargeted: `tooling.md` how-to-check-status, `MONITORING.md`, exp16 CONCLUSIONS + SESSION_LOG.
+- New `[user]` Workflow row *Wrap-up assumes `ai-notes/` may vanish* (sibling of *Persist task working notes*). Playbook Objective 3 / G7 / extract schema / SKILL hard-stop / durable-target row updated: source-only-until-cleanup **superseded** for non-confidential.
+
+**Preserve:** parent `tooling.md` mechanism claims; G10 credentials sanitization; Exp16 not dump-all this turn. Notes folder later moved to Trash by Alex (`G-2026-09-11-3`); workspace-absent 2026-09-11.
+
+## 2026-09-11 — extend: seed `concepts/tooling.md` (first concept)
+
+**Trigger:** exp16 walkthrough — upgrade BPI-Bit-S2 CP 10.0.3 → 10.3.0 via esptool + TinyUF2. `tooling` was a C7 candidate; first concrete evidenced concept arrived.
+
+**Change** (`extend`; seed-on-evidence, not a reorg): new `concepts/tooling.md` (Espressif 4MB TinyUF2 + ROM/esptool v5). Index line + candidate-list note in `concepts/_INDEX.md`; one `_RELATIONS.md` edge to `circuitpython-runtime: mpy-cross`; `02-domain-structure.mdc` seeded-domain list. Board-specific boot sequence also in exp16 CONCLUSIONS.
+
 ## 2026-09-08 — refine: retrieval/placement layout **confirmed** (drop June-14 experiment banners)
 
 **Trigger:** Alex “please proceed with pass” on `ai-notes/provisional-marker-pass/plan_v1.0.md`. Watch-for (~5 additions, no refute) exceeded since 2026-06-15 / 2026-07-15; ingest 2026-09-07 (R3) explicitly did not bundle this.

@@ -4,9 +4,10 @@ Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agen
 This file is a capability snapshot (recipe), not house source of truth.
 House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
 Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
-Fireable cue: WORKING_STYLE.md § Workflow (*Persist task working notes*).
+Fireable cue: WORKING_STYLE.md § Workflow (*Persist task working notes* + sibling *Wrap-up assumes `ai-notes/` may vanish*).
 Companion: `ai-notes-convention.md` (git/lifecycle + epistemic role: authority is per-claim confidence).
 House: `ai-persona/ai-notes/` gitignored 2026-09-08. Corpus body still calls `ai-notes/` a proposed name.
+House overlay 2026-09-11: wrap-up assumes notes may vanish; non-confidential must already live in `memory/` before cleanup.
 -->
 
 # Working notes + lean context

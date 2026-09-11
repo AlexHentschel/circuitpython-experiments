@@ -7,7 +7,7 @@ This is the **central** session log for the unified persona memory. It holds the
 **Memory layout (unified, since the 2026-06-14 warm reset)**: ONE persona memory home at `.cursor/rules/memory/`, reachable from every project workspace (NOT federated). Structure:
 - `universal/` — behavioral / cross-project: `WORKING_STYLE.md`, `CODING_PRINCIPLES.md`, `MONITORING.md`, `CHANGELOG.md`, `PATTERNS.md`.
 - `PERMITTED_DESTRUCTIVE_ACTIONS.md` — **fail-closed grant ledger** for destructive ops (empty = nothing permitted). Always-on stub: `06-destructive-operations.mdc`. Protocol: corpus `destructive-operations.md`.
-- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`).
+- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`).
 - `projects/` — `_INDEX.md` (roster + path-globs) + `<slug>/` digests (`CONTEXT.md` + `SESSION_LOG.md` + `CONCLUSIONS.md`), linking into each project repo's technical artifacts.
 - `crossref/` — `BY_TOPIC.md` (topic→projects) + `BY_PATTERN.md` (promotion-ladder working surface). First `universal/PATTERNS.md` entry landed 2026-09-04 (public-repo third-party hygiene).
 - `reference/` (sibling of `memory/`, not inside it) — dated corpus **snapshots** (recipe, not house SOT). Last ingest **2026-09-07**. House SOT remains always-injected `.mdc` + `memory/universal/WORKING_STYLE.md`.
@@ -22,7 +22,7 @@ This is the **central** session log for the unified persona memory. It holds the
 
 **Corpus ingest (2026-09-07):** complete (gap-close, not a second warm-reset). Durable record: `universal/CHANGELOG.md § 2026-09-07`. PROVISIONAL-marker promotion was left unbundled then; **executed 2026-09-08** (this living-summary block).
 
-**`ai-notes/` (2026-09-09):** task working store; typically gitignored. **Authority = per-claim confidence.** `ai-persona/ai-notes/` never tracked. Exp16 `ai-notes/` **untracked** (`G-2026-09-08-1`, commit `ae8ac09`). History scrub was prepped+verified locally but **abandoned** — Alex clarified the history noise is not confidential and may remain; plan is now non-destructive fast-forward push of `ae8ac09`, master untouched. On-disk notes still present. Cue: `WORKING_STYLE.md § Workflow` *Persist task working notes*.
+**`ai-notes/` (2026-09-11 destillation):** during-task working store (authority = per-claim confidence). **At wrap-up**, assume the folder may vanish — all non-confidential claims must already live in `memory/` (parent + ≤1 KB sidecar if needed). Post-wrap remainder in notes = confidential/security-sensitive only, unless Alex specifies otherwise. Cue: `WORKING_STYLE.md § Workflow` *Wrap-up assumes `ai-notes/` may vanish* (sibling of *Persist task working notes*). `ai-persona/ai-notes/` never tracked. Exp16 `ai-notes/` **untracked** (`G-2026-09-08-1`, commit `ae8ac09`). History scrub abandoned (noise, not confidential). On-disk Exp16 notes later deleted by Alex. Sibling: `**/.kilo/` gitignored 2026-09-11 (Kilo Code tool state; folder kept on disk).
 
 **Available skills**: `circuit-drawing-generator` at `Bamboo-Lamp/.claude/skills/circuit-drawing-generator/SKILL.md` — Schemdraw code → SVG. Python env `/Users/alex/Development/PythonVEs/MicroControllers/bin/python`; render `python scripts/render_circuit.py input.py output.svg` from the Bamboo-Lamp root. Smoke-tested 2026-05-25 (Schemdraw v0.22). Label-placement notes in `Bamboo-Lamp/Notes.md`.
 
@@ -51,7 +51,7 @@ This is the **central** session log for the unified persona memory. It holds the
 | Cross-project topic/pattern lookup | `crossref/BY_TOPIC.md`, `crossref/BY_PATTERN.md` | Agent (operational) |
 | Project roster + active-project path-globs | `projects/_INDEX.md` | Agent (operational) |
 | Corpus recipe snapshots (dated; not house SOT) | `.cursor/rules/reference/` (ingest 2026-09-07; `ai-notes-convention.md` 2026-09-08) | Agent copies on an explicit ingest grant; house SOT stays `.mdc` + `WORKING_STYLE.md` |
-| Task working store (`ai-notes/`) | local gitignored folder at the work unit; **authority is per-claim confidence** | Agent writes freely; mark confidence. Wrap-up later compresses into `memory/` / versioned deliverable. Do not untrack a checked-in copy without a grant. |
+| Task working store (`ai-notes/`) | local gitignored folder at the work unit; **authority is per-claim confidence** | Agent writes freely during the task; mark confidence. **Wrap-up destills all non-confidential into `memory/`** (parent + ≤1 KB sidecar if needed); notes remainder after wrap-up = confidential/sensitive only unless specified. Do not untrack a checked-in copy without a grant. |
 | Active plan for a project | the project's plan store (e.g. exp14: `~/.cursor/plans/display_library_refactor_d42ccd55.plan.md`) | Agent maintains; phase-close revisions presented to Alex |
 
 When the same fact must live in two places (rare; only when duplication serves distinct consumers), log it here and add a sync-check to the next maintenance reflection.
@@ -61,6 +61,28 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Scope-tag dimensions** — two *orthogonal* axes (D4): (1) *directive scope* `[universal]/[user]/[project]/[task]` (authoritative in `WORKING_STYLE.md` header; echoed in `01-interaction-style.mdc`); (2) *content scope* `[universal]/[domain:x]/[family:y]/[project:slug]/...` (authoritative in `04-multi-project.mdc § Scope tagging`; rubric in `working-docs/warm-reset-plan/microcontroller-multi-project-memory-guidelines.md § 5`). Don't collapse the two.
 
 ## Cross-project & tooling sessions
+
+## 2026-09-11: Session — [tooling] (4MB-partition sidecar + wrap-up destillation)
+
+- Compiled TinyUF2 4MB CSV tables into `concepts/tooling-4mb-partitions.md` (stream-on-demand sidecar of `tooling.md`; ≤1 KB). Pointers retargeted off `ai-notes/esp32-4mb-circuitpy-vs-ota/`. New WS row *Wrap-up assumes `ai-notes/` may vanish*. Playbook Objective 3 / G7 supersede source-only-until-cleanup for non-confidential. Calibration: this research + Exp16 are not confidential (Exp16 dump-all deferred). **Cleanup:** Alex moved that notes folder to Trash (`G-2026-09-11-3`); workspace path verified **absent** 2026-09-11. Restore = Trash until emptied.
+
+## 2026-09-11: Session — [tooling] (wrap-up draft-plan: high-level CIRCUITPY vs OTA notes)
+
+- `/experiment-wrapup-to-memory` **closed** 2026-09-11 (high-level CIRCUITPY vs OTA). Durable: `concepts/tooling.md` `df`/FAT overhead; `universal/MONITORING.md` OTA-slot ≠ user FS. Enumerated tables later distilled to `concepts/tooling-4mb-partitions.md` (same day). Wrap-up scratch removed by Alex (verified absent).
+
+## 2026-09-11: Session — [tooling] (wrap-up draft-plan: CircuitPython firmware-update research)
+
+- `/experiment-wrapup-to-memory` **closed** 2026-09-11. Durable: `concepts/tooling.md` + `_INDEX.md` 4MB-scope / ≥8MB skip / vendor-CSV + `#6285`. Enumerated tables later distilled to `concepts/tooling-4mb-partitions.md` (same day). Wrap-up scratch removed by Alex (verified absent).
+
+## 2026-09-11: Session — [tooling] (port `/experiment-wrapup-to-memory` skill)
+
+- Ported the wrap-up-to-memory skill from `onflow/high-assurance-engineering` `.cursor/skills/experiment-wrapup-to-memory/` into this persona: `.cursor/skills/experiment-wrapup-to-memory/{SKILL.md,reference.md}`. Vehicle = Cursor project skill (`disable-model-invocation: true`) → slash `/experiment-wrapup-to-memory`, human-triggered only. Reachable when `ai-persona` is an open workspace root.
+- **Self-contained**: playbook (7-step gated pipeline + Objectives + G1–G17) embedded in `reference.md § Playbook` rather than seeding a durable `concepts/authoring/` domain (C7 evidence gate; promote after a 2nd wrap-up, M3). Sequencing is **n=0 on this persona** until first run.
+- **Dependency remap** (source → this persona's natives): KU3 Cursor↔Claude review-loop skill → `reference/plan-refinement-loop.md` (native self/subagent review; no external host); `14-plan-authoring.mdc` → `reference/flexible-plans-for-ai-execution.md`; `TWO_LEVELS_OF_LEARNING.md` → directives (`universal/WORKING_STYLE`/`CODING_PRINCIPLES`) vs findings (`CONCLUSIONS`/`concepts`) + `MONITORING`; durable root `memory/` → `.cursor/rules/memory/` unified layout; migrate destinations routed via `04-multi-project.mdc § Placement gate`. All cited paths verified to exist (no dangling refs).
+
+## 2026-09-11: Session — [tooling] (gitignore `.kilo/`)
+
+- Repo-root `**/.kilo/` + Exp16 `.gitignore` `.kilo/`. Folder kept on disk (never tracked). Same category as `ai-notes/`: IDE/tool state, not experiment source.
 
 ## 2026-09-09: Session — [exp16] (`ai-notes/` split + untrack + local scrub)
 

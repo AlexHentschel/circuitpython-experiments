@@ -29,3 +29,6 @@ bundles/
 
 # AI task working store (per experiment). Durable claims live in Notes/ or persona memory.
 **/ai-notes/
+
+# Kilo Code tool state (per experiment). Local only — same category as ai-notes/.
+**/.kilo/

@@ -95,7 +95,7 @@ These are **recipe snapshots**, not extra always-on rules. The agent should load
 
 | I want… | Open |
 |---|---|
-| Working notes so chat stays a cache | `reference/working-notes-lean-context.md` (what goes inside) + `reference/ai-notes-convention.md` (gitignored default; authority is per-claim confidence, not folder name) |
+| Working notes so chat stays a cache | `reference/working-notes-lean-context.md` (what goes inside) + `reference/ai-notes-convention.md` (gitignored default; authority is per-claim confidence). Wrap-up destillation: `WORKING_STYLE.md § Workflow` *Wrap-up assumes `ai-notes/` may vanish* |
 | A plan that survives execution | `reference/flexible-plans-for-ai-execution.md` + `reference/plan-refinement-loop.md` |
 | Write memory a future session can use | `reference/cold-ai-paradigm.md` |
 | Destructive-ops full protocol | `reference/destructive-operations.md` |
