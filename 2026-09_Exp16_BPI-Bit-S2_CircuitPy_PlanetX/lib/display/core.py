@@ -11,20 +11,20 @@ Two-tier API:
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
-  Lifecycle:      deinit -- releases the data pin / PIO; the singleton is
+  Lifecycle:      deinit — releases the data pin / PIO; the singleton is
                    unusable afterwards (no re-init path).
 
 Cancellation policy: any display-mutating method cancels an in-progress
 Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
 one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
-``set_rotation`` -- deliberately non-cancelling so a running animation is
+``set_rotation`` — deliberately non-cancelling so a running animation is
 not disturbed when the user dims the matrix or rotates the frame.
 Mechanism: a private, monotonically-increasing sequence counter, captured
 by each animation as a token and re-checked between frames; see
 ``_acquire`` and ``_is_cancelled``.
 
 Bitmap encoding (used throughout this module): monochrome icons, arrows,
-glyphs, and ``Image`` instances are stored as *column-major bytes* -- one
+glyphs, and ``Image`` instances are stored as *column-major bytes* — one
 byte per column, with bit ``y`` of the byte encoding the pixel at display
 row ``y`` (bit 0 = top row). A *column byte* is therefore one such byte,
 covering one column of up to ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (= 8)
@@ -32,7 +32,7 @@ vertically-stacked pixels. Full format specification in ``bitmap_codec.py``
 and ``lib/display/README.md § Column-major bytes``.
 
 ``Image`` methods reference module globals (``display``, ``_LUT``, ``_pixels``)
-directly -- tight coupling acceptable for a single-display MCU library.
+directly — tight coupling acceptable for a single-display MCU library.
 """
 
 # PEP 563: defer all annotation evaluation, so PEP 585 subscripts
@@ -42,7 +42,7 @@ directly -- tight coupling acceptable for a single-display MCU library.
 # ``Callable`` import below is unbound at runtime on device.
 from __future__ import annotations
 
-# Type hints only -- not loaded at runtime on device. See:
+# Type hints only — not loaded at runtime on device. See:
 # https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information
 # https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18
 try:
@@ -53,7 +53,7 @@ except ImportError:
 import asyncio
 import board
 import neopixel
-from rainbowio import colorwheel  # noqa: F401 -- re-export for user convenience
+from rainbowio import colorwheel  # noqa: F401 — re-export for user convenience
 
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
 from .font_makecode_5 import glyph_columns as _table_glyph_columns
@@ -77,7 +77,7 @@ def color(r: int, g: int, b: int) -> tuple[int, int, int]:
 
 
 # ---------------------------------------------------------------------------
-# Coordinate LUT -- mutated in-place on rotation so references stay valid.
+# Coordinate LUT — mutated in-place on rotation so references stay valid.
 # ---------------------------------------------------------------------------
 _LUT = build_lut(0)
 
@@ -85,12 +85,12 @@ _LUT = build_lut(0)
 # ---------------------------------------------------------------------------
 # Runtime pattern-row parsers. Two specialised helpers, one per call-site
 # profile:
-#   - ``_iter_pattern_rows`` -- cold path. Used by ``Image.from_pattern``,
+#   - ``_iter_pattern_rows`` — cold path. Used by ``Image.from_pattern``,
 #     ``create_image``, ``create_big_image``. Lenient: collapses *all* Python
 #     whitespace via ``"".join(raw.split())`` (matches the design-time idiom
 #     in ``bitmap_codec.pattern_to_colmajor``). Allocations are not
 #     performance-critical here.
-#   - ``_iter_pattern_rows_fast`` -- two-stage hot-path parser (kept).
+#   - ``_iter_pattern_rows_fast`` — two-stage hot-path parser (kept).
 #     ``Display.render_pattern`` now uses the fused ``_write_pattern_on_the_fly``
 #     scan; this helper remains the row-yielding alternative (single string
 #     allocation per row via ``str.translate``). Whitespace tolerance is
@@ -102,7 +102,7 @@ _LUT = build_lut(0)
 
 
 def _iter_pattern_rows(pattern_str: str):
-    """Yield normalized non-blank rows from a pattern -- *cold-path* parser.
+    """Yield normalized non-blank rows from a pattern — *cold-path* parser.
 
     Each emitted string has all Python whitespace (spaces, tabs, CRs, FFs,
     VTs) collapsed via ``"".join(raw.split())``, mirroring the design-time
@@ -127,11 +127,11 @@ _HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
 
 
 def _iter_pattern_rows_fast(pattern_str: str):
-    """Yield non-blank rows from a pattern -- *two-stage hot-path* parser.
+    """Yield non-blank rows from a pattern — *two-stage hot-path* parser.
 
     Kept as the row-yielding alternative after ``render_pattern`` switched to
     the fused ``_write_pattern_on_the_fly`` scan. One string allocation per
-    row via ``str.translate(_HOTPATH_WS)`` -- no list allocation as
+    row via ``str.translate(_HOTPATH_WS)`` — no list allocation as
     ``"".join(raw.split())`` would induce. Strips only space, tab, CR; other
     whitespace (``\\v``, ``\\f``) is left in the row and would render as
     ``OFF`` (unknown char) in mono mode. This is acceptable because those
@@ -141,7 +141,7 @@ def _iter_pattern_rows_fast(pattern_str: str):
     whitespace-lenient: it strips only space/tab/CR, not every Python
     whitespace character. The render path is still lenient compared to
     ``bitmap_codec.pattern_to_colmajor`` because unknown row characters are
-    not validation errors -- they simply render as ``OFF`` in mono mode or
+    not validation errors — they simply render as ``OFF`` in mono mode or
     as the palette default in multi-color mode.
 
     The payoff is fewer allocations per row and lower fragmentation pressure
@@ -173,7 +173,7 @@ def _write_pattern_on_the_fly(
     the per-row string allocation of ``_iter_pattern_rows_fast`` and
     generator-yield overhead.
 
-    Does NOT call ``pixels.show()`` -- caller is responsible for flushing
+    Does NOT call ``pixels.show()`` — caller is responsible for flushing
     the buffer to the display after invocation.
 
     The mono / dict shape of ``color`` is hoisted to a top-level branch so
@@ -292,7 +292,7 @@ def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> N
 
 
 # ---------------------------------------------------------------------------
-# Font -- MakeCode-style 5×5 table (DAL pendolino3, MIT). Swap unit is the
+# Font — MakeCode-style 5×5 table (DAL pendolino3, MIT). Swap unit is the
 # ``font_makecode_5/`` directory. Path kept as a hook so a later 8×8 PCF
 # can restore the Exp14 loader without touching the feeder / scroll path.
 # os.path coverage on CircuitPython is partial so rsplit is preferred.
@@ -346,7 +346,7 @@ class _GlyphColumnFeeder:
 
     Materialises exactly one glyph's column buffer at a time (via
     ``_glyph_columns``), then exposes its bytes one-by-one. ``next_column``
-    returns ``None`` once the text is exhausted -- callers substitute
+    returns ``None`` once the text is exhausted — callers substitute
     blank columns (``0``) to pad the scroll-out tail.
 
     Bounded memory: only the current glyph's cols plus a cursor live in
@@ -393,7 +393,7 @@ class Image:
       - ``from_pattern`` accepts any width (the widest kept row).
     An image wider than the display is shown a ``WIDTH``-column window at a
     time: ``show_image(offset)`` picks the window and ``scroll_image`` animates
-    it across the full width -- image columns outside that window are trimmed.
+    it across the full width — image columns outside that window are trimmed.
     Where the display window overhangs the image (a narrower image, or an ``offset``
     past an edge), the uncovered display columns render as ``OFF``.
     """
@@ -458,6 +458,18 @@ class Image:
     def width(self) -> int:
         return self._width
 
+    @property
+    def columns(self) -> bytes | tuple:
+        """Raw backing data: column-major ``bytes`` (mono) or a flat per-pixel RGB-tuple sequence (multi-color).
+
+        Public accessor for what render methods otherwise reach for via the
+        private ``_data`` slot. Intended for composability (e.g. combining
+        two same-width mono ``Image``s column-by-column) without depending on
+        the private attribute name. Read-only: mutate via ``recolor`` (mono
+        color only) or by constructing a new ``Image``.
+        """
+        return self._data
+
     def recolor(self, new_color: tuple[int, int, int]) -> None:
         """Change a mono Image's display color in place. No-op for multi-color."""
         if not self._multi:
@@ -470,8 +482,15 @@ class Image:
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def scroll_image(self, offset: int = 1, interval_ms: int = 200) -> None:
-        """Scroll through the image, advancing `offset` columns per frame, with `interval_ms` milliseconds between frames.
+    async def scroll_image(self, step: int = 1, interval_ms: int = 200) -> None:
+        """Scroll through the image, advancing `step` columns per frame, with `interval_ms` milliseconds between frames.
+
+        `step` is a per-frame *increment*, distinct from `show_image`'s
+        `offset` (a window *position*) despite both being about columns,
+        deliberately different names so the two concepts aren't conflated.
+        The scroll always starts at position 0; there is no parameter to
+        change the starting position (unlike `show_image`, which can start
+        anywhere, including negative or past the image's right edge).
 
         Cancellable: any newer display operation causes this coroutine to
         return early (see module docstring's cancellation policy).
@@ -488,7 +507,7 @@ class Image:
             await asyncio.sleep(interval_ms / 1000)
             if display._is_cancelled(token):
                 return
-            pos += offset
+            pos += step
 
     def _render_window(self, offset: int) -> None:
         """Render a WIDTH-column window of this image at ``offset`` into ``_pixels`` and show().
@@ -577,7 +596,7 @@ class Image:
 
         # x_base invariant at the top of every loop body: x_base == x * HEIGHT.
         # The three slices cover contiguous x in [0, x_min), [x_min, x_max),
-        # [x_max, WIDTH), so a single accumulator stays in sync across them --
+        # [x_max, WIDTH), so a single accumulator stays in sync across them:
         # addition per column instead of recomputing x * HEIGHT.
         if self._multi:
             data = self._data
@@ -617,11 +636,11 @@ class Image:
 
 
 # ---------------------------------------------------------------------------
-# Icons / Arrows -- Image instances constructed once at import from the bulk
+# Icons / Arrows — Image instances constructed once at import from the bulk
 # ``ICONS`` / ``ARROWS`` bytes; names/ordering come from ``ICON_NAMES`` /
 # ``ARROW_NAMES`` in ``icons.py`` (single source of truth). ``bytes``
-# slicing copies, so each Image owns its own WIDTH-byte backing block -- the
-# bulk arrays exist for deterministic ordering, not byte-sharing.
+# slicing copies, so each Image owns its own WIDTH-byte backing block;
+# the bulk arrays exist for deterministic ordering, not byte-sharing.
 # Each Image's stored color is WHITE; ``render_icon`` / ``render_arrow``
 # accept a ``color`` kwarg that overrides it at render time.
 #
@@ -659,7 +678,7 @@ def create_image(
     img = Image.from_pattern(pattern_str, color)
     row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
     if img.width != WIDTH or row_count != HEIGHT:
-        raise ValueError("create_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(h=HEIGHT, w=WIDTH, rh=row_count, rw=img.width))
+        raise ValueError(f"create_image requires {HEIGHT} rows x {WIDTH} columns; got {row_count} rows x {img.width} columns")
     return img
 
 
@@ -676,7 +695,7 @@ def create_big_image(
     row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
     expected_w = 2 * WIDTH
     if img.width != expected_w or row_count != HEIGHT:
-        raise ValueError("create_big_image requires {h} rows x {w} columns; got {rh} rows x {rw} columns".format(h=HEIGHT, w=expected_w, rh=row_count, rw=img.width))
+        raise ValueError(f"create_big_image requires {HEIGHT} rows x {expected_w} columns; got {row_count} rows x {img.width} columns")
     return img
 
 
@@ -695,7 +714,7 @@ class Display:
     def __init__(self) -> None:
         self._seq = 0
 
-    # -- Cancellation token --------------------------------------------------
+    # — Cancellation token --------------------------------------------------
 
     def _acquire(self) -> int:
         """Start a new display-operation generation.
@@ -712,12 +731,12 @@ class Display:
     def _is_cancelled(self, token: int) -> bool:
         """True if a display operation newer than ``token`` has started.
 
-        Tier 2 animations check this between frames -- on both sides of an
-        ``await`` -- and return early when it becomes True.
+        Tier 2 animations check this between frames — on both sides of an
+        ``await`` — and return early when it becomes True.
         """
         return self._seq != token
 
-    # -- Tier 1: Synchronous rendering primitives ----------------------------
+    # — Tier 1: Synchronous rendering primitives ----------------------------
 
     def render_pattern(
         self,
@@ -726,7 +745,7 @@ class Display:
     ) -> None:
         """Parse and render a pattern string directly to LEDs.
 
-        Direct render via LUT -- no intermediate column-major buffer.
+        Direct render via LUT — no intermediate column-major buffer.
         Faster than create_image for one-shot display since it avoids
         building a persistent bitmap (one parse pass, immediate pixel writes).
 
@@ -746,10 +765,10 @@ class Display:
         """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
 
         ``color`` is the mono render color and always overrides the icon's
-        stored color -- the icon is effectively a reusable bitmap shape.
+        stored color — the icon is effectively a reusable bitmap shape.
         """
         self._acquire()
-        _render_colmajor(icon._data, 0, color)
+        _render_colmajor(icon.columns, 0, color)
 
     def render_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE) -> None:
         """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``) to the LEDs.
@@ -758,7 +777,7 @@ class Display:
         stored color.
         """
         self._acquire()
-        _render_colmajor(arrow._data, 0, color)
+        _render_colmajor(arrow.columns, 0, color)
 
     def clear_screen(self) -> None:
         """Turn off all pixels. Cancels any ongoing animation."""
@@ -806,17 +825,17 @@ class Display:
         """
         # Mutate in place so any module reading _LUT sees the new mapping
         # without needing to re-import. Passing dest=_LUT writes the new table
-        # directly into the live buffer -- no fresh bytearray + slice-copy.
+        # directly into the live buffer — no fresh bytearray + slice-copy.
         build_lut(degrees, dest=_LUT)
 
-    # -- Lifecycle -----------------------------------------------------------
+    # — Lifecycle -----------------------------------------------------------
 
     def deinit(self) -> None:
         """Release the NeoPixel hardware (PIO state machine + data pin).
 
         Cancels any ongoing animation, then deinitializes the underlying
         NeoPixel buffer. After this call the ``display`` singleton is unusable
-        -- any further render call raises. There is no re-init path; this is a
+        — any further render call raises. There is no re-init path; this is a
         teardown hook for code that wants to free the data pin / PIO for other
         use (e.g. before a soft reboot, or to hand the pin to a different
         peripheral). See ``lib/display/README.md`` for why this library exposes
@@ -826,7 +845,7 @@ class Display:
         self._acquire()
         _pixels.deinit()
 
-    # -- Tier 2: Async MakeCode-compatible methods ---------------------------
+    # — Tier 2: Async MakeCode-compatible methods ---------------------------
 
     async def show_leds(
         self,
@@ -837,19 +856,33 @@ class Display:
         """Render a pattern, then hold for interval_ms milliseconds (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
+
+        Raises ``ValueError`` if ``interval_ms < 0``.
         """
+        if interval_ms < 0:
+            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_pattern(pattern, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_icon(self, icon: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an icon ``Image`` (e.g. ``Icons.HEART``), hold for interval_ms milliseconds."""
+        """Render an icon ``Image`` (e.g. ``Icons.HEART``), hold for interval_ms milliseconds.
+
+        Raises ``ValueError`` if ``interval_ms < 0``.
+        """
+        if interval_ms < 0:
+            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_icon(icon, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), hold for interval_ms milliseconds."""
+        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), hold for interval_ms milliseconds.
+
+        Raises ``ValueError`` if ``interval_ms < 0``.
+        """
+        if interval_ms < 0:
+            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_arrow(arrow, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
@@ -863,32 +896,36 @@ class Display:
     ) -> None:
         """Scroll text across the display.
 
-        Fit-on-screen text (total glyph-column width <= WIDTH) is centered
-        and held: for ``interval_ms * 5`` ms when ``interval_ms > 0``,
-        indefinitely when ``loop=True``, or returned immediately when
-        ``interval_ms == 0`` and ``loop=False`` (i.e. render-and-return,
-        the short-text counterpart to ``show_leds(pattern, interval_ms=0)``).
+        The typical case where text is wider than ``WIDTH`` glyph-columns:
+        we scroll one column every ``interval_ms`` time step.
 
-        Longer text scrolls one column per ``interval_ms`` step through a
-        ``WIDTH``-slot ring buffer, fed one column at a time from a
-        ``_GlyphColumnFeeder`` (see below) -- so scroll-loop memory is
-        O(WIDTH) *beyond the input text reference that the caller
-        already holds*.
+        A non-looping scroll ends exactly when the last meaningful column
+        has left the screen: the display is left fully blank (not paused
+        mid-scroll with a character still partially visible).
 
-        Ring sizing: the visible window is exactly ``WIDTH`` columns; each
-        newly arriving column overwrites the slot that just scrolled off
-        the left edge, so a single ``WIDTH``-byte ring is sufficient. The
-        initial all-zero ring serves as the scroll-in padding; scroll-out
-        is produced by feeding ``WIDTH + 1`` trailing blanks once the
-        feeder drains so the final fully-blank frame is actually
-        rendered. A non-looping scroll therefore ends exactly when the
-        last meaningful column has left the screen.
+        Fit-on-screen text (total glyph-column width <= WIDTH) has
+        nothing to scroll, so it's centered and held in place instead.
+        The hold duration is a fixed ``interval_ms * 5`` (five step-
+        durations, using the same per-column time unit the scrolling case
+        above steps by; not a value derived from ``WIDTH`` or from how
+        long an equivalent scroll would take) when ``interval_ms > 0``,
+        indefinite when ``loop=True``, or immediate (render-and-return)
+        when ``interval_ms == 0`` and ``loop=False`` (the short-text
+        counterpart to ``show_leds(pattern, interval_ms=0)``). The ``5``
+        is an arbitrary "long enough to read" choice, unchanged since
+        this method's first draft; it is not a tuned or derived constant.
 
         loop: if True, keep scrolling indefinitely (or, for fit-on-screen
         text, hold indefinitely) until cancelled by another display
         operation. On the short-text hold path, cancellation is polled
         every ``interval_ms`` ms (or every 50 ms when ``interval_ms == 0``).
+
+        Raises ``ValueError`` if ``interval_ms < 0``: a negative delay has
+        no sensible meaning here (see the class discussion of cold-call-
+        site validation in ``CODING_PRINCIPLES.md``).
         """
+        if interval_ms < 0:
+            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         token = self._acquire()
         text = str(text)
         if not text:
@@ -919,6 +956,15 @@ class Display:
             return
 
         while True:
+            # Scroll loop memory: rather than materialising the whole scrolled
+            # bitmap, columns are fed one at a time from `feeder` into a
+            # WIDTH-byte ring buffer. The visible window is exactly WIDTH
+            # columns, so a ring that size is sufficient regardless of how
+            # long `text` is: each newly arriving column overwrites the slot
+            # that just scrolled off the left edge. The initial all-zero ring
+            # is the scroll-in padding, so the first frame renders as a fully
+            # blank display with the first column arriving from the right,
+            # rather than jumping straight to a partially-filled window.
             feeder = _GlyphColumnFeeder(text)
             ring = bytearray(WIDTH)
             read_head = 0
@@ -938,9 +984,12 @@ class Display:
                 read_head += 1
                 if read_head == WIDTH:
                     read_head = 0
-                # `> WIDTH` (not `>=`) so the final fully-blank frame is
-                # actually rendered -- with `>=` the loop breaks while
-                # the last meaningful column is still at x=0.
+                # Scroll-out: once the feeder drains, keep feeding blank columns
+                # until WIDTH + 1 of them have gone by. `> WIDTH` (not `>=`) so the
+                # final fully-blank frame is actually rendered: with `>=` the loop
+                # would break while the last meaningful column is still at x=0,
+                # leaving the caller's docstring-promised "ends fully blank"
+                # contract unmet.
                 if trailing_blanks > WIDTH:
                     break
             if not loop:
@@ -955,7 +1004,7 @@ class Display:
     ) -> None:
         """Display a number via ``show_string(str(n))``.
 
-        Fit-on-screen numbers (total glyph width <= WIDTH -- typically
+        Fit-on-screen numbers (total glyph width <= WIDTH — typically
         one digit in the bundled monospace font) are centered and held;
         longer numbers scroll. See ``show_string`` for the full behavior
         including ``loop=True``.
@@ -963,7 +1012,12 @@ class Display:
         await self.show_string(str(n), color, interval_ms, loop)
 
     async def pause(self, ms: int) -> None:
-        """Cancellable async sleep for ms milliseconds."""
+        """Cancellable async sleep for ms milliseconds.
+
+        Raises ``ValueError`` if ``ms < 0``.
+        """
+        if ms < 0:
+            raise ValueError(f"ms must be >= 0, got {ms}")
         self._acquire()
         await asyncio.sleep(ms / 1000)
 
@@ -984,5 +1038,5 @@ class Display:
         asyncio.run(_loop())
 
 
-# Singleton -- ``from display import display``
+# Singleton — ``from display import display``
 display = Display()

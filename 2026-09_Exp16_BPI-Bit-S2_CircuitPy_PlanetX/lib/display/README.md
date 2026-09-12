@@ -1,4 +1,4 @@
-# `display` package -- architecture and design
+# `display` package — architecture and design
 
 Developer-facing architecture doc for the ``lib/display/`` package.
 For install + usage see the project root [README.md](../../README.md).
@@ -24,37 +24,37 @@ with origin (0, 0) at top-left.
 
 ## Two-tier API
 
-**Tier 1 -- synchronous rendering primitives** (immediate writes to the
+**Tier 1 — synchronous rendering primitives** (immediate writes to the
 NeoPixel buffer; no ``await``):
 
-- `render_pattern(pattern, color=WHITE)` -- parse-and-render a
+- `render_pattern(pattern, color=WHITE)` — parse-and-render a
   `#`/`.` grid string or palette dict.
-- `render_icon(icon, color=WHITE)` -- render an icon `Image` (e.g. `Icons.HEART`).
-- `render_arrow(arrow, color=WHITE)` -- render an arrow `Image` (e.g. `Arrows.NORTH`).
+- `render_icon(icon, color=WHITE)` — render an icon `Image` (e.g. `Icons.HEART`).
+- `render_arrow(arrow, color=WHITE)` — render an arrow `Image` (e.g. `Arrows.NORTH`).
 - `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
   `clear()` / `get_pixel(x, y)`.
 - `set_brightness(value)` / `set_rotation(degrees)`.
 
 **Lifecycle:**
 
-- `deinit()` -- release the data pin / PIO state machine. Cancels any
+- `deinit()` — release the data pin / PIO state machine. Cancels any
   ongoing animation, then deinitializes the NeoPixel buffer; the singleton
   is unusable afterwards (no re-init path). See [Singleton design &
   `deinit`](#singleton-design--deinit) below.
 
-**Tier 2 -- async MakeCode-compatible methods** (require
+**Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_leds` / `show_icon` / `show_arrow` -- render + hold.
-- `show_string(text, color=WHITE, interval_ms=150, loop=False)` -- scroll
+- `show_leds` / `show_icon` / `show_arrow` — render + hold.
+- `show_string(text, color=WHITE, interval_ms=150, loop=False)` — scroll
   text (single character displays centered). With `loop=True`, keeps
   scrolling (or holding, for short text) until cancelled by another
   display call; on short text the cancellation poll cadence is
   `interval_ms` ms, or 50 ms when `interval_ms == 0`.
-- `show_number(n, color=WHITE, interval_ms=150, loop=False)` -- delegate
+- `show_number(n, color=WHITE, interval_ms=150, loop=False)` — delegate
   to `show_string`.
-- `pause(ms)` -- cancellable async sleep.
-- `forever(callback)` -- sync convenience wrapper running a callback in
+- `pause(ms)` — cancellable async sleep.
+- `forever(callback)` — sync convenience wrapper running a callback in
   an asyncio `while True` loop.
 
 Image methods (`show_image`, `scroll_image`) are also Tier 2.
@@ -93,16 +93,16 @@ For example, let's consider letter `F`:
 
 Bytes: `0x00 0x7F 0x09 0x09 0x09 0x01 0x01 0x00`.
 
-Reading the bytes back: col 1 = `0x7F` = bits 0-6 set = the vertical stem (lit rows 0-6, dark row 7). Cols 2-4 = `0x09` = bits 0 and 3 = the two horizontal bars' overlap with the stem's interior columns. Cols 5-6 = `0x01` = bit 0 only = where only the top bar extends. The duplicate-value columns (`0x09` thrice, `0x01` twice, `0x00` at both ends) are *expected* -- adjacent columns in a glyph typically share a bit pattern.
+Reading the bytes back: col 1 = `0x7F` = bits 0-6 set = the vertical stem (lit rows 0-6, dark row 7). Cols 2-4 = `0x09` = bits 0 and 3 = the two horizontal bars' overlap with the stem's interior columns. Cols 5-6 = `0x01` = bit 0 only = where only the top bar extends. The duplicate-value columns (`0x09` thrice, `0x01` twice, `0x00` at both ends) are *expected* — adjacent columns in a glyph typically share a bit pattern.
 
 Why column-major? It makes horizontal scrolling a window-slide over a
-contiguous byte array -- each frame is `buf[offset:offset+WIDTH]` with
+contiguous byte array — each frame is `buf[offset:offset+WIDTH]` with
 no per-pixel recomputation.
 
 **Persistent vs one-shot**: `Image` converts to column-major at parse
 time (once, amortised over repeated `show_image`/`scroll_image` calls).
 `Display.render_pattern` deliberately skips the intermediate and writes
-pixels directly from the parse loop -- chosen for one-shot display
+pixels directly from the parse loop — chosen for one-shot display
 speed.
 
 **Encoding limit**: the single-byte-per-column format caps height at 8
@@ -128,7 +128,7 @@ once at import. This is a deliberate design choice, not an oversight.
 
 **Why single-instance.** The project drives one 8x8 matrix on one
 YD-RP2040. Supporting multiple `Display` instances would require unravelling
-the module-global coupling described above -- `Image` would need to carry a
+the module-global coupling described above — `Image` would need to carry a
 reference to its owning display's `_pixels` / `_LUT`, every render method
 would gain an instance-state lookup, and the lean `__slots__` Image would
 grow. That is real cost (RAM per Image, an extra indirection in the render
@@ -152,10 +152,10 @@ avoid; a program that needs the display again should restart.
 
 | Module | Responsibility (one sentence) |
 |--------|-------------------------------|
-| [`_constants.py`](_constants.py) | Dimensions, encoding-format limits, and color constants -- single source of truth, pure (no hardware imports). |
+| [`_constants.py`](_constants.py) | Dimensions, encoding-format limits, and color constants — single source of truth, pure (no hardware imports). |
 | [`bitmap_codec.py`](bitmap_codec.py) | Design-time conversion between row-major ASCII art and column-major bytes. |
-| [`geometry.py`](geometry.py) | Pure `build_lut(rotation, dest=None)` + `xy_to_index(x, y, lut)` -- no hardware dependency. Optional `dest` lets `set_rotation` rebuild the live LUT in place (no per-rotation allocation). |
-| [`icons.py`](icons.py) | Icon + arrow bitmap data and `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (kept together so slot ordering cannot drift). `Icons` / `Arrows` wrapper classes exposing one `Image` attribute per name are built in `core.py` at import (each `Image` owns its own 8-byte backing block -- `bytes` slicing copies in (Circuit)Python). |
+| [`geometry.py`](geometry.py) | Pure `build_lut(rotation, dest=None)` + `xy_to_index(x, y, lut)` — no hardware dependency. Optional `dest` lets `set_rotation` rebuild the live LUT in place (no per-rotation allocation). |
+| [`icons.py`](icons.py) | Icon + arrow bitmap data and `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (kept together so slot ordering cannot drift). `Icons` / `Arrows` wrapper classes exposing one `Image` attribute per name are built in `core.py` at import (each `Image` owns its own 8-byte backing block — `bytes` slicing copies in (Circuit)Python). |
 | [`core.py`](core.py) | `Display` + `Image` runtime: NeoPixel buffer, LUT, font, async methods. Only module that imports `board` / `neopixel`. |
 | [`__init__.py`](__init__.py) | Public-API re-exports; guarded core import lets host-side tests load pure sub-modules without a device. |
 
@@ -184,5 +184,5 @@ flowchart LR
 
 ## Cross-refs
 
-- Project root: [README.md](../../README.md) -- user-facing install, hardware, demo quick-starts.
-- [CONTEXT_HANDOFF.md](../../CONTEXT_HANDOFF.md) -- AI-assistant handoff document, including Section 0 guidelines and the Testing-strategy section (three-tier test model).
+- Project root: [README.md](../../README.md) — user-facing install, hardware, demo quick-starts.
+- [CONTEXT_HANDOFF.md](../../CONTEXT_HANDOFF.md) — AI-assistant handoff document, including Section 0 guidelines and the Testing-strategy section (three-tier test model).
