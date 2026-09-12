@@ -15,6 +15,7 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 - `i2c: pull-up sizing`  —pairs-with—  `power: standby current budgeting`   (held-low / idle-high pull-up current is a standby-power line item).
 - `tooling: Espressif 4MB CircuitPython upgrade`  —composes-with—  `circuitpython-runtime: mpy-cross is CircuitPython’s binary`   (host flash version must match the Adafruit `mpy-cross` / stub pin; exp16 lock = CP 10.3.0).
 - `tooling: TinyUF2 4MB partitions`  —refines—  `tooling: Espressif 4MB CircuitPython upgrade`   (CSV rows / arithmetic; stream `tooling-4mb-partitions.md`).
+- `tooling: on-device restart/reload (auto-run filenames)`  —composes-with—  `tooling: circuitpythonsync cpfiles.txt mapping`   (a frozen `code_stageN.py` only executes if mapped onto `code.py`/`main.py`/`code.txt`/`main.txt`, or via `supervisor.set_next_code_file`).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 

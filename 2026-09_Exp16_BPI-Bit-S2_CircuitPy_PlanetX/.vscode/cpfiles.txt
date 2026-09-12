@@ -1,7 +1,16 @@
 # CircuitPythonSync file copy manifest
-# Lines starting with # are comments (ignored).
+# Lines starting with # are comments (ignored). Blank lines are ignored.
 # Format:  source_file  or  source_file -> /destination_on_board
-#
-# ACTIVE milestone (change the active line to switch milestones):
-code.py
+
+
 readme.txt
+
+# CircuitPythonSync "easy switch mechanism"; insert following line:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#    `foo.py -> /code.py`
+# which copies workspace `foo.py` onto the *board* as `code.py`. Local `code.py` is
+# unchanged. When using this switch mechanism, comment out the `code.py` line first, 
+# because two sources to the same destination is an error. Then run Copy Files to Board.
+
+code.py
+# code_stage0.py -> /code.py

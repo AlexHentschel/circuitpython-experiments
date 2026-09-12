@@ -23,35 +23,26 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - **Alex requested one more edge case before moving on**: his hypothesis that `set_brightness(b)` for `b` below the project's working `0.05` floor makes the matrix visually indistinguishable from off (plausible mechanism: WS2812 duty-cycle/rounding at very low brightness×color products). Added as a new step 6 (renumbered all prints `X/5`→`X/6`): fills red once, then sweeps `set_brightness()` through `(0.05, 0.04, 0.03, 0.02, 0.01, 0.005, 0.0)` with a 2s pause + print per level (re-fill not needed each level — `set_brightness()` re-shows the existing buffer itself, confirmed against `core.py`). Reset `set_rotation(0)` moved to right after step 4 (not just top-of-cycle) so a rotated heart doesn't visually confuse a test that's purely about brightness. Syntax-checked; not yet synced or run.
 - **Alex's plan**: re-sync → run → if the pass looks clean, agent commits (local git commit is an autonomous local-repo op per this task's envelope, not a device write) covering the loop-ification + brightness-reset-bug fix + this edge-case addition together.
 - **Next**: Alex re-syncs `code.py` once more, watches the new step 6 sweep live, reports back; on success, agent commits.
+- **Committed** (`b99152b` on `alex/display-mvp_5x5`): looping Stage-0 `code.py` (brightness-reset fix + step-6 brightness-floor edge case, confirmed: 0.01 and below visually off, 0.02 lowest still lit), plus `__pycache__/` in `.gitignore` and a small `README.md` version-number trim. Persona memory files left uncommitted.
+- **Stage 1 drafted into live `code.py`** (steps 7–12, still Tier 1, not yet synced): `render_pattern` / `render_arrow` / `get_pixel` self-check / 4-rotation `HAPPY` / `create_image` / `colorwheel`. Host-validated the two new pattern strings against `bitmap_codec.pattern_to_colmajor`. Waiting on `CP Copy Files to Board` (libs unchanged).
+- **Stage-0 `code.py` frozen as a repo-only sibling** (`code_stage0.py`): byte-identical copy of `HEAD` (`b99152b`). Alex asked whether `cpfiles.txt` allows blank lines, and whether CPy would even execute `code_stage0.py` if copied. **Yes / no, respectively:** extension.js v2.2.2 skips `#` comments and empty src (`r && t.push`); CircuitPython auto-runs only `code.txt` → `code.py` → `main.txt` → `main.py` (Adafruit Learn). Dropped the redundant frozen-milestone comment block from `cpfiles.txt`; header now notes blank lines are ignored and the replay mapping (`code_stage0.py -> /code.py`). Persisted in `concepts/tooling.md`.
+- **Correction — do not treat `code_stageN.py` parking as a standing default.** Alex: this experiment's practice, not uncommon in experiments, not universal. Ask once per project when it first becomes relevant, then memorize; policy may change (rare). Rewrote the `WORKING_STYLE.md` row (`[user]`, ask-once-then-memorize). Exp16's recorded answer stays in `CONTEXT.md`.
 
 ## 2026-09-11: Session 18 — [exp16] (retrospective plan-refinement-loop on the Session 16→17 handoff prompt; skill + monitoring updates)
 
-- Back in the Session-16 chat (post-summary), Alex asked to run the persona's plan-refinement-loop
-  (`../../reference/plan-refinement-loop.md`) on the handoff prompt just emitted, with a `claude-sonnet-5-thinking-high`
-  subagent collaborator, cap 8, explicitly aimed at distilling "higher-level learnings and self-improvement." Scratch
-  artefacts lived in the persona's own `ai-persona/ai-notes/handoff-prompt-refinement-2026-09-11/` (this is a
-  cross-cutting skill-quality task, not exp16 technical content, even though the artefact under review was exp16's) —
-  **folder removed 2026-09-11 once fully migrated** (see Actions-taken bullet below for the durable homes).
-- **Iteration 1** (subagent, isolated critique of `handoff_v0.0.md`): found one real T2 drift (a carry-forward claim
-  about `code.py.backup` was already stale) and one autonomy-envelope granularity gap (`read_serial_log.py`'s
-  autonomous-read capability lumped with human-required visual confirmation).
-- **Mid-loop pivot**: while independently re-verifying the subagent's finding, discovered **Session 17 had already
-  run** — the handoff prompt had already been pasted into a fresh chat and executed, before this refinement loop
-  began. Loop pivoted from "polish before use" (moot) to a genuine retrospective: prediction vs. reality.
-- **Iteration 2** (subagent, retrospective): handoff prompt's mechanical elements (boot order, autonomy envelope,
-  first action, hard stop) followed with ~zero friction by Session 17; the one factual miss cost nothing, because
-  the prompt's own "verify with fresh eyes" instruction absorbed it for free. Distilled 3 generalizable lessons +
-  1 confirming data point (full writeup lived in the now-removed scratch folder's `RETROSPECTIVE_v1.0.md`; durable
-  substance is in the Actions-taken bullet below and the memory files it names).
-  **Converged at iteration 2 of a cap-8 budget** — diminishing returns, not the cap.
-- **Actions taken**: edited `~/.cursor/skills/handoff-exec-prompt/reference.md` element 4 (pair carry-forward
-  claims about external/physical state with a re-verify instruction, don't chase point-in-time textual accuracy —
-  direct edit, Alex's own personal skill, low-risk/additive); added two `../../universal/MONITORING.md` entries
-  (chat-only no-plan-mode deliverables have no durable-retrieval path; autonomy-envelope granularity for read-only
-  device/serial probes vs. writes) as single-incident watch-for-recurrence observations, not yet promoted to
-  standing directives. No `WORKING_STYLE.md` edit — the 4th lesson (proactive-prep composes with hard boundaries)
-  confirms an already-standing, always-injected directive (`01-interaction-style.mdc §4`) with no memory-file
-  counter to increment; recorded here as the evidence trail instead.
+- Ran the persona's plan-refinement-loop (`../../reference/plan-refinement-loop.md`) retrospectively on the
+  Session 16→17 handoff prompt (Session 17 had already executed it by the time review began — a genuine
+  retrospective, not pre-use polishing) — cross-cutting skill-quality task, not exp16-technical content.
+  **Closed 2026-09-11**, converged at iteration 2 of a cap-8 budget. Scratch working folder removed once fully
+  migrated.
+- **Result**: the prompt's mechanical elements (boot order, autonomy envelope, first action, hard stop) held with
+  ~zero friction; one factual carry-forward miss cost nothing because the prompt's own "verify with fresh eyes"
+  instruction absorbed it for free.
+- **Durable**: edited `~/.cursor/skills/handoff-exec-prompt/reference.md` element 4 (pair carry-forward claims
+  about external/physical state with a re-verify instruction, don't chase point-in-time textual accuracy); added
+  two `../../universal/MONITORING.md` entries (chat-only no-plan-mode deliverables have no durable-retrieval path;
+  autonomy-envelope granularity for read-only device/serial probes vs. writes). No `WORKING_STYLE.md` edit needed —
+  the 4th lesson confirms an already-standing, always-injected directive (`01-interaction-style.mdc §4`).
 
 ## 2026-09-11: Session 17 — [exp16] (fresh chat; local lib stack re-verified; Stage-0 code.py drafted; test plan produced — no device write)
 
