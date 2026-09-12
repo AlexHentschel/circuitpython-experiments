@@ -11,28 +11,22 @@ Two-tier API:
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
-  Lifecycle:      deinit — releases the data pin / PIO; the singleton is
-                   unusable afterwards (no re-init path).
+  Lifecycle:      deinit — releases the data pin / PIO; the module-level
+                   ``display`` instance is unusable afterwards (no re-init path).
 
 Cancellation policy: any display-mutating method cancels an in-progress
 Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
 one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
 ``set_rotation`` — deliberately non-cancelling so a running animation is
 not disturbed when the user dims the matrix or rotates the frame.
-Mechanism: a private, monotonically-increasing sequence counter, captured
-by each animation as a token and re-checked between frames; see
-``_acquire`` and ``_is_cancelled``.
 
-Bitmap encoding (used throughout this module): monochrome icons, arrows,
-glyphs, and ``Image`` instances are stored as *column-major bytes* — one
-byte per column, with bit ``y`` of the byte encoding the pixel at display
-row ``y`` (bit 0 = top row). A *column byte* is therefore one such byte,
+Bitmap encoding (used throughout this module): images are stored one column
+at a time (not one row at a time). Monochrome icons, arrows, glyphs, and
+``Image`` instances are stored as *column-major bytes* — one byte per column,
+with bit ``y`` of the byte encoding the pixel at display row ``y`` (bit 0 = top row). A *column byte* is therefore one such byte,
 covering one column of up to ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (= 8)
 vertically-stacked pixels. Full format specification in ``bitmap_codec.py``
 and ``lib/display/README.md § Column-major bytes``.
-
-``Image`` methods reference module globals (``display``, ``_LUT``, ``_pixels``)
-directly — tight coupling acceptable for a single-display MCU library.
 """
 
 # PEP 563: defer all annotation evaluation, so PEP 585 subscripts
@@ -379,23 +373,30 @@ class _GlyphColumnFeeder:
 
 # ---------------------------------------------------------------------------
 # Image class
+#
+# Implementation note: ``Image`` methods reference module globals (``display``,
+# ``_LUT``, ``_pixels``) directly — tight coupling accepted for a single-display
+# MCU library.
 # ---------------------------------------------------------------------------
 class Image:
     """Bitmap image for the HEIGHT-row LED matrix.
 
-    Monochrome images store column-major bytes + a single color RGB-triple.
-    Multi-color images store a flat sequence of per-pixel RGB tuples (one per pixel).
-
-    The image's height is always assumed to be ``HEIGHT`` rows. Width is independent of the display
-    and may be smaller, equal to, or **larger** than the ``WIDTH`` physical columns of the LED matrix:
+    An image is always ``HEIGHT`` rows tall. Its width is independent of the
+    display and may be smaller, equal to, or **larger** than the ``WIDTH``
+    physical columns of the LED matrix:
       - ``create_image`` builds an exactly-``WIDTH`` image.
       - ``create_big_image`` builds a ``2 * WIDTH`` image.
       - ``from_pattern`` accepts any width (the widest kept row).
+    An image can be monochrome (one shared color, recolorable via ``recolor``)
+    or multi-color (a fixed color per pixel).
     An image wider than the display is shown a ``WIDTH``-column window at a
     time: ``show_image(offset)`` picks the window and ``scroll_image`` animates
     it across the full width — image columns outside that window are trimmed.
     Where the display window overhangs the image (a narrower image, or an ``offset``
     past an edge), the uncovered display columns render as ``OFF``.
+
+    Internally (see ``columns``): monochrome images store column-major bytes
+    plus one RGB color; multi-color images store a flat per-pixel RGB sequence.
     """
 
     __slots__ = ("_data", "_width", "_multi", "_color")
@@ -462,16 +463,19 @@ class Image:
     def columns(self) -> bytes | tuple:
         """Raw backing data: column-major ``bytes`` (mono) or a flat per-pixel RGB-tuple sequence (multi-color).
 
-        Public accessor for what render methods otherwise reach for via the
-        private ``_data`` slot. Intended for composability (e.g. combining
-        two same-width mono ``Image``s column-by-column) without depending on
-        the private attribute name. Read-only: mutate via ``recolor`` (mono
+        Intended for composability (e.g. combining two same-width mono
+        ``Image``s column-by-column). Read-only: mutate via ``recolor`` (mono
         color only) or by constructing a new ``Image``.
         """
         return self._data
 
     def recolor(self, new_color: tuple[int, int, int]) -> None:
-        """Change a mono Image's display color in place. No-op for multi-color."""
+        """Change a mono Image's display color in place. No-op for multi-color.
+
+        In-place mutation: recoloring a shared ``Icons.*`` / ``Arrows.*``
+        instance changes it for every caller (and across coroutines). Build a
+        private copy via ``create_image`` if you need an independent color.
+        """
         if not self._multi:
             self._color = new_color
 
@@ -672,8 +676,7 @@ def create_image(
     """Create a WIDTH×HEIGHT Image.
 
     Raises ``ValueError`` if the pattern is not exactly ``WIDTH`` columns
-    by ``HEIGHT`` rows (whitespace and blank lines ignored, see
-    ``_iter_pattern_rows``).
+    by ``HEIGHT`` rows (whitespace and blank lines ignored).
     """
     img = Image.from_pattern(pattern_str, color)
     row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
@@ -686,7 +689,7 @@ def create_big_image(
     pattern_str: str,
     color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
 ) -> Image:
-    """Create a 16-wide Image (scrollable).
+    """Create a ``2 * WIDTH``-wide Image (scrollable).
 
     Raises ``ValueError`` if the pattern is not exactly ``2 * WIDTH``
     columns by ``HEIGHT`` rows.
@@ -703,9 +706,9 @@ def create_big_image(
 # Display class
 # ---------------------------------------------------------------------------
 class Display:
-    """Controls an 8x8 WS2812b NeoPixel matrix.
+    """Controls the 5×5 WS2812 NeoPixel matrix.
 
-    Singleton at module level (``display``). Starting any display-mutating
+    Use the module-level ``display`` instance. Starting any display-mutating
     operation cancels any Tier 2 animation in progress. Non-cancelling
     methods: ``get_pixel``, ``set_brightness``, ``set_rotation``. See the
     module docstring for the full cancellation policy.
@@ -745,14 +748,14 @@ class Display:
     ) -> None:
         """Parse and render a pattern string directly to LEDs.
 
-        Direct render via LUT — no intermediate column-major buffer.
-        Faster than create_image for one-shot display since it avoids
+        Faster than ``create_image`` for one-shot display since it avoids
         building a persistent bitmap (one parse pass, immediate pixel writes).
 
         color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
         Short rows are padded with OFF; rows past HEIGHT are ignored.
         """
         self._acquire()
+        # Direct render via LUT — no intermediate column-major buffer.
         # Fused one-pass scan. Locals here are LOAD_FAST args into the helper;
         # rationale (vs LOAD_GLOBAL) is documented on ``_render_colmajor``.
         pixels = _pixels
@@ -816,7 +819,7 @@ class Display:
 
     @staticmethod
     def set_rotation(degrees: int) -> None:
-        """Rebuild coordinate LUT for 0/90/180/270 clockwise rotation. Does not cancel animations.
+        """Set clockwise rotation to 0/90/180/270 degrees. Does not cancel animations.
 
         ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
         ``-270``, ``-180``, ``-90``. Other values raise ``ValueError``. Out-of-range inputs (``360``,
@@ -939,6 +942,12 @@ class Display:
             if len(fit_buf) > WIDTH:
                 break
 
+        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing
+        # to scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop ==
+        # false`, we hold for a fixed `interval_ms * 5` duration when `interval_ms > 0`, or
+        # return immediately when `interval_ms == 0` (i.e. skipping the sleep entirely, not
+        # sleeping for 0 ms, because `asyncio.sleep(0)` yields to the event loop once, so
+        # skipping the call is needed for a true immediate return).
         if len(fit_buf) <= WIDTH:
             pad = (WIDTH - len(fit_buf)) // 2
             padded = bytearray(WIDTH)

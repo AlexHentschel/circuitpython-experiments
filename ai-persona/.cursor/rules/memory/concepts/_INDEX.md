@@ -19,6 +19,7 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 - **`neopixel.NeoPixel` allocation** — one-time `__init__` buffer; no per-`show()` alloc (pure-Python fallback verified; native C in Verification Queue).
 - **Import-time vs hot-path allocation** — allocate large items early on a contiguous heap.
 - **User-facing `asyncio` vs builtin `_asyncio`** — bundle library + `adafruit_ticks` on CIRCUITPY; `_asyncio` is compiled-in helper; host CPython `asyncio` ≠ device.
+- **`asyncio.sleep(0)` still yields once** — not a true no-op; any `await` on it hands control back to the event loop once. Skipping the call entirely (vs. awaiting `sleep(0)`) is required for a genuinely synchronous/immediate return. Applied: exp16 `show_string()` fit-on-screen `interval_ms==0` branch.
 - **`mpy-cross` is CircuitPython’s binary, not PyPI MicroPython** — Adafruit S3 build matching firmware; CP 10.3.0 emits mpy v6.3.
 
 ### `fonts.md` — `[domain:fonts]` `[cross-experiment]`, `evidence-supported`
