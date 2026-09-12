@@ -14,3 +14,4 @@ readme.txt
 
 code.py
 # code_stage0.py -> /code.py
+# code_stage1.py -> /code.py
