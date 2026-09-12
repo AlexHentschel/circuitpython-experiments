@@ -50,7 +50,7 @@ This experiment has **no** per-folder CircuitPythonSync settings yet. The shared
 
 On-device `keypad` / bundle `asyncio` / PlanetX cable still need a first human device window after the flash.
 
-**Exact bundle-library versions this recipe last installed** are recorded in [`requirements.txt`](requirements.txt) (`circup freeze -r`), currently `adafruit_ticks==1.1.7` / `asyncio==3.1.1`. That file is a record, not an enforced pin — `circup install asyncio` always fetches the *current* Adafruit/Community bundle snapshot, so a later run of this recipe may pull newer library versions than what's recorded. Precisely reproducing an exact version (pinning the bundle snapshot itself, not just the library name) is a known gap, not yet solved here.
+**Exact bundle-library versions this recipe last installed** are recorded in [`requirements.txt`](requirements.txt) (`circup freeze -r`). That file is a record, not an enforced pin — `circup install asyncio` always fetches the *current* Adafruit/Community bundle snapshot, so a later run of this recipe may pull newer library versions than what's recorded. Precisely reproducing an exact version (pinning the bundle snapshot itself, not just the library name) is a known gap, not yet solved here.
 
 ## Status
 
