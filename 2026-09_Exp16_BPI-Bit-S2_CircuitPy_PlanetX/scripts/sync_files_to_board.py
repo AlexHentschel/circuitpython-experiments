@@ -53,6 +53,16 @@ def parse_manifest(path: Path) -> list[tuple[Path, str]]:
             continue
         if "->" in line:
             src, dst = (part.strip() for part in line.split("->", 1))
+            # Strip a trailing inline "# ..." comment on either side. The manifest
+            # format only documents whole-line comments (checked above), but a
+            # stray inline comment after an active "-> /dest" entry would
+            # otherwise become part of the destination path -- confirmed to
+            # actually happen 2026-09-12 (see .vscode/cpfiles.txt's own warning
+            # and the project session log): "foo.py -> /code.py # note" would
+            # try to write to a file literally named "code.py # note" instead
+            # of "/code.py", silently leaving the real /code.py stale.
+            src = src.split("#", 1)[0].strip()
+            dst = dst.split("#", 1)[0].strip()
             dst = dst.lstrip("/")
         else:
             src = line

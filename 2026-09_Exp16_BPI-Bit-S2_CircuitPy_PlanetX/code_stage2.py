@@ -5,8 +5,21 @@ Tier 1) are already confirmed on-device and frozen in the sibling
 `code_stage0.py` / `code_stage1.py`; see `CONCLUSIONS.md` for their
 findings. This script exercises only what Stages 0/1 did **not** cover:
 the async ``show_*``/``Image`` API in `lib/display/core.py`'s "Tier 2"
-section (~lines 829-990), so a human re-running this doesn't have to
+section (~lines 869-1045), so a human re-running this doesn't have to
 re-watch already-confirmed sync-rendering behaviour.
+
+Steps 11-12 (added after the original 10-step confirmation, 2026-09-12)
+close a gap the first ten steps left open: rotating the display *while*
+a Tier 2 animation is in flight, which `set_rotation` deliberately does
+NOT cancel (unlike step 10's Tier-1-write interrupt). See
+`lib/display/README.md`'s "Rotation during an in-flight Tier 2
+animation" section for the code-level argument these steps put to an
+on-device test. A third case -- rotate, then start an *entirely new*
+scroll in a different direction, with no concurrency -- was
+deliberately scoped out: it composes two already-independently-confirmed
+facts (static-rotation LUT correctness, steps 4 of Stage 0/1; scroll
+mechanics at rotation=0, steps 6/7/9 below) with no new code path
+exercised, so it needs no dedicated device time.
 
 **Display only: deliberately does NOT touch `lib/buttons.py`.** The
 original 4-stage breakdown (persona memory, Session 17) put buttons
@@ -19,7 +32,7 @@ for a later combined stage, where the interesting new claim becomes two
 concurrent async tasks (display animation + button poll), not just K1
 in isolation.
 
-What this proves, if all ten steps print cleanly each cycle and the
+What this proves, if all twelve steps print cleanly each cycle and the
 matrix behaves as described: **step 1 is the actual first real test of K1**:
 the bundled `asyncio` (staged onto CIRCUITPY's `lib/`, confirmed
 present but never yet imported by a running script) works at all on
@@ -41,6 +54,19 @@ mid-flight with an ordinary Tier-1 write, confirming the animation
 actually stops early instead of running to completion. This is a serial
 self-check (elapsed time vs. the animation's own full-length timing),
 not a visual judgment call.
+
+Steps 11-12 test the mirror-image claim: rotating mid-animation must
+NOT stop it. Step 11 rotates 90 degrees (an axis SWAP -- see
+``geometry.py``'s rotation cases) partway through a ``show_string``
+scroll, so the visible scroll motion should turn from horizontal to
+vertical without restarting or glitching. Step 12 rotates 180 degrees
+(an axis-PRESERVING mirror) partway through an ``Image.scroll_image``
+animation, exercising the same mechanism through the *other* render
+primitive (``Image._render_window`` vs. step 11's
+``_render_ring_window``). Both are serial self-checks (elapsed time must
+match the animation's own full uninterrupted length, not fall short of
+it as step 10's does) plus a visual check of the rotation actually
+taking visible effect mid-flight.
 
 Looped (``while True``), not one-shot, for the same reason as Stage
 0/1: a CircuitPython script that reaches its end falls back to the
@@ -90,6 +116,26 @@ async def _trigger_cancellation_after(delay_s: float) -> None:
     d.fill(display.RED)
 
 
+async def _trigger_rotation_after(delay_s: float, degrees: int) -> None:
+    """Wait ``delay_s`` seconds, then rotate -- the non-cancelling counterpart
+    to ``_trigger_cancellation_after`` above.
+
+    ``set_rotation`` deliberately does NOT call ``Display._acquire`` (see
+    ``core.py``'s module docstring, "Cancellation policy"), so unlike that
+    function's ``d.fill()``, this must NOT cut a concurrently-running Tier 2
+    animation short -- it only changes the *next* frame's coordinate mapping.
+
+    Runs concurrently with a slow Tier-2 scroll (via ``asyncio.gather``) in
+    steps 11-12 below, changing the display's orientation mid-animation
+    instead of interrupting it. See ``lib/display/README.md``'s "Rotation
+    during an in-flight Tier 2 animation" section for why this is safe:
+    in-place ``_LUT`` mutation + every render primitive re-reading ``_LUT``
+    fresh each frame + ``asyncio``'s cooperative, single-threaded scheduling.
+    """
+    await asyncio.sleep(delay_s)
+    d.set_rotation(degrees)
+
+
 async def main() -> None:
     cycle = 0
     while True:
@@ -115,7 +161,7 @@ async def main() -> None:
         _timing_deviation = abs(_elapsed - _sleep_target_s)
         _status = "OK" if _timing_deviation <= _tolerance_s else "MISMATCH"
         print(
-            f"1/10: asyncio.sleep({_sleep_target_s}) returned after {_elapsed:.4f}s "
+            f"1/12: asyncio.sleep({_sleep_target_s}) returned after {_elapsed:.4f}s "
             f"(deviation={_timing_deviation * 1000:.1f}ms, tolerance=+/-{_tolerance_s * 1000:.0f}ms) [{_status}] "
             f"(bundle asyncio runs on-device, K1 smoke test)"
         )
@@ -134,41 +180,41 @@ async def main() -> None:
             display.GREEN,
             interval_ms=1500,
         )
-        print("2/10: show_leds(checkerboard), async pattern render + interval_ms hold")
+        print("2/12: show_leds(checkerboard), async pattern render + interval_ms hold")
 
         # 3) show_icon: async wrapper over render_icon. DUCK (not HEART/HAPPY,
         #    both already exercised by Stage 0/1) generalizes the icon-decode
         #    path to a third icon under the async entry point specifically.
         d.clear_screen()
         await d.show_icon(Icons.DUCK, display.YELLOW, interval_ms=1500)
-        print("3/10: show_icon(Icons.DUCK), async icon render + interval_ms hold")
+        print("3/12: show_icon(Icons.DUCK), async icon render + interval_ms hold")
 
         # 4) show_arrow: async wrapper over render_arrow. SOUTH (Stage 1 used
         #    NORTH) generalizes beyond the one direction already confirmed.
         d.clear_screen()
         await d.show_arrow(Arrows.SOUTH, display.CYAN, interval_ms=1500)
-        print("4/10: show_arrow(Arrows.SOUTH), async arrow render + interval_ms hold")
+        print("4/12: show_arrow(Arrows.SOUTH), async arrow render + interval_ms hold")
 
         # 5) show_string, short text: fits on screen (single glyph <= WIDTH
         #    columns), so this exercises the centered-and-held path, distinct
         #    from step 6's scrolling path.
         d.clear_screen()
         await d.show_string("K", display.MAGENTA, interval_ms=300)
-        print("5/10: show_string('K'), fits-on-screen centered-hold path")
+        print("5/12: show_string('K'), fits-on-screen centered-hold path")
 
         # 6) show_string, long text: forces the scrolling ring-buffer path
         #    fed by _GlyphColumnFeeder (new code Stage 0/1 never touched at
         #    all, since it's Tier 2 only).
         d.clear_screen()
         await d.show_string("STAGE2", display.WHITE, interval_ms=150)
-        print("6/10: show_string('STAGE2'), scrolling ring-buffer path")
+        print("6/12: show_string('STAGE2'), scrolling ring-buffer path")
 
         # 7) show_number: thin wrapper over show_string(str(n)). 42 is two
         #    digits, so this also confirms the wrapper actually reaches the
         #    scroll path (not just the short-text path already proven in step 5).
         d.clear_screen()
         await d.show_number(42, display.GOLD, interval_ms=150)
-        print("7/10: show_number(42), wrapper routes into show_string's scroll path")
+        print("7/12: show_number(42), wrapper routes into show_string's scroll path")
 
         # 8) Image.show_image: windowed render of an image wider than the
         #    display, sweeping every case `_render_window`'s own docstring
@@ -192,8 +238,8 @@ async def main() -> None:
         _big_image.recolor(display.CYAN)
         for _offset in (0, 3, 5, -2, 8):
             await _big_image.show_image(offset=_offset, interval_ms=900)
-            print(f"8/10: Image.show_image(offset={_offset}) rendered")
-        print("8/10: Image.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
+            print(f"8/12: Image.show_image(offset={_offset}) rendered")
+        print("8/12: Image.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
 
         # 9) Image.scroll_image: animates the same image across its full
         #    width, one column per frame. Distinct code path from step 8
@@ -206,7 +252,7 @@ async def main() -> None:
         d.clear_screen()
         _big_image.recolor(display.PURPLE)
         await _big_image.scroll_image(step=1, interval_ms=250)
-        print("9/10: Image.scroll_image, full-width scroll animation (PURPLE, vs. step 8's CYAN)")
+        print("9/12: Image.scroll_image, full-width scroll animation (PURPLE, vs. step 8's CYAN)")
 
         # 10) SERIAL SELF-CHECK, no visual judgment needed: it tests the
         #     cancellation-token contract every Tier-2 animation relies on
@@ -234,13 +280,103 @@ async def main() -> None:
             _elapsed = time.monotonic() - _t0
             _cancelled_early = _elapsed < (_full_length_s - 0.5)
             _status = "OK" if _cancelled_early else "MISMATCH"
-            print(f"10/10: cancellation check, elapsed={_elapsed:.2f}s vs interrupt-at={_interrupt_at_s:.2f}s vs uninterrupted-full-length={_full_length_s:.2f}s [{_status}]")
+            print(f"10/12: cancellation check, elapsed={_elapsed:.2f}s vs interrupt-at={_interrupt_at_s:.2f}s vs uninterrupted-full-length={_full_length_s:.2f}s [{_status}]")
         except AttributeError as exc:
             # asyncio.gather (or another API this step depends on) may not exist
             # in the bundled asyncio version: surface that as data, not a crash,
             # so the rest of the cycle (and the rest of this diagnostic run) still
             # completes.
-            print(f"10/10: cancellation check SKIPPED, {exc!r} (bundled asyncio API gap)")
+            print(f"10/12: cancellation check SKIPPED, {exc!r} (bundled asyncio API gap)")
+
+        # 11) SERIAL SELF-CHECK + visual: rotating *while* show_string is
+        #     scrolling -- the mechanism step 10 never exercised. `set_rotation`
+        #     is deliberately non-cancelling (unlike step 10's Tier-1 `d.fill`
+        #     interrupt via `_trigger_cancellation_after`), so this scroll
+        #     should run to its FULL length, not stop early -- the opposite
+        #     expectation from step 10's own check.
+        #     The uninterrupted duration is a clean closed form because the
+        #     bundled font has a fixed per-glyph advance: `_glyph_columns`
+        #     always returns exactly WIDTH bytes/glyph (any character, known
+        #     or not -- pinned by tests/test_font.py's blank/unknown cases),
+        #     and `show_string`'s scroll loop renders once per fetched column,
+        #     real or trailing-blank, breaking right after the (WIDTH+1)-th
+        #     blank (see its "ends fully blank" contract). Total frames =
+        #     WIDTH * len(text) [real columns] + WIDTH + 1 [trailing blanks].
+        #     Rotates to 90 degrees partway through: an AXIS SWAP (px, py =
+        #     (WIDTH-1)-y, x -- see geometry.py's rotation cases), so the
+        #     scroll should visibly turn from horizontal to vertical motion
+        #     mid-animation, not just restart or glitch. See
+        #     lib/display/README.md's "Rotation during an in-flight Tier 2
+        #     animation" section for the full argument this step exercises.
+        d.clear_screen()
+        d.set_rotation(0)
+        _text_11 = "ROTATE"
+        _interval_ms_11 = 200
+        _full_length_s_11 = (display.WIDTH * len(_text_11) + display.WIDTH + 1) * _interval_ms_11 / 1000
+        _rotate_at_s_11 = 2.5
+        _t0 = time.monotonic()
+        try:
+            await asyncio.gather(
+                d.show_string(_text_11, display.GREEN, interval_ms=_interval_ms_11),
+                _trigger_rotation_after(_rotate_at_s_11, 90),
+            )
+            _elapsed_11 = time.monotonic() - _t0
+            _not_cancelled_11 = _elapsed_11 >= (_full_length_s_11 - 0.5)
+            _status_11 = "OK" if _not_cancelled_11 else "MISMATCH"
+            print(
+                f"11/12: rotate-while-scrolling (show_string), elapsed={_elapsed_11:.2f}s "
+                f"vs rotate-at={_rotate_at_s_11:.2f}s vs uninterrupted-full-length={_full_length_s_11:.2f}s "
+                f"[{_status_11}] (set_rotation must NOT shorten the scroll, contrast step 10) "
+                f"-- watch for the scroll axis turning horizontal->vertical partway through"
+            )
+        except AttributeError as exc:
+            # Same defensive rationale as step 10: surface a bundled-asyncio API
+            # gap as data instead of letting it crash the rest of this cycle.
+            print(f"11/12: rotate-while-scrolling SKIPPED, {exc!r} (bundled asyncio API gap)")
+        d.set_rotation(0)
+
+        # 12) SERIAL SELF-CHECK + visual: rotating *while* Image.scroll_image
+        #     is animating -- same underlying mechanism as step 11 (in-place
+        #     _LUT mutation + fresh-per-frame LUT read + non-cancelling
+        #     set_rotation), exercised through the OTHER render primitive
+        #     (`Image._render_window`, distinct from step 11's
+        #     `_render_ring_window`). Uses 180 degrees this time (not 90, as
+        #     in step 11): an axis-PRESERVING mirror (px, py = (WIDTH-1)-x,
+        #     (HEIGHT-1)-y), so between steps 11-12 both rotation-transform
+        #     families (axis swap vs. axis-preserving reversal) get exercised.
+        #     Uninterrupted duration follows step 10's own closed form
+        #     ((max_start // step + 1) frames x interval_ms), computed here
+        #     from `_big_image.width` rather than hardcoded so it can't drift
+        #     from `_BIG_PATTERN`'s actual size. Expects elapsed to MATCH that
+        #     full length (not fall short, as step 10's cancelling interrupt
+        #     does) -- the same "must not cancel" contract as step 11, through
+        #     a different code path.
+        d.clear_screen()
+        d.set_rotation(0)
+        _big_image.recolor(display.BLUE)
+        _step_12 = 1
+        _interval_ms_12 = 400
+        _max_start_12 = _big_image.width - display.WIDTH
+        _full_length_s_12 = ((_max_start_12 // _step_12) + 1) * _interval_ms_12 / 1000
+        _rotate_at_s_12 = 1.0
+        _t0 = time.monotonic()
+        try:
+            await asyncio.gather(
+                _big_image.scroll_image(step=_step_12, interval_ms=_interval_ms_12),
+                _trigger_rotation_after(_rotate_at_s_12, 180),
+            )
+            _elapsed_12 = time.monotonic() - _t0
+            _not_cancelled_12 = _elapsed_12 >= (_full_length_s_12 - 0.5)
+            _status_12 = "OK" if _not_cancelled_12 else "MISMATCH"
+            print(
+                f"12/12: rotate-while-scrolling (Image.scroll_image), elapsed={_elapsed_12:.2f}s "
+                f"vs rotate-at={_rotate_at_s_12:.2f}s vs uninterrupted-full-length={_full_length_s_12:.2f}s "
+                f"[{_status_12}] (set_rotation must NOT shorten the scroll, contrast step 10) "
+                f"-- watch for the same motion mirrored in place (not turned 90 degrees, unlike step 11)"
+            )
+        except AttributeError as exc:
+            print(f"12/12: rotate-while-scrolling SKIPPED, {exc!r} (bundled asyncio API gap)")
+        d.set_rotation(0)
 
         d.clear_screen()
         print("Cycle complete (Tier 2 async, display only; buttons deferred to a later stage).")

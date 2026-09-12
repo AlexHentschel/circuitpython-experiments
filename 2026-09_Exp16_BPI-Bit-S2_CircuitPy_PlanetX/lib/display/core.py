@@ -1005,7 +1005,7 @@ class Display:
                     return
                 col = feeder.next_column()
                 if col is None:
-                    col = 0
+                    col = 0  # empty column
                     trailing_blanks += 1
                 ring[read_head] = col
                 read_head += 1
@@ -1013,7 +1013,7 @@ class Display:
                     read_head = 0
                 # Scroll-out: once the feeder drains, keep feeding blank columns
                 # until WIDTH + 1 of them have gone by. `> WIDTH` (not `>=`) so the
-                # final fully-blank frame is actually rendered: with `>=` the loop
+                # final fully-blank frame is actually rendered; with `>=` the loop
                 # would break while the last meaningful column is still at x=0,
                 # leaving the caller's docstring-promised "ends fully blank"
                 # contract unmet.
