@@ -24,10 +24,10 @@ behaves as described:
     ``set_brightness`` / ``set_rotation`` (Tier 1) write real pixels.
   - Logical origin (0, 0) is visually top-left, per the documented wiring
     LUT (``row + 20 - column * 5``) -- confirmed on-device 2026-09-11.
-  - Step 6 (edge case): whether ``set_brightness()`` values below the
-    project's working 0.05 floor become visually indistinguishable from
-    off. **Confirmed on-device 2026-09-11**: 0.01 and below is visually
-    off; 0.02 was the lowest level still visibly lit in this test.
+  - Step 6 (edge case): ``set_brightness()``'s practical floor. **Confirmed
+    on-device 2026-09-11** (Alex's authoritative observation): 0.01 and
+    below is visually indistinguishable from off; 0.02 was the lowest
+    level still visibly lit in this test.
 """
 
 import time
@@ -85,12 +85,13 @@ while True:
     print("5/6: clear_screen -- main sequence done. Cycle continues into the brightness-floor check.")
     time.sleep(1)
 
-    # 6) EDGE CASE -- brightness floor. Alex's hypothesis (2026-09-11): below the project's
-    #    working 0.05 level, set_brightness() may make the matrix visually indistinguishable
-    #    from off (WS2812 duty-cycle/rounding at very low brightness*color products). Fill
-    #    once; set_brightness() re-shows the existing buffer at each new level on its own
-    #    (verified against lib/display/core.py: the setter calls _pixels.show() itself), so
-    #    no need to re-fill per level -- isolates brightness as the only changing variable.
+    # 6) EDGE CASE -- brightness floor. Brightness 0.01 and below is visually indistinguishable
+    #    from off; 0.02 is the lowest level still visibly lit (confirmed on-device 2026-09-11).
+    #    Likely mechanism (not independently verified): WS2812 duty-cycle/rounding at very low
+    #    brightness*color products. Fill once; set_brightness() re-shows the existing buffer at
+    #    each new level on its own (verified against lib/display/core.py: the setter calls
+    #    _pixels.show() itself), so no need to re-fill per level -- isolates brightness as the
+    #    only changing variable.
     d.fill(display.BLUE)
     for _level in (0.05, 0.04, 0.03, 0.02, 0.01, 0.005, 0.0):
         d.set_brightness(_level)
