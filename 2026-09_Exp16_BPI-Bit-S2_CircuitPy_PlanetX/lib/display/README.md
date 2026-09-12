@@ -72,6 +72,53 @@ task cancellation; the scroll coroutine simply returns early.
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
 methods, and check `_is_cancelled(token)` on both sides of the await.
 
+## Rotation during an in-flight Tier 2 animation
+
+`set_rotation` is the one display-mutating call that does **not** cancel
+a running animation (see the cancellation-policy exceptions above). That
+is safe by construction, not just by convention — three independent
+facts compose into a mechanical guarantee:
+
+1. **In-place LUT mutation.** `set_rotation(degrees)` rebuilds the
+   coordinate LUT *in place*: `build_lut(degrees, dest=_LUT)` (see
+   [geometry.py](geometry.py)) writes into the existing `_LUT`
+   `bytearray` rather than rebinding the module-global to a new object.
+   Any code holding a reference to `_LUT` sees the update immediately,
+   with no re-import and no cache-invalidation step needed.
+2. **Fresh LUT read every frame.** Every render primitive — `core.py`'s
+   `_render_ring_window` (`show_string`'s scroll), `Image._render_window`
+   (`show_image` / `scroll_image`), `_render_colmajor` (icon/arrow
+   renders) — does `lut = _LUT` (a local alias) on **every call**, not
+   once at animation start and cached for the animation's duration. A
+   long-running scroll therefore never has a "stale" LUT to invalidate;
+   it just picks up whatever `_LUT` currently contains, frame by frame.
+3. **Cooperative-scheduler atomicity.** CircuitPython's bundled
+   `asyncio` is single-threaded and cooperative — nothing preempts a
+   running coroutine mid-statement, only at an explicit `await`.
+   `build_lut`'s rebuild loop contains no `await`, so a `set_rotation`
+   call always runs to full completion strictly between two
+   frame-renders of any in-flight animation, never interleaved with one.
+
+Together: **a rotation issued while a Tier 2 animation is in flight
+cannot corrupt a frame or the animation's own state.** `show_string`'s
+ring-buffer `read_head` / feeder position and `scroll_image`'s `pos`
+live entirely in the coroutine's own stack frame — rotation never
+touches them. The only possible effect is on *which physical LEDs the
+next frame lights up*; the animation's logical progress is unaffected,
+and a scroll's screen-relative direction/axis can change mid-scroll
+(e.g. a 90°/270° rotation swaps a horizontally-scrolling animation onto
+the vertical axis, since it swaps which logical axis maps to which
+physical one — see [geometry.py](geometry.py)'s rotation cases) without
+restarting or glitching it.
+
+This is a **code-level, argued** guarantee (in-place mutation +
+read-fresh-every-frame + scheduler atomicity), not one derived from
+watching it run: static-rotation correctness and scroll-mechanics
+correctness have each been confirmed on-device independently, but their
+*combination* — rotating while a scroll or `scroll_image` animation is
+actually in flight — is, as of this writing, still pending a dedicated
+on-device confirmation (see the project's test plan / session memory).
+
 ## Column-major bytes (monochrome bitmap format)
 
 Icons, arrows, font glyphs, and mono Images all share the same internal layout: one byte per column

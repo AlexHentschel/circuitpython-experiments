@@ -19,6 +19,11 @@ Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
 one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
 ``set_rotation`` — deliberately non-cancelling so a running animation is
 not disturbed when the user dims the matrix or rotates the frame.
+``set_rotation`` not cancelling is safe by construction (in-place LUT
+mutation + every render primitive re-reading ``_LUT`` fresh each frame +
+single-threaded cooperative ``asyncio`` giving atomicity) — see
+``README.md`` § "Rotation during an in-flight Tier 2 animation" for the
+full argument.
 
 Bitmap encoding (used throughout this module): images are stored one column
 at a time (not one row at a time). Monochrome icons, arrows, glyphs, and
@@ -321,6 +326,10 @@ def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, in
     instead of a per-pixel modulo (cheaper on the MCU VM).
     """
     pixels = _pixels
+    # `_LUT` is read fresh on every call (not cached once per animation): this
+    # is one of the three facts (alongside set_rotation's in-place mutation and
+    # asyncio's cooperative scheduling) that make rotating mid-scroll safe.
+    # See README.md § "Rotation during an in-flight Tier 2 animation".
     lut = _LUT
     off = OFF
     x_base = 0  # invariant at top of loop: x_base == x * HEIGHT
@@ -584,6 +593,10 @@ class Image:
         """
 
         pixels = _pixels
+        # `_LUT` is read fresh on every call (not cached once per animation) --
+        # this is what lets `set_rotation` change a `scroll_image`/`show_image`
+        # animation's orientation mid-flight without corrupting it. See
+        # README.md § "Rotation during an in-flight Tier 2 animation".
         lut = _LUT
         off = OFF
         width = self._width
@@ -829,6 +842,11 @@ class Display:
         # Mutate in place so any module reading _LUT sees the new mapping
         # without needing to re-import. Passing dest=_LUT writes the new table
         # directly into the live buffer — no fresh bytearray + slice-copy.
+        # This in-place mutation (plus render primitives re-reading _LUT fresh
+        # each frame, plus asyncio's cooperative single-threaded scheduling) is
+        # exactly what makes this method safe to call while a Tier 2 animation
+        # is running, despite deliberately not cancelling it. See README.md §
+        # "Rotation during an in-flight Tier 2 animation" for the full argument.
         build_lut(degrees, dest=_LUT)
 
     # — Lifecycle -----------------------------------------------------------

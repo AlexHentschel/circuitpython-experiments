@@ -33,6 +33,10 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
     live LUT without a fresh allocation (avoids per-rotation heap churn). On an
     invalid ``rotation`` the function raises before writing, so ``dest`` is left
     unmodified; an invalid ``dest`` length raises before any writes as well.
+    This in-place write (rather than rebinding ``core.py``'s module-global
+    ``_LUT`` to a new object) is one of the three facts that make it safe to
+    call ``set_rotation`` while a Tier 2 animation is running -- see
+    ``lib/display/README.md`` § "Rotation during an in-flight Tier 2 animation".
 
     Two-stage coordinate transform:
       1. Rotation: logical (x, y) -> physical (px, py).
