@@ -4,6 +4,17 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-12 — extend: seed `concepts/led-driving.md` (first concept, C7)
+
+**Trigger:** Alex — "promote that" (the PIO-vs-RMT-per-MCU-family fact surfaced while correcting stale "PIO" wording in exp16's ESP32-S2 docs). Reserved candidate domain `led-driving` received its first concrete, evidenced concept.
+
+**Change** (`extend`; C7 new domain — `led-driving` was a reserved candidate since the warm reset; NOT folded into `circuitpython-runtime` because it is a hardware-peripheral fact, not a VM/runtime one, and `circuitpython-runtime` is RP2040-anchored):
+
+- New `concepts/led-driving.md` with `### WS2812/NeoPixel output peripheral is MCU-family-specific (RP2 → PIO; ESP32 → RMT)`, `evidence-supported` (concordant official CP sources: PR adafruit/circuitpython#3232, commit 9537b1d, both ports' `common-hal/neopixel_write`). `_INDEX.md` domain line added + Candidate-domains section updated (led-driving now seeded). `_RELATIONS.md`: realized the anticipated `circuitpython-runtime: neopixel allocation —composes-with— led-driving` edge (buffer vs output-peripheral); a distinct `WS2812 timing` edge remains anticipated. Domain count 6 → 7.
+- Cross-ref: in-repo provenance is exp16 `Notes/exp14-divergence.md` §3 (the do-not-back-port PIO→RMT correction) + `SESSION_LOG.md` Session 24.
+
+**Preserve:** `circuitpython-runtime`'s existing `neopixel.NeoPixel allocation` concept (allocation/heap axis) stays put — the new concept is the orthogonal output-peripheral axis, linked not merged.
+
 ## 2026-09-11 — extend: 4MB-partition sidecar + wrap-up destillation (notes may vanish)
 
 **Trigger:** Alex — compile the enumerated TinyUF2 4MB CSV tables (the only home was gitignored `ai-notes/esp32-4mb-circuitpy-vs-ota/`) into a ≤1 KB durable artifact; wrap-up must assume `ai-notes/` may later be gone; notes remainder = confidential/sensitive only unless specified. This research and Exp16 are not confidential (Exp16 dump-all deferred to that wrap-up).

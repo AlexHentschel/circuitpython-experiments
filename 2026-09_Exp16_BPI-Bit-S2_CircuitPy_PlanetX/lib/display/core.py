@@ -11,7 +11,7 @@ Two-tier API:
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
                    pause.  Require ``await`` from asyncio code.
-  Lifecycle:      deinit — releases the data pin / PIO; the module-level
+  Lifecycle:      deinit — releases the data pin / RMT peripheral; the module-level
                    ``display`` instance is unusable afterwards (no re-init path).
 
 Cancellation policy: any display-mutating method cancels an in-progress
@@ -834,12 +834,12 @@ class Display:
     # — Lifecycle -----------------------------------------------------------
 
     def deinit(self) -> None:
-        """Release the NeoPixel hardware (PIO state machine + data pin).
+        """Release the NeoPixel hardware (RMT peripheral + data pin).
 
         Cancels any ongoing animation, then deinitializes the underlying
         NeoPixel buffer. After this call the ``display`` singleton is unusable
         — any further render call raises. There is no re-init path; this is a
-        teardown hook for code that wants to free the data pin / PIO for other
+        teardown hook for code that wants to free the data pin / RMT peripheral for other
         use (e.g. before a soft reboot, or to hand the pin to a different
         peripheral). See ``lib/display/README.md`` for why this library exposes
         a single module-level ``display`` instead of supporting multiple

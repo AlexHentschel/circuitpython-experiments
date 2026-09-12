@@ -1,6 +1,6 @@
 # Exp16 vs. Exp14 — `lib/display/` design & API divergence
 
-**Status (2026-09-11):** living record, current-state only. Exp16 forked
+**Status (2026-09-12):** living record, current-state only. Exp16 forked
 `lib/display/` from Exp14 (`2026-04_Exp14_DisplayLibrary_CPy_on_RPi-Pico-2040/lib/display/`)
 onto the BPI-Bit-S2's onboard 5×5 matrix; the two copies now evolve
 independently. This file tracks **what differs today**, not a session-by-
@@ -56,6 +56,24 @@ Confirmed **byte-identical** between the two libraries' `core.py` (verified 2026
 - **`Image.scroll_image`'s per-frame parameter renamed `offset` → `step`** (Exp16 only). `show_image(offset)` and `scroll_image(offset)` used the same name for two different concepts — a window *position* (can be negative, can overhang) vs. a per-frame *increment* (always starts at position 0, no way to change that). Renamed to `step` in Exp16; `show_image`'s `offset` is unchanged (it's the correct name for what it does).
   - **Prior art**: this exact ambiguity was already flagged, independently, in Exp14's own `working-docs/refactor-round-todos.md` #12(a) (added 2026-06-14, "Rename scroll step to `step`/`columns_per_frame` — API change, small, no external consumers," disposition open) — not yet applied there. Exp16 now diverges from Exp14 on this parameter name for what was, until today, identical code.
   - **Recommendation**: apply the same rename in Exp14 next time that repo is touched, so the two don't silently drift apart on naming for otherwise-shared logic. Cross-project promotion candidate — see persona `crossref/BY_TOPIC.md`.
+
+- **Docstring-quality pass on Exp16 `lib/display/core.py` + `lib/display/README.md`** (2026-09-12; doc/comment-only, no logic or signature change; `py_compile` clean, `pytest` 149 green). Applied a four-axis docstring review (coupling / audience-accessibility / typical-case-first ordering / honesty about constants — persona `CODING_PRINCIPLES.md § Docstring quality triage is multi-axis`): moved private mechanism out of public docstrings into internal comments (module globals; the cancellation sequence-counter; `render_pattern`'s LUT/no-buffer strategy; `set_rotation`'s LUT rebuild; the `_data` slot and `_iter_pattern_rows` names); added a caller-facing shared-instance hazard note to `recolor`; dropped "singleton" jargon; reordered the `Image` class docstring caller-first (storage demoted to a closing note). `_render_window`'s docstring was **left entirely untouched** (Alex-reserved, hand-polished).
+  - **Back-port to Exp14: YES — the *restructuring*, re-authored against Exp14's own text.** These are board-agnostic doc-quality improvements; Exp14's counterpart docstrings (`module` / `Image` / `Display` / `render_pattern` / `set_rotation` / `columns` / `create_image`) carry the same coupling/ordering issues. Port the *pattern*, not the literal strings — the embedded facts differ (see the next entry). This narrows §2.4's "Tier 2 byte-identical" note to *code*: the docstrings now differ.
+
+- **8×8 / RP2040-heritage fact corrections in Exp16 docs — DO NOT BACK-PORT** (2026-09-12). Exp16 inherited docstring/README facts that were true for Exp14 (8×8, YD-RP2040) but false on the BPI-Bit-S2. Corrected in Exp16 only; **each is correct as-is in Exp14 and must not be carried back:**
+
+  | Fact | Exp14 (keep) | Exp16 (corrected) |
+  |---|---|---|
+  | Matrix size in prose (`Display` docstring, README §single-instance) | 8x8 | 5x5 |
+  | Board (README §single-instance) | YD-RP2040 | BPI-Bit-S2 |
+  | Data pin (README `deinit`) | GP0 | GPIO18 (`board.NEOPIXEL`) |
+  | Per-icon `Image` backing block (README sub-module table) | 8-byte | `WIDTH`-byte (= 5) |
+  | `create_big_image` width (`core.py` docstring) | 16-wide | `2 * WIDTH`-wide (= 10) |
+  | Font node (README mermaid) | `font_free_mono_8/font.pcf` | `font_makecode_5/glyphs.py` (see §2.1) |
+  | NeoPixel driver peripheral (`deinit` docstrings + README, 5 sites) | **PIO state machine** | **RMT peripheral** |
+
+  - **The PIO→RMT row is the trap**: it reads like a generic doc fix but is hardware-specific. **Exp14's RP2040 genuinely drives NeoPixels via a PIO state machine**, so "PIO" is *correct* there (same for Exp15's RP2350). Only ESP32-class MCUs have no PIO — CircuitPython's espressif `neopixel_write` uses the **RMT** peripheral. When Exp16 becomes the forward base on an RP2350 board, this reverts to PIO — re-derive per silicon, do not treat "RMT" as the canonical wording.
+  - **Deliberately left** (portable as-is, *not* a stale fact): README §"Column-major bytes" "an 8x8 mono bitmap is exactly 8 bytes" + the letter-`F` example — a correct statement about the encoding format's 8-bit-per-column capacity (the format caps at 8 rows on any board), not a claim about this matrix.
 
 ## 4. Exp16-only surface (no Exp14 counterpart at all)
 
