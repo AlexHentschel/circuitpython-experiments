@@ -1,0 +1,28 @@
+# CircuitPythonSync file copy manifest
+# Lines starting with # are comments (ignored). Blank lines are ignored.
+# Format:  source_file  or  source_file -> /destination_on_board
+
+
+readme.txt
+
+# CircuitPythonSync "easy switch mechanism"; insert following line:
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#    `foo.py -> /code.py`
+# which copies workspace `foo.py` onto the *board* as `code.py`. Local `code.py` is
+# unchanged. When using this switch mechanism, comment out the `code.py` line first, 
+# because two sources to the same destination is an error. Then run Copy Files to Board.
+#
+# IMPORTANT: never put a trailing inline comment after an ACTIVE `source -> /dest`
+# line. Confirmed 2026-09-12: neither this experiment's own `scripts/sync_files_to_board.py`
+# nor the CircuitPythonSync extension strips text after the destination path -- a line like
+# `foo.py -> /code.py # some note` copies to a literal file named "code.py # some note"
+# on the board instead of "/code.py", silently leaving the real /code.py stale. Put the
+# description on its own comment line directly above the entry instead (see below).
+
+# code.py
+# Tier 1 sync, minimal (basic primitives + brightness floor)
+# code_stage0.py -> /code.py
+# Tier 1 sync, broader (patterns + arrows + rotations)
+# code_stage1.py -> /code.py
+# Tier 2 async display + rotate-mid-scroll (steps 1-12: adds rotate-while-scrolling)
+code_stage2.py -> /code.py

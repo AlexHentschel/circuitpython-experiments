@@ -1,3 +1,12 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/01-MEMORY-SYSTEM.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+Corpus still describes a 5-file flat memory + human-elevation `verified`. This persona does not.
+-->
+
 # Persistent Memory System
 
 ## Purpose
@@ -6,7 +15,7 @@ Enable cumulative learning across sessions. Without persistent memory, the agent
 
 ## File Architecture
 
-Five files, each with a distinct purpose. The separation prevents any single file from becoming a dumping ground.
+Five files, each with a distinct purpose. The separation prevents any single file from becoming a dumping ground. A sixth file — the permitted-destructive-actions ledger — is created at bootstrap even though it stays empty until the first grant (`destructive-operations.md` §11); an absent file makes a cold session unsure whether the protocol is installed.
 
 ### WORKING_STYLE — Behavioral Directive Catalog
 `[long-running]`
@@ -105,6 +114,19 @@ Do NOT record:
 - Structural changes to memory files (reorganizations, new files, format changes)
 - Meta-learnings (generalized patterns from recurring failures)
 - Identified technical debt in the memory system itself
+
+### PERMITTED_DESTRUCTIVE_ACTIONS — Grant Ledger
+`[universal]`
+
+**Purpose**: The authority a cold session checks before any destructive / not-trivially-reversible action. Conversation grants evaporate; this file is what survives. Absence of a matching entry = **no permission** (fail-closed).
+
+**Not read at session start.** Consulted at the per-action self-check (`destructive-operations.md` §7), immediately before a candidate `rm` / overwrite / history rewrite / force-push / backup delete.
+
+**Two layers:** a durable master (this file) plus an optional per-run copy next to task scratch. If the per-run copy is lost, permissions revert to more restrictive — acceptable, deliberate.
+
+**Compaction of this file is itself gated.** Dropping a grant record is not "tidying"; it destroys the only evidence a later session has that an action was (or was not) authorized. Prefer spent/historical rows over deletion.
+
+Schema, confirmation protocol, and bootstrap template: `destructive-operations.md` §5–§6, §11.
 
 ## Active Retrieval
 `[long-running]`
@@ -255,3 +277,5 @@ Higher levels are more stable and require stronger evidence to change. A Level 0
 - Content Hierarchy error-recovery perspective → `07-META-LEARNINGS.md` §10b
 - Content Hierarchy change-frequency perspective → `08-BOOTSTRAPPING.md` § Content Hierarchy
 - Bootstrapping the file structure from scratch → `08-BOOTSTRAPPING.md` (First-Session Template)
+- The full journey from crowding problem to sub-agent delegation → `09-RECURSIVE-LEARNING.md` (case study of recursive self-improvement applied to memory/reflection)
+- Destructive-ops ledger (when to read, fail-closed, do not compact grant records) → `destructive-operations.md`

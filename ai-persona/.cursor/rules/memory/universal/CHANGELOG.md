@@ -4,6 +4,93 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-12 — extend: seed `concepts/led-driving.md` (first concept, C7)
+
+**Trigger:** Alex — "promote that" (the PIO-vs-RMT-per-MCU-family fact surfaced while correcting stale "PIO" wording in exp16's ESP32-S2 docs). Reserved candidate domain `led-driving` received its first concrete, evidenced concept.
+
+**Change** (`extend`; C7 new domain — `led-driving` was a reserved candidate since the warm reset; NOT folded into `circuitpython-runtime` because it is a hardware-peripheral fact, not a VM/runtime one, and `circuitpython-runtime` is RP2040-anchored):
+
+- New `concepts/led-driving.md` with `### WS2812/NeoPixel output peripheral is MCU-family-specific (RP2 → PIO; ESP32 → RMT)`, `evidence-supported` (concordant official CP sources: PR adafruit/circuitpython#3232, commit 9537b1d, both ports' `common-hal/neopixel_write`). `_INDEX.md` domain line added + Candidate-domains section updated (led-driving now seeded). `_RELATIONS.md`: realized the anticipated `circuitpython-runtime: neopixel allocation —composes-with— led-driving` edge (buffer vs output-peripheral); a distinct `WS2812 timing` edge remains anticipated. Domain count 6 → 7.
+- Cross-ref: in-repo provenance is exp16 `Notes/exp14-divergence.md` §3 (the do-not-back-port PIO→RMT correction) + `SESSION_LOG.md` Session 24.
+
+**Preserve:** `circuitpython-runtime`'s existing `neopixel.NeoPixel allocation` concept (allocation/heap axis) stays put — the new concept is the orthogonal output-peripheral axis, linked not merged.
+
+## 2026-09-11 — extend: 4MB-partition sidecar + wrap-up destillation (notes may vanish)
+
+**Trigger:** Alex — compile the enumerated TinyUF2 4MB CSV tables (the only home was gitignored `ai-notes/esp32-4mb-circuitpy-vs-ota/`) into a ≤1 KB durable artifact; wrap-up must assume `ai-notes/` may later be gone; notes remainder = confidential/sensitive only unless specified. This research and Exp16 are not confidential (Exp16 dump-all deferred to that wrap-up).
+
+**Change** (`extend`; same domain `tooling`, not a C7 new domain; D8 stream-on-demand detail file, not a per-concept folder split):
+
+- New `concepts/tooling-4mb-partitions.md` (789 B; Adafruit 4MB CSV rows + 1408+1408 arithmetic + 0.32≡0.35 identity). `_INDEX` line + `_RELATIONS` —refines— edge. Pointers retargeted: `tooling.md` how-to-check-status, `MONITORING.md`, exp16 CONCLUSIONS + SESSION_LOG.
+- New `[user]` Workflow row *Wrap-up assumes `ai-notes/` may vanish* (sibling of *Persist task working notes*). Playbook Objective 3 / G7 / extract schema / SKILL hard-stop / durable-target row updated: source-only-until-cleanup **superseded** for non-confidential.
+
+**Preserve:** parent `tooling.md` mechanism claims; G10 credentials sanitization; Exp16 not dump-all this turn. Notes folder later moved to Trash by Alex (`G-2026-09-11-3`); workspace-absent 2026-09-11.
+
+## 2026-09-11 — extend: seed `concepts/tooling.md` (first concept)
+
+**Trigger:** exp16 walkthrough — upgrade BPI-Bit-S2 CP 10.0.3 → 10.3.0 via esptool + TinyUF2. `tooling` was a C7 candidate; first concrete evidenced concept arrived.
+
+**Change** (`extend`; seed-on-evidence, not a reorg): new `concepts/tooling.md` (Espressif 4MB TinyUF2 + ROM/esptool v5). Index line + candidate-list note in `concepts/_INDEX.md`; one `_RELATIONS.md` edge to `circuitpython-runtime: mpy-cross`; `02-domain-structure.mdc` seeded-domain list. Board-specific boot sequence also in exp16 CONCLUSIONS.
+
+## 2026-09-08 — refine: retrieval/placement layout **confirmed** (drop June-14 experiment banners)
+
+**Trigger:** Alex “please proceed with pass” on `ai-notes/provisional-marker-pass/plan_v1.0.md`. Watch-for (~5 additions, no refute) exceeded since 2026-06-15 / 2026-07-15; ingest 2026-09-07 (R3) explicitly did not bundle this.
+
+**Change** (`refine`; status of existing structure, not a reorg / not a second warm-reset):
+
+- **Confirmed** retrieval/placement (one-hop index→domain/project→detail; deterministic placement; no recorded wrong-bucket or no-home finding) on `concepts/_INDEX.md`, `projects/_INDEX.md`, `04-multi-project.mdc`. Echo updated in `00-memory-system.mdc` layout paragraph.
+- **Did not re-open** dedicated-root / no symlink-fanout (settled 2026-07-15).
+- **Did not rewrite** `00-memory-system.mdc § Content vs structure` — future structure still gets a `provisional` marker + watch-for.
+- **Hygiene (headers that had become false):** `crossref/BY_PATTERN.md` no longer claims empty of confirmed patterns (first `PATTERNS.md` entry 2026-09-04); `crossref/BY_TOPIC.md` no longer “only 3 projects” (roster has 5); `concepts/_RELATIONS.md` no longer “only 2 domains” (5 domain files); `02-domain-structure.mdc` seeded-domain list updated (`power`/`i2c`/`git` were still listed as unseeded; `fuel-gauge` folded into `power`; `sensors` remains a candidate).
+- Living summary updated. `MAINTENANCE_BACKLOG.md` item struck.
+
+**Evidence counted:** `power` 6 + `i2c` 6 + `git` 3 = 15 concepts in *new* post-reset domains; five roster projects; taxonomy forks (`fuel-gauge`→`power`, `sensors` deferred) used the placement gate. No refute recorded.
+
+**Preserve (not this pass):** per-concept file split; symlink restore; Exp16 `ai-notes/` untrack; wrap-up-to-memory skill; DN-MP-1 heuristic refine; hypothesis-test first entry; `verified` tier; TECHNICAL.md flatten.
+
+## 2026-09-08 — refine: `ai-notes/` authority is per-claim confidence
+
+**Trigger:** Alex correction — “scratch, not SOT” was too coarse. A claim in `ai-notes/` can be SOT depending on the confidence of the analysis/source; the content must classify its own reliability. Typical folders are exploratory; that is not required. Notes unpack (dead-ends, lighter structure); persona memory is where structure/semantic links/higher-level extraction pay off (wrap-up compresses later). Written for a cold AI of the same persona; vanilla dumps get incorporated when asked.
+
+**Change** (`refine`; same cue, no new row, no new `.mdc`):
+
+- Corpus `ai-notes-convention.md` §2 rewritten (two orthogonal axes: git vs authority). `working-notes-lean-context.md`, `00-OVERVIEW.md`, corpus `README.md` aligned.
+- Persona shelf copies refreshed 2026-09-08. WS *Persist task working notes* Goal/Act updated (reinforcements 2 → 3). Living summary + SoT map + COLLABORATOR_GUIDE + `BY_TOPIC` wording.
+- Wrap-up playbook **not** instantiated here; pointer on the WS row to the HA skill/concept Alex named.
+
+**Preserve:** git/lifecycle rules (gitignore default, one-way team-deliverable refs, do not untrack without grant). Exp16 tracked notes still not untracked.
+
+## 2026-09-08 — extend: `ai-notes/` git/lifecycle (companion to working-notes)
+
+**Trigger:** Alex gitignored `ai-persona/ai-notes/` and pointed at corpus `ai-notes-convention.md` (recipe). Fold into the existing working-notes cue; avoid a second always-on rule.
+
+**Change** (`extend`; no layout restructure; no compaction):
+
+- **Shelf:** `reference/ai-notes-convention.md` (snapshot 2026-09-08). Fireable cue remains `WORKING_STYLE.md § Workflow` *Persist task working notes* — contents half already pointed at `working-notes-lean-context.md`; git/lifecycle half now in the same row.
+- **House default:** gitignored at the work unit (persona root or experiment folder). One-way dependency: notes may cite the repo; committed deliverables must stand alone. Durable claims lift to `memory/` or versioned spec/code. Never untrack a checked-in `ai-notes/` without a grant.
+- **Instance:** `ai-persona/.gitignore` → `ai-notes/` (never tracked). Exp16 tracked notes left in place — `MONITORING.md`.
+- **Wiring:** COLLABORATOR_GUIDE on-demand row; `00.mdc` See also; `concepts/git.md` cross-ref; SoT map row. No 5th `03-triggers` item.
+
+**Preserve:** Exp16 `ai-notes/` not untracked; Exp14 `working-docs/` not merged into `ai-notes/`.
+
+## 2026-09-07 — extend: corpus → persona ingest (shelf + fireable cues + reachability hygiene)
+
+**Trigger:** Alex “Please execute. Sign-off granted.” (ingest plan was local scratch under `ai-persona/ai-notes/`; that folder is gitignored as of 2026-09-08 — this CHANGELOG entry is the durable record). Corpus: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/` (recipe, not house SOT).
+
+**Change** (`extend`; no compaction; no memory-layout restructure):
+
+- **`reference/` shelf** — corpus snapshot dated 2026-09-07, durable-copy headers on every file. New: 09, 10, 11, working-notes, plan-refinement-loop, EBG, host-portability, host-adaptation-claude-code (not instantiated), PR/commit authoring. Refreshed: 00–08, cold-ai, flexible-plans, destructive-operations. **Not copied:** `writes-thinks-speaks.md`, corpus `README.md`, `EXTRACTION-PLAN.md`, `exemplary-artifacts/`.
+- **Fireable cues** in `WORKING_STYLE.md`: working-notes `[user]` Workflow; plan-refinement loop `[user]` Workflow; hypothesis-test section seeded empty (plan default R1); self-confirmation loop folded into cold-AI Notes; PR altitude on existing commit-message row (Alex format unchanged); EBG pointer in Retention. `MONITORING.md`: 09 Attempt 4 quality-risk (not a standing “always delegate memory” rule).
+- **Hygiene:** `00-memory-system.mdc` + `04-multi-project.mdc` no longer state live symlink-fanout as current reachability (dedicated `ai-persona` root, 2026-07-15). Content/structure named in `00.mdc`. `COLLABORATOR_GUIDE.md` deployment section rewritten; on-demand `reference/` table added. `06-destructive-operations.mdc` host-portability pointer now local.
+- **`03-memory-update-triggers.mdc`:** still four items (no 5th).
+
+**Preserve-list intact:** no `verified` tier restored; no TECHNICAL.md flatten; no per-concept split; 11 not re-executed; no symlink-fanout restore; PROVISIONAL markers left (R3 — MAINTENANCE_BACKLOG item remains user-gated).
+
+**Open defaults taken:** R1 seed hypothesis-test section; R2 copy Claude Code adaptation file labelled not-instantiated; R3 do not bundle PROVISIONAL promotion.
+
+**Inventory / claims-coverage:** verified at execution (P4); local notes were gitignored 2026-09-08. Durable ingest record is this CHANGELOG section + WS/reference/ diffs.
+
+
 ## 2026-09-04 — refine: *Cross-runtime citations* lifted `[project]` → `[user]` (MONITORING trigger)
 
 **Trigger:** Alex, Exp16 — do not conflate host Miniconda CPython venv (`CircuitPython_3.13_VsCode`) with CircuitPython firmware; do not assume MicroPython APIs carry over.

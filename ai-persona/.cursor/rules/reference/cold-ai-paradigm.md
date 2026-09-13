@@ -1,8 +1,10 @@
 <!--
-DURABLE PERSONA COPY. Source: /Users/alex/Developed/AI/generalized-agent-learnings/cold-ai-paradigm.md
-(that folder is ephemeral — do not depend on it; this copy is authoritative). Copied verbatim 2026-06-14.
-Operational trigger form (the fireable directive): WORKING_STYLE.md § Core Principles "Apply the cold-AI write-time
-gate before persisting any content". This file is the reference form: read during bootstrapping or reflection.
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/cold-ai-paradigm.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+Fireable cue: WORKING_STYLE.md Core Principle *Apply the cold-AI write-time gate*.
 -->
 
 # The Cold-AI Paradigm — Writing Persisted Content for a Future Self With No Memory
@@ -218,5 +220,4 @@ If this document ever degrades to where a cold AI cannot apply the test it descr
 - `11-MULTI-PROJECT-BOOTSTRAP.md § 6.5` — the four-question test as a bootstrap acceptance gate.
 - `01-MEMORY-SYSTEM.md` — the persistence infrastructure the paradigm protects.
 - `03-SELF-IMPROVEMENT.md § Directives Are Hypotheses` — the foundational treatment of directives-as-hypotheses that `§ 6` builds on.
-
-> Note (durable copy): the cross-references above point at files in the ephemeral source folder. Local equivalents that exist in this persona's `reference/`: `01-memory-system.md`, `03-self-improvement.md`. The others (`writes-thinks-speaks`, `10-ADAPTIVE-MEMORY-STRUCTURE`, `11-MULTI-PROJECT-BOOTSTRAP`) are not copied locally as of 2026-06-14; copy them if a future need to follow those references arises.
+- `working-notes-lean-context.md` — applies this gate to *task-scoped ephemeral notes* (chat as cache; `NOTES.md` / `INDEX.md`; wrap long tool output). Complementary lifetime to durable persona memory.

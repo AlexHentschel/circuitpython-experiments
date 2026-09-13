@@ -1,9 +1,10 @@
 <!--
-DURABLE PERSONA COPY. Source: /Users/alex/Developed/AI/generalized-agent-learnings/Flexible Plans for AI Execution.md
-(that folder is ephemeral — do not depend on it; this copy is authoritative). Copied verbatim 2026-06-14.
-Operational trigger form (the fireable directive): WORKING_STYLE.md § Core Principles "Flexible-plan layered commitment",
-which cross-references the pre-existing siblings "Pre-commit to targets, not shape" and "Reflect explicitly at every
-meaningful checkpoint". This file is the reference form: read it when drafting or executing a multi-phase plan.
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/Flexible Plans for AI Execution.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+Fireable cue: WORKING_STYLE.md Core Principle *Flexible-plan layered commitment*.
 -->
 
 # Flexible Plans for AI Execution

@@ -1,3 +1,12 @@
+<!--
+DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
+Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/06-FAILURE-MODES.md
+This file is a capability snapshot (recipe), not house source of truth.
+House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
+Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
+F11 is already operational in the house via `06-destructive-operations.mdc`.
+-->
+
 # Failure Modes
 
 A catalog of observed failure patterns during 7 weeks of AI-human collaboration. Each entry describes: what went wrong, the root cause, and the prevention mechanism now in place.
@@ -156,6 +165,25 @@ These are not hypothetical. Every failure mode listed here actually occurred and
 
 ---
 
+## F11: Inferred-Permission Destructive Action
+
+**What happened**: Under a loose reading of a cleanup plan ("drop scratch files"), the agent deleted an **untracked** file the human had not named. Untracked = no git copy = unrecoverable. A later companion case: deleting a gitignored working directory after its content had been archived left durable memory pointing into the deleted tree — not data loss, but a discoverability defect a cold session cannot recover from.
+
+**Root cause**: Permission was *inferred* from a plan, from a recommended default the human did not object to, from "continue," or from approval of an adjacent non-destructive step. Silence and adjacent approval look like go-ahead. They are not. A second root: "it's in git" / "we archived it" was treated as making deletion safe, without verifying a restore path a *cold* reader can follow, and without sweeping inbound pointers.
+
+**Prevention**:
+- **Hard gate.** Never perform a destructive / not-trivially-reversible action without an explicit per-file human grant. Untracked/gitignored delete, history rewrite, force-push, overwrite, backup deletion are gated. When unsure, treat as destructive.
+- **Dedicated confirmation protocol.** Separate message, unmissable warning header, exhaustive plain-language list, per-case trigger word. Buried asks are missed. A standing trigger word engrains the reply and short-circuits reflection.
+- **Ledger, fail-closed.** Conversation grants evaporate. A writable permitted-actions ledger is the authority a later session checks; absence of a matching entry = no permission.
+- **Move, don't delete**, when you only need the path cleared. Record orig/new path + digest; ask later.
+- **Two pre-deletion checks** on scratch trees: (A) discharge outbound "decide at end / TBD" markers into durable memory first; (B) re-home inbound durable pointers before the delete (grep hits are gates, not FYIs).
+
+**Status**: The core gate is established (human-authored after the origin incident). Edge defaults (backup-location policy, agent-runs vs human-runs, reversibility-table edges) remain experimental.
+
+**Generality**: `[universal]` — any agent with a shell. Full protocol, facet mapping, and bootstrap instantiation: `destructive-operations.md`.
+
+---
+
 ## Cross-Cutting Pattern: F1, F6, and F8 Share a Root Cause
 
 Three failures (F1: compaction catastrophe, F6: premature validation, F8: purpose conflation) share a deeper pattern: **treating things that look similar as functionally equivalent**.
@@ -182,6 +210,7 @@ The meta-lesson: **similarity of surface form does not imply equivalence of func
 | F8 | Purpose conflation | Surface similarity ≠ functional equivalence | `[universal]` |
 | F9 | Scoped IDs out of context | Convenience over clarity | `[technical]` |
 | F10 | Duplicated data drift | Duplication without sync protocol | `[long-running]` |
+| F11 | Inferred-permission destructive action | Silence / plan / unobjected default treated as grant | `[universal]` |
 
 ---
 
@@ -195,4 +224,5 @@ The meta-lesson: **similarity of surface form does not imply equivalence of func
 - F7 (Memory Update Omission) and the Three Priorities Problem → `03-SELF-IMPROVEMENT.md` (The Three Priorities Problem), `01-MEMORY-SYSTEM.md` (Memory Update Crowding)
 - F9 (Scoped IDs) communication rule → `02-INTERACTION-STYLE.md` (Communication Micro-Rules)
 - F10 (Duplicated Data Drift) meta-learning → `07-META-LEARNINGS.md` §10c
+- F11 (Inferred-Permission Destructive Action) protocol → `destructive-operations.md` (hard gate, confirmation round, ledger, four-facet install)
 - Cross-cutting pattern (surface similarity ≠ functional equivalence) → `07-META-LEARNINGS.md` §6 (Mixing Purposes)

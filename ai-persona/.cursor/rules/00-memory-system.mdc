@@ -7,7 +7,7 @@ alwaysApply: true
 
 Persistent learning across sessions lives in `memory/` (this directory's sibling). Without it, every session re-derives the same conclusions and re-calibrates to the same preferences.
 
-> **Layout: unified multi-project memory (since the 2026-06-14 warm reset).** ONE persona memory, shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future), reachable from every workspace via the `.cursor/rules` symlink (C4). Central = high-level only; project folders link to in-repo technical artifacts, never copy them (C8). Multi-project mechanics — active-project detection (M1), scope tagging (M2), promotion ladder (M3), **attention scoping / session-start read order (M5)**, demotion (M6), and the **placement gate** — live in `04-multi-project.mdc` (the single source of truth for routing + read order; this file does not duplicate it). See `universal/CHANGELOG.md § 2026-06-14 warm reset` for the migration record. The whole layout is currently marked **provisional** — see `concepts/_INDEX.md` / `projects/_INDEX.md` headers for the confirm/refute watch-for.
+> **Layout: unified multi-project memory (since the 2026-06-14 warm reset).** ONE persona memory, shared across all projects (CircuitPython exp14/15/…, Bamboo-Lamp, future). Physical home: `CircuitPython/ai-persona/.cursor/rules/` only (dedicated workspace root since 2026-07-15). The 2026-06-14 symlink-fanout (C4) was dropped because Cursor does not dedupe `alwaysApply` rules across multi-root folders. The persona loads when `ai-persona` is in the open Cursor workspace; opening a project folder standalone yields no coverage. Central = high-level only; project folders link to in-repo technical artifacts, never copy them (C8). Multi-project mechanics — active-project detection (M1), scope tagging (M2), promotion ladder (M3), **attention scoping / session-start read order (M5)**, demotion (M6), and the **placement gate** — live in `04-multi-project.mdc` (the single source of truth for routing + read order; this file does not duplicate it). See `universal/CHANGELOG.md` §§ 2026-06-14 warm reset, 2026-07-15 dedicated-root, and 2026-09-08 retrieval/placement confirm. Retrieval/placement **confirmed 2026-09-08** — see `concepts/_INDEX.md` / `projects/_INDEX.md`. Dedicated-root (2026-07-15) is settled separately.
 
 ## File Architecture
 
@@ -33,6 +33,8 @@ Central (`memory/…`), behavioral catalog under `universal/`:
 | `memory/crossref/BY_PATTERN.md` | Promotion-ladder working surface: candidate cross-project patterns + occurrence counts. | Agent (free) |
 
 Project repos hold the heavy technical artifacts (code, working-docs, diagrams), **linked** from `projects/<slug>/CONTEXT.md`. The pre-reset snapshot is at `memory-pre-warm-reset-<ts>/` (rollback reference).
+
+**Content vs structure.** *Content* is what is known (directives, findings, decisions). *Structure* is how that content is organized for retrieval (directory layout, indexes, placement gate, session-start order). Name which layer a change touches. Content edits are cheap; structure edits are Content-Hierarchy Level 2 — mark new structure `provisional` + watch-for, and batch heavy reorgs into user-gated lifecycle iterations. Full discipline: `reference/10-adaptive-memory-structure.md`.
 
 ## Active Retrieval (at session start)
 
@@ -110,3 +112,5 @@ Higher level = more stable = stronger evidence required to change.
 - Pattern extraction and self-reflection: `reference/03-self-improvement.md`
 - Compaction failure cases (read before any compaction): `reference/06-failure-modes.md` §§ F1, F8, F10
 - Bootstrapping (file templates, first-session protocol): `reference/08-bootstrapping.md`
+- Adaptive memory structure (content/structure, hypothesis-test flavor): `reference/10-adaptive-memory-structure.md`
+- Task working notes (chat as cache; folder git/lifecycle): `reference/working-notes-lean-context.md` + `reference/ai-notes-convention.md`

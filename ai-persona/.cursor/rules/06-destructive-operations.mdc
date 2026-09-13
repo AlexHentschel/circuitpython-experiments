@@ -21,5 +21,5 @@ Cursor has **no** pre-tool hook on `rm` — this always-injected stub is the int
 
 - Full protocol: `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/destructive-operations.md` — especially **§0, §2 (what counts), §3 (hard gate), §4 (move never delete), §5 (confirmation + trigger word), §6 (ledger), §7 (self-check + inbound-ref sweep), §8 (backups are gated too)**
 - Durable copy: `.cursor/rules/reference/destructive-operations.md`
-- Facet split: `host-portability.md` §7
-- Router: corpus `README.md` row "Stop the AI deleting files…"
+- Facet split: `reference/host-portability.md` §7
+- Corpus router (optional live recipe): `/Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/README.md` row "Stop the AI deleting files…"

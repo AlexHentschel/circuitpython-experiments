@@ -6,16 +6,23 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-06-14 warm reset — sparse; only 2 domains seeded)
+## Edges (as of 2026-09-13 — 7 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
 - `i2c: back-feeding (ESD-diode)`  —pairs-with—  `power: power-domain isolation & powered-off protection (Ioff)`   (same ESD-diode mechanism; `i2c` = the SDA/SCL-bus instantiation, `power` = the general domain-boundary framing + Ioff part-selection. Read both; neither duplicates the other).
 - `i2c: open-drain / wired-AND`  —composes-with—  `power: fuel gauge (MAX17048)`   (the MAX17048 SDA/SCL-low sleep entry is a direct consequence of open-drain line behaviour).
 - `i2c: pull-up sizing`  —pairs-with—  `power: standby current budgeting`   (held-low / idle-high pull-up current is a standby-power line item).
+- `tooling: Espressif 4MB CircuitPython upgrade`  —composes-with—  `circuitpython-runtime: mpy-cross is CircuitPython’s binary`   (host flash version must match the Adafruit `mpy-cross` / stub pin; exp16 lock = CP 10.3.0).
+- `tooling: TinyUF2 4MB partitions`  —refines—  `tooling: Espressif 4MB CircuitPython upgrade`   (CSV rows / arithmetic; stream `tooling-4mb-partitions.md`).
+- `tooling: on-device restart/reload (auto-run filenames)`  —composes-with—  `tooling: circuitpythonsync cpfiles.txt mapping`   (a frozen `code_stageN.py` only executes if mapped onto `code.py`/`main.py`/`code.txt`/`main.txt`, or via `supervisor.set_next_code_file`).
+- `circuitpython-runtime: asyncio.sleep(0) still yields once`  —refines—  `circuitpython-runtime: user-facing asyncio vs builtin _asyncio`   (same bundle scheduler; the yield-once behavior is a property of `await` itself, applies once the bundle `asyncio` is on-device).
+- `circuitpython-runtime: neopixel allocation`  —composes-with—  `led-driving: WS2812/NeoPixel output peripheral (PIO vs RMT)`   (the allocation concept = the one-time pixel *buffer*; this concept = the hardware peripheral that *clocks that buffer out*. `led-driving` seeded 2026-09-12, discharging the anticipated edge that was here).
+- `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —composes-with—  `tooling: on-device restart/reload mechanisms`   (auto-reload fires on every host write to the mounted volume — the reason batched syncs and no-mid-flight-cancels matter; an active serial REPL *suspends* auto-reload, the third incident differentiator).
+- `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —pairs-with—  `tooling: two similarly-named CircuitPython extensions`   (the hygiene rules operationalize that concept's verified extension behavior: unfiltered copy paths + the post-copy full-volume `dot_clean` sweep).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 
 - `fonts: DAL pendolino3 row-bytes`  —alternative-to—  `fonts: glyph coordinate model`   (5×5 table lookup vs PCF metrics; same `_glyph_columns` hook).
 - `fonts: glyph coordinate model`  —pairs-with—  `display: matrix render` (when a `display` domain is seeded; the concept currently lives in `fonts.md`).
-- `circuitpython-runtime: preallocate` / `neopixel allocation`  —composes-with—  `led-driving: WS2812 timing` (when `led-driving` is seeded — exp11/13 ws2812 work).
+- `circuitpython-runtime: preallocate` / `neopixel allocation`  —composes-with—  `led-driving: WS2812 timing` (still anticipated — a *timing/current* concept, distinct from the peripheral concept now seeded; accrues from exp11/13 external-strip work).
