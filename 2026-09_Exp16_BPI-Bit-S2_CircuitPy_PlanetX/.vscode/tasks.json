@@ -7,7 +7,11 @@
             // Finds the first tty.usbmodem* port automatically -- survives replug port renames.
             // Uses pyserial-miniterm from the venv (works in Cursor; screen fails with "no PTY").
             // Exit: Ctrl+]
-            "command": "PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1); if [ -z \"$PORT\" ]; then echo 'ERROR: No usbmodem device found. Is the board plugged in?'; else echo \"Connecting to $PORT at 115200 baud.\"; echo \"Exit: Ctrl+]\"; /Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/pyserial-miniterm --raw \"$PORT\" 115200; fi",
+            // Interpreter path resolved once, via the ${config:python.defaultInterpreterPath}
+            // single source of truth -- see the "Pinned interpreter" tasks below for why/how.
+            // pyserial-miniterm lives in that same venv's bin/, so its path is derived with
+            // `dirname` rather than hardcoded a second time.
+            "command": "PORT=$(ls /dev/tty.usbmodem* 2>/dev/null | head -1); if [ -z \"$PORT\" ]; then echo 'ERROR: No usbmodem device found. Is the board plugged in?'; else echo \"Connecting to $PORT at 115200 baud.\"; echo \"Exit: Ctrl+]\"; \"$(dirname \"${config:python.defaultInterpreterPath}\")/pyserial-miniterm\" --raw \"$PORT\" 115200; fi",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -31,10 +35,20 @@
             "type": "shell",
             // Preview only, writes nothing. Copies .vscode/cpfiles.txt's active entries
             // (e.g. code_stage2.py -> /code.py) -- see scripts/sync_files_to_board.py.
-            // Plain `python3` on purpose (stdlib-only script, no venv dependency needed --
-            // keeps this task portable across checkouts, unlike the miniterm task above
-            // which genuinely needs a specific venv's pyserial-miniterm).
-            "command": "python3 \"${workspaceFolder}/scripts/sync_files_to_board.py\" --dry-run",
+            // Pinned interpreter (Alex, 2026-09-13): bare `python3` resolves via shell PATH,
+            // which on this machine is Homebrew's system Python (/opt/homebrew/bin/python3,
+            // 3.14) -- works today since the script is stdlib-only, but PATH resolution can
+            // silently differ between an interactive terminal and a task's non-interactive
+            // shell, or drift after a `brew upgrade`.
+            // ONE variable, not a hardcoded path here: ${config:python.defaultInterpreterPath}
+            // reads the venv already declared once in the top-level `CircuitPy_VSCode.code-
+            // workspace`'s `settings` block ("Tasks use ${config:python.defaultInterpreterPath}
+            // for Python path (single source of truth)" -- that comment predates this task and
+            // names exactly this mechanism). Change the venv in one place; every task below
+            // (and the miniterm task above) picks it up. Same machine-specific-path tradeoff
+            // as before (tests/README.md's "<path-to-venv> is machine-specific" note), just
+            // now paid once instead of per task.
+            "command": "\"${config:python.defaultInterpreterPath}\" \"${workspaceFolder}/scripts/sync_files_to_board.py\" --dry-run",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -46,7 +60,8 @@
             "label": "Sync Files to Board",
             "type": "shell",
             // Actually writes: copies .vscode/cpfiles.txt's active entries onto CIRCUITPY.
-            "command": "python3 \"${workspaceFolder}/scripts/sync_files_to_board.py\"",
+            // Pinned interpreter, single source of truth -- see the dry-run task above.
+            "command": "\"${config:python.defaultInterpreterPath}\" \"${workspaceFolder}/scripts/sync_files_to_board.py\"",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -59,7 +74,8 @@
             "type": "shell",
             // Preview only, writes nothing. Shows what would copy/skip-unchanged/exclude
             // under lib/ -- see scripts/sync_lib_to_board.py for the exclusion list.
-            "command": "python3 \"${workspaceFolder}/scripts/sync_lib_to_board.py\" --dry-run",
+            // Pinned interpreter, single source of truth -- see "Sync Files to Board (dry-run)" above.
+            "command": "\"${config:python.defaultInterpreterPath}\" \"${workspaceFolder}/scripts/sync_lib_to_board.py\" --dry-run",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -72,7 +88,8 @@
             "type": "shell",
             // Actually writes: copies the lib/ tree onto CIRCUITPY, skipping files whose
             // size/mtime already match (add --force to rewrite everything unconditionally).
-            "command": "python3 \"${workspaceFolder}/scripts/sync_lib_to_board.py\"",
+            // Pinned interpreter, single source of truth -- see "Sync Files to Board (dry-run)" above.
+            "command": "\"${config:python.defaultInterpreterPath}\" \"${workspaceFolder}/scripts/sync_lib_to_board.py\"",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
