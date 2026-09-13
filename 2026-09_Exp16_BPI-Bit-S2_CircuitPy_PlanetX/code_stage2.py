@@ -318,7 +318,7 @@ async def main() -> None:
         try:
             await asyncio.gather(
                 d.show_string(_text_11, display.GREEN, interval_ms=_interval_ms_11),
-                _trigger_rotation_after(_rotate_at_s_11, 90),
+                _trigger_rotation_after(_rotate_at_s_11, 270),
             )
             _elapsed_11 = time.monotonic() - _t0
             _not_cancelled_11 = _elapsed_11 >= (_full_length_s_11 - 0.5)

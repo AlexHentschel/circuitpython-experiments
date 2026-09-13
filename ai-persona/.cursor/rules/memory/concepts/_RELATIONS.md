@@ -6,7 +6,7 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-09-12 — 7 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`)
+## Edges (as of 2026-09-13 — 7 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
@@ -18,6 +18,8 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 - `tooling: on-device restart/reload (auto-run filenames)`  —composes-with—  `tooling: circuitpythonsync cpfiles.txt mapping`   (a frozen `code_stageN.py` only executes if mapped onto `code.py`/`main.py`/`code.txt`/`main.txt`, or via `supervisor.set_next_code_file`).
 - `circuitpython-runtime: asyncio.sleep(0) still yields once`  —refines—  `circuitpython-runtime: user-facing asyncio vs builtin _asyncio`   (same bundle scheduler; the yield-once behavior is a property of `await` itself, applies once the bundle `asyncio` is on-device).
 - `circuitpython-runtime: neopixel allocation`  —composes-with—  `led-driving: WS2812/NeoPixel output peripheral (PIO vs RMT)`   (the allocation concept = the one-time pixel *buffer*; this concept = the hardware peripheral that *clocks that buffer out*. `led-driving` seeded 2026-09-12, discharging the anticipated edge that was here).
+- `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —composes-with—  `tooling: on-device restart/reload mechanisms`   (auto-reload fires on every host write to the mounted volume — the reason batched syncs and no-mid-flight-cancels matter; an active serial REPL *suspends* auto-reload, the third incident differentiator).
+- `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —pairs-with—  `tooling: two similarly-named CircuitPython extensions`   (the hygiene rules operationalize that concept's verified extension behavior: unfiltered copy paths + the post-copy full-volume `dot_clean` sweep).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 

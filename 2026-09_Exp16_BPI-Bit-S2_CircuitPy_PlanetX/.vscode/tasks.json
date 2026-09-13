@@ -25,6 +25,60 @@
                 "focus": false
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Sync Files to Board (dry-run)",
+            "type": "shell",
+            // Preview only, writes nothing. Copies .vscode/cpfiles.txt's active entries
+            // (e.g. code_stage2.py -> /code.py) -- see scripts/sync_files_to_board.py.
+            // Plain `python3` on purpose (stdlib-only script, no venv dependency needed --
+            // keeps this task portable across checkouts, unlike the miniterm task above
+            // which genuinely needs a specific venv's pyserial-miniterm).
+            "command": "python3 \"${workspaceFolder}/scripts/sync_files_to_board.py\" --dry-run",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Sync Files to Board",
+            "type": "shell",
+            // Actually writes: copies .vscode/cpfiles.txt's active entries onto CIRCUITPY.
+            "command": "python3 \"${workspaceFolder}/scripts/sync_files_to_board.py\"",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Sync Lib to Board (dry-run)",
+            "type": "shell",
+            // Preview only, writes nothing. Shows what would copy/skip-unchanged/exclude
+            // under lib/ -- see scripts/sync_lib_to_board.py for the exclusion list.
+            "command": "python3 \"${workspaceFolder}/scripts/sync_lib_to_board.py\" --dry-run",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Sync Lib to Board",
+            "type": "shell",
+            // Actually writes: copies the lib/ tree onto CIRCUITPY, skipping files whose
+            // size/mtime already match (add --force to rewrite everything unconditionally).
+            "command": "python3 \"${workspaceFolder}/scripts/sync_lib_to_board.py\"",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
         }
     ]
 }
