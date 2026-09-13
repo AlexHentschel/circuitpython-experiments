@@ -41,16 +41,18 @@ Needs `pytest` and `pytest-asyncio` on that interpreter. Concrete path for this 
 
 ## Deploy
 
-This experiment has **no** per-folder CircuitPythonSync settings yet. The shared workspace sync still targets a different board — do not use it here.
+Human-run deploy scripts (host → mounted CIRCUITPY drive; the board is a deploy target, never the source of truth):
 
 1. Flash CircuitPython 10.3.0 ([board page](https://circuitpython.org/board/bpi_bit_s2/); 4 MB Espressif needs TinyUF2 ≥ 0.33.0 if using UF2).
-2. When the CIRCUITPY drive mounts, copy `lib/display/` and `lib/buttons.py` into `CIRCUITPY/lib/`.
-3. `circup install asyncio` onto that drive.
-4. Add a `code.py` on the drive (none ships in this tree yet). CIRCUITPY is a deploy target, not the source of truth.
+2. When the CIRCUITPY drive mounts, ship the libraries: `python3 scripts/sync_lib_to_board.py` — filtered copy of `lib/` (excludes `__pycache__/`, `.DS_Store`, `README.md`, `*.pyc`; skips unchanged files by size+mtime; never deletes board files). Also ships the vendored `asyncio/` + `adafruit_ticks.mpy`, so no `circup install` step is needed.
+3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line).
+4. The board auto-reloads after each copy batch — batch changes into as few sync runs as possible.
 
-On-device `keypad` / bundle `asyncio` / PlanetX cable still need a first human device window after the flash.
+The CircuitPythonSync extension's "CP Copy Files to Board" works here too (Exp16 currently sits at workspace folder index 0) and is fine for code-file updates; prefer the scripts for routine deploys. Its "CP Copy Libs to Board" is **not** used in this experiment — unfiltered whole-`lib/` copy (no exclude mechanism), and every extension copy triggers a full-volume `dot_clean` sweep on the live drive.
 
-**Exact bundle-library versions this recipe last installed** are recorded in [`requirements.txt`](requirements.txt) (`circup freeze -r`). That file is a record, not an enforced pin — `circup install asyncio` always fetches the *current* Adafruit/Community bundle snapshot, so a later run of this recipe may pull newer library versions than what's recorded. Precisely reproducing an exact version (pinning the bundle snapshot itself, not just the library name) is a known gap, not yet solved here.
+Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at the board REPL — the verified-clean path. Do **not** host-side-delete `lib/` on the live volume, and never cancel a copy mid-flight (if one stalls, eject cleanly and inspect before further writes).
+
+**Exact bundle-library versions vendored in `lib/`** are recorded in [`requirements.txt`](requirements.txt) (`adafruit_ticks==1.1.7`, `asyncio==3.1.1`, via `circup freeze -r`). The `.mpy` files themselves are the pin — gitignored bundle copies, shipped as-is by the sync script; re-download from the Adafruit Community Bundle if lost.
 
 ## Status
 

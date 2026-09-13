@@ -142,11 +142,16 @@ def main() -> int:
             verb = "would copy" if args.dry_run else "copying"
             print(f"{verb}: lib/{dest_rel} -> {dest}")
             if not args.dry_run:
-                # copy2 (not copyfile) preserves mtime: the board copy keeps the
-                # source's timestamp, which is what makes the next run's
-                # skip-unchanged check work.
+                # copyfile + explicit utime (not copy2): copy2 also copies macOS
+                # extended attributes, which the FAT driver stores as ._* AppleDouble
+                # sidecar files on the board -- exactly the junk this script exists to
+                # keep off it (the extension shells out to clean those after its own
+                # copies; this script just never creates them). The explicit utime
+                # preserves the source mtime, which the skip-unchanged check needs.
+                stat = source.stat()
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, dest)
+                shutil.copyfile(source, dest)
+                os.utime(dest, ns=(stat.st_atime_ns, stat.st_mtime_ns))
             n_copied += 1
         else:
             n_unchanged += 1
