@@ -6,7 +6,7 @@ frozen in the sibling `code_stage0.py` / `code_stage1.py` / `code_stage2.py`.
 See `CONCLUSIONS.md` (K1: bundle ``asyncio`` via this project's own Tier-2 API;
 K2: PlanetX C/D wiring fires real button events). This is the **final stage
 in the original 4-stage breakdown**: Tier 2 display animations running
-concurrently with ``lib/buttons.py``'s per-module async pumps.
+concurrently with ``OnboardButtons.run()`` and ``planetx.PlanetXButtonSensor.run()``.
 
 Deliberately does **not** re-individually-prove the five async ``show_*``
 wrappers, ``Image.show_image``/``scroll_image``, or the timer-triggered
@@ -72,11 +72,12 @@ import board
 import display
 from display import Arrows
 
-from buttons import OnboardButtons, PlanetXButtonSensor
+from buttons import OnboardButtons
+from planetx import PlanetXButtonSensor
 
 d = display.display
 
-print("Stage 3: import display + buttons OK")
+print("Stage 3: import display + buttons + planetx OK")
 
 # Built once, not per-cycle, matching Stage 1/2's allocate-once pattern.
 # One object per physical module: onboard A/B (pin defaults) and PlanetX C/D

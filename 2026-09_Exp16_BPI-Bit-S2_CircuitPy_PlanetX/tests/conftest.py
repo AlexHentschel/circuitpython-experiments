@@ -1,6 +1,6 @@
 """
-Host-test setup: prepend ``lib/`` so ``import display.<submodule>`` and
-``import buttons`` resolve without an editable install.
+Host-test setup: prepend ``lib/`` so ``import display.<submodule>``,
+``import buttons``, and ``import planetx`` resolve without an editable install.
 
 No stubs -- overnight tests exercise only pure sub-modules (``_constants``,
 ``bitmap_codec``, ``geometry``, ``icons``, ``font_makecode_5``) plus the

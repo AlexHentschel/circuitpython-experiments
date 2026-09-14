@@ -4,19 +4,17 @@ Async button dispatcher: one Python object per physical module.
 Student-facing operations are press/release handlers. GPIO identities belong
 on the constructor (portability seam), not inside handlers.
 
-``PushButton`` is one switch: press/release handlers, no scanner. ``Button``
-is a ``PushButton`` plus a 1-pin scanner and ``run()``. ``ButtonPair`` is two
-pins sharing one scanner, exposing ``left`` / ``right`` as ``PushButton``s.
-Specializations add lettered names: ``OnboardButtons`` (A/B, defaults to this
-board's native pair) and ``PlanetXButtonSensor`` (C/D, pins required: the port
-is wiring). Multiple PlanetX modules are multiple instances; C/D are local to
-each instance.
+``PushButtonBase`` is one switch: press/release handlers, no scanner. ``Button``
+is a ``PushButtonBase`` plus a 1-pin scanner and ``run()``. ``ButtonPair`` is two
+pins sharing one scanner, exposing ``left`` / ``right`` as ``PushButtonBase`` instances.
+``OnboardButtons`` is this board's native A/B pair. PlanetX modules live in the
+``planetx`` package (push-button sensor first).
 
 Device backend: CircuitPython ``keypad.Keys`` (active-low, pull-up) → native
 EventQueue → this dispatcher → an asyncio pump (``run``). Host tests inject
 a fake queue with the CircuitPython Event shape (``.key_number``, ``.pressed``).
 
-There is no student ``update()`` loop. Do not wrap Exp09 ``elecfreaks_planetx.Button``.
+There is no student ``update()`` loop.
 """
 
 from __future__ import annotations
@@ -35,7 +33,13 @@ _POLL_INTERVAL_S = 0.01
 
 
 def _bind_scanner(owner, pins) -> None:
-    """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``."""
+    """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``.
+
+    ``import keypad`` lives here so a host ``import buttons`` does not load it
+    (tests pass ``event_queue=`` and never call this). Each device-path
+    construct runs the statement; after the first it is a ``sys.modules``
+    lookup. Bind is once per physical module at construct time, not per event.
+    """
     import keypad  # CircuitPython-only; not Blinka-on-CPython
 
     owner._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)  # unread on purpose: owns the scanner; EventQueue does not keep Keys alive
@@ -75,35 +79,45 @@ async def _pump(queue, dispatch) -> None:
         await asyncio.sleep(_POLL_INTERVAL_S)
 
 
-class PushButton:
+class PushButtonBase:
     """One switch: press/release handlers. No scanner and no ``run()``.
 
     A ``Button`` (1-pin) or ``ButtonPair`` (2-pin) owns the queue and calls
     ``_handle``. Pair children (``left`` / ``right``, and lettered aliases)
-    are ``PushButton`` instances.
+    are ``PushButtonBase`` instances.
     """
 
     def __init__(self) -> None:
-        self._handlers = {"pressed": [], "released": []}
+        self._pressed = []
+        self._released = []
 
     def on_pressed(self, handler: Callable[[], None]) -> None:
-        self._handlers["pressed"].append(handler)
+        self._pressed.append(handler)
 
     def on_released(self, handler: Callable[[], None]) -> None:
-        self._handlers["released"].append(handler)
+        self._released.append(handler)
+
+    def clear_pressed(self) -> None:
+        """Drop all press handlers; leave release handlers."""
+        self._pressed = []
+
+    def clear_released(self) -> None:
+        """Drop all release handlers; leave press handlers."""
+        self._released = []
 
     def clear(self) -> None:
         """Drop all registered handlers for this switch."""
-        self._handlers = {"pressed": [], "released": []}
+        self._pressed = []
+        self._released = []
 
     def _handle(self, pressed: bool) -> None:
-        kind = "pressed" if pressed else "released"
-        for handler in self._handlers[kind]:
+        handlers = self._pressed if pressed else self._released
+        for handler in handlers:
             handler()
 
 
-class Button(PushButton):
-    """One pin: a ``PushButton`` plus its own scanner and ``run()`` pump.
+class Button(PushButtonBase):
+    """One pin: a ``PushButtonBase`` plus its own scanner and ``run()`` pump.
 
     ``pin`` is constructor config. Overnight host tests pass ``event_queue=``
     and skip ``keypad``. ``Button()`` with neither pin nor queue raises.
@@ -121,11 +135,6 @@ class Button(PushButton):
         _bind_scanner(self, (pin,))
 
     def _dispatch(self, event) -> None:
-        # Standalone ``keypad.Keys((pin,))`` always numbers this key 0.
-        # Bounds-checked with ``!= 0`` (not a bare try/except IndexError): a
-        # negative key_number must be rejected, not wrapped.
-        if event.key_number != 0:
-            return
         self._handle(event.pressed)
 
     async def run(self) -> None:
@@ -134,16 +143,16 @@ class Button(PushButton):
 
 
 class ButtonPair:
-    """Two ``PushButton``s sharing one 2-pin scanner: ``left`` (index 0) and ``right`` (index 1).
+    """Two ``PushButtonBase`` instances sharing one 2-pin scanner: ``left`` (index 0) and ``right`` (index 1).
 
     ``left_pin`` / ``right_pin`` are constructor config. Overnight host tests
     pass ``event_queue=`` and skip ``keypad``. Generic names only: lettered
-    A/B or C/D live on the specializations.
+    A/B live on ``OnboardButtons``; C/D live on ``planetx.PlanetXButtonSensor``.
     """
 
     def __init__(self, left_pin=None, right_pin=None, *, event_queue=None) -> None:
-        self.left = PushButton()
-        self.right = PushButton()
+        self.left = PushButtonBase()
+        self.right = PushButtonBase()
         self._keys = None
         self._queue = None
         if event_queue is not None:
@@ -172,49 +181,9 @@ class ButtonPair:
     async def run(self) -> None:
         """Asyncio pump: drain this pair's EventQueue into ``left`` / ``right``.
 
-        Contained ``PushButton``s have no scanner; this method owns the queue.
+        Contained ``PushButtonBase`` instances have no scanner; this method owns the queue.
         """
         await _pump(self._queue, self._dispatch)
-
-
-class PlanetXButtonSensor(ButtonPair):
-    """ElecFreaks PlanetX push-button module: C (left) and D (right).
-
-    ``c_pin`` / ``d_pin`` are required when ``event_queue`` is omitted: the
-    RJ11 port is wiring, not a board default. Two modules on two ports are
-    two instances; C/D names are local to each.
-    """
-
-    def __init__(self, c_pin=None, d_pin=None, *, event_queue=None) -> None:
-        if event_queue is None and (c_pin is None or d_pin is None):
-            raise ValueError("c_pin and d_pin are required when event_queue is omitted")
-        super().__init__(c_pin, d_pin, event_queue=event_queue)
-
-    @property
-    def c(self) -> PushButton:
-        return self.left
-
-    @property
-    def d(self) -> PushButton:
-        return self.right
-
-    def on_c_pressed(self, handler: Callable[[], None]) -> None:
-        self.left.on_pressed(handler)
-
-    def on_d_pressed(self, handler: Callable[[], None]) -> None:
-        self.right.on_pressed(handler)
-
-    def on_c_released(self, handler: Callable[[], None]) -> None:
-        self.left.on_released(handler)
-
-    def on_d_released(self, handler: Callable[[], None]) -> None:
-        self.right.on_released(handler)
-
-    def clear_c(self) -> None:
-        self.left.clear()
-
-    def clear_d(self) -> None:
-        self.right.clear()
 
 
 class OnboardButtons(ButtonPair):
@@ -236,11 +205,11 @@ class OnboardButtons(ButtonPair):
         super().__init__(a_pin, b_pin, event_queue=event_queue)
 
     @property
-    def a(self) -> PushButton:
+    def a(self) -> PushButtonBase:
         return self.left
 
     @property
-    def b(self) -> PushButton:
+    def b(self) -> PushButtonBase:
         return self.right
 
     def on_a_pressed(self, handler: Callable[[], None]) -> None:

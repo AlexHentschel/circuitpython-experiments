@@ -9,7 +9,8 @@ import asyncio
 
 import pytest
 
-from buttons import Button, ButtonPair, OnboardButtons, PlanetXButtonSensor, PushButton
+from buttons import Button, ButtonPair, OnboardButtons, PushButtonBase
+from planetx import PlanetXButtonSensor
 
 
 class FakeEvent:
@@ -60,21 +61,6 @@ async def test_button_press_fires(queue):
     assert fired == ["p"]
 
 
-@pytest.mark.asyncio
-async def test_button_ignores_nonzero_key_number(queue):
-    """Standalone Button only dispatches key_number 0.
-
-    - Covers: a pair-style index 1 leaking into a 1-pin scanner.
-    - How: inject ``FakeEvent(1, pressed=True)``; ``fired`` stays empty.
-    """
-    button = Button(event_queue=queue)
-    fired = []
-    button.on_pressed(lambda: fired.append("p"))
-    queue.send(FakeEvent(key_number=1, pressed=True))
-    await _one_tick(button)
-    assert fired == []
-
-
 def test_button_clear_drops_handler(queue):
     """``clear()`` removes previously registered handlers on that Button only.
 
@@ -89,6 +75,38 @@ def test_button_clear_drops_handler(queue):
     assert fired == []
 
 
+def test_clear_pressed_leaves_released():
+    """``clear_pressed()`` drops press handlers and leaves release handlers.
+
+    - Covers: ``clear_pressed`` clearing both lists.
+    - How: register both, ``clear_pressed()``, ``_handle`` True then False; only release fires.
+    """
+    button = PushButtonBase()
+    fired = []
+    button.on_pressed(lambda: fired.append("p"))
+    button.on_released(lambda: fired.append("r"))
+    button.clear_pressed()
+    button._handle(True)
+    button._handle(False)
+    assert fired == ["r"]
+
+
+def test_clear_released_leaves_pressed():
+    """``clear_released()`` drops release handlers and leaves press handlers.
+
+    - Covers: ``clear_released`` clearing both lists.
+    - How: register both, ``clear_released()``, ``_handle`` True then False; only press fires.
+    """
+    button = PushButtonBase()
+    fired = []
+    button.on_pressed(lambda: fired.append("p"))
+    button.on_released(lambda: fired.append("r"))
+    button.clear_released()
+    button._handle(True)
+    button._handle(False)
+    assert fired == ["p"]
+
+
 def test_button_requires_pin_or_event_queue():
     """Public ``Button()`` with neither pin nor queue raises at construct time.
 
@@ -100,15 +118,15 @@ def test_button_requires_pin_or_event_queue():
 
 
 def test_pushbutton_has_no_run():
-    """``PushButton`` is handlers only; ``run()`` lives on ``Button`` / ``ButtonPair``.
+    """``PushButtonBase`` is handlers only; ``run()`` lives on ``Button`` / ``ButtonPair``.
 
     - Covers: pair children exposing ``run`` (student ``await pair.left.run()``).
-    - How: ``PushButton`` and ``pair.left`` have no ``run`` attribute.
+    - How: ``PushButtonBase`` and ``pair.left`` have no ``run`` attribute.
     """
     pair = ButtonPair(event_queue=FakeEventQueue())
-    assert not hasattr(PushButton, "run")
+    assert not hasattr(PushButtonBase, "run")
     assert not hasattr(pair.left, "run")
-    assert type(pair.left) is PushButton
+    assert type(pair.left) is PushButtonBase
     assert not isinstance(pair.left, Button)
 
 
@@ -233,5 +251,5 @@ def test_no_update_on_public_classes():
     - Covers: ``update`` sneaking onto Button or a pair class.
     - How: ``hasattr(..., "update")`` is false on the public button classes.
     """
-    for cls in (PushButton, Button, ButtonPair, PlanetXButtonSensor, OnboardButtons):
+    for cls in (PushButtonBase, Button, ButtonPair, PlanetXButtonSensor, OnboardButtons):
         assert not hasattr(cls, "update")

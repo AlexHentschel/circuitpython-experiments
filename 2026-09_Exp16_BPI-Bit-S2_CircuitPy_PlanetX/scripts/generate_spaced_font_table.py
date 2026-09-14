@@ -15,9 +15,9 @@ width 4, a per-font heuristic matching this font's common narrow-letter width
 — not a ``WIDTH - 1`` formula. Unknown/out-of-range characters are not in this
 table; the accessor handles them as a full-``WIDTH`` blank pass-through.
 
-If the DAL-derived column-major bytes ever disagree with ``glyphs._COLUMN_MAJOR``,
-this script refuses to write: the on-device-confirmed table wins, and the
-divergence is a finding, not something to ship silently.
+Source is the pinned DAL fetch (``dal_pendolino3.load_column_major``), not
+``glyphs._COLUMN_MAJOR``. While that saved table is still live, agreement with
+it is ``verify_dal_font_conversion.py``'s job.
 
 Usage (from this experiment's folder):
 
@@ -45,13 +45,6 @@ SPACE_ORD = 32
 ASCII_START = 32
 ASCII_END = 126  # inclusive
 HEX_LINE_BYTES = 34  # matches glyphs.py's wrap (~68 hex chars)
-
-
-def _load_stored_column_major() -> bytes:
-    sys.path.insert(0, str(LIB_ROOT))
-    from display.font_makecode_5.glyphs import _COLUMN_MAJOR  # type: ignore[import-not-found]
-
-    return _COLUMN_MAJOR
 
 
 def authored_ink(col_bytes: bytes, code: int) -> bytes:
@@ -100,7 +93,7 @@ def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WID
             start = next(idx for idx, b in enumerate(raw) if b)
             end = len(raw) - next(idx for idx, b in enumerate(reversed(raw)) if b)
             if raw[start:end] != ink:
-                raise RuntimeError(f"glyph {ASCII_START + i} ink does not match _COLUMN_MAJOR slice")
+                raise RuntimeError(f"glyph {ASCII_START + i} ink does not match native glyph slice")
         elif ASCII_START + i == SPACE_ORD:
             if ink != bytes(SPACE_AUTHORED_WIDTH) or any(raw):
                 raise RuntimeError("space record is not a 4-column blank")
@@ -186,16 +179,8 @@ def main() -> int:
     print(f"Fetching {dal_pendolino3.DAL_URL}")
     try:
         converted = dal_pendolino3.load_column_major()
-        stored = _load_stored_column_major()
     except Exception as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
-        return 1
-
-    if converted != stored:
-        print(
-            "FAIL: DAL-derived column-major disagrees with glyphs._COLUMN_MAJOR. Not writing a new table; the on-device-confirmed bytes win. Treat this as a standalone finding.",
-            file=sys.stderr,
-        )
         return 1
 
     try:

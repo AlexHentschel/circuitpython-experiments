@@ -56,7 +56,7 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 ## Status
 
-**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–3: Tier 1, Tier 2 display/K1, button pumps cancelling an in-flight animation/K3). **Button API (current):** one object per physical module — `OnboardButtons()` (A/B) and `PlanetXButtonSensor(c_pin=..., d_pin=...)` (C/D); extra PlanetX sensors are extra instances. Host `pytest` is green on that API (suite does not import `board` / `display.core`). `code_stage3.py` matches it; on-device re-run of that script is pending. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–3: Tier 1, Tier 2 display/K1, button pumps cancelling an in-flight animation/K3). **Button API (current):** one object per physical module — `OnboardButtons()` from `buttons` (A/B) and `PlanetXButtonSensor(c_pin=..., d_pin=...)` from `planetx` (C/D); extra PlanetX sensors are extra instances. Host `pytest` is green on that API (suite does not import `board` / `display.core`). `code_stage3.py` matches it; on-device re-run of that script is pending. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
 
 Separate, still-open thread: a font inter-glyph-spacing fix (design converged, implementation Phases 1-3 landed and host-green, Phase 4 `core.py` cutover gated on an explicit go-ahead) — not required for the first-milestone claim above.
 
@@ -66,7 +66,8 @@ Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portabil
 
 ```
 lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py      Async per-module dispatchers (`PushButton`, `Button`, `ButtonPair`, `OnboardButtons`, `PlanetXButtonSensor`)
+lib/buttons.py      Async onboard/generic dispatchers (`PushButtonBase`, `Button`, `ButtonPair`, `OnboardButtons`)
+lib/planetx/        PlanetX modules (`PlanetXButtonSensor` C/D; further sensors join here)
 code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
 scripts/            Human-run deploy + font-build scripts (see § Deploy)
 .vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt
@@ -88,3 +89,16 @@ A local `ai-notes/` folder may exist as a gitignored working store; this tree do
 | Goldfinger pinout (CC BY-SA) | [`Notes/bpi_bit_v2_goldfinger.jpg`](Notes/bpi_bit_v2_goldfinger.jpg) |
 | Board interface photo (CC BY-SA) | [`Notes/bpi_bit_v2_interface_en.jpg`](Notes/bpi_bit_v2_interface_en.jpg) |
 | Firmware | [circuitpython.org/board/bpi_bit_s2](https://circuitpython.org/board/bpi_bit_s2/) |
+
+### ElecFreaks PlanetX / Nezha — protocol sources (not CircuitPython)
+
+Vendor code for **micro:bit MicroPython** and **MakeCode (PXT)**. Do not import these into this experiment. They are the working references for GPIO maps, I2C command bytes, and per-module read/write sequences when adding further PlanetX sensors, Nezha motors/servos, or other ElecFreaks expansion hardware.
+
+Checked 2026-09-14: the two `pxt-*` repos **are** MakeCode extensions (`pxt.json` `supportedTargets: ["microbit"]`, TypeScript, installable from the MakeCode editor).
+
+| Runtime | Repo | What it shows |
+|---------|------|----------------|
+| MicroPython (`from microbit import *`) | [PlanetX_MicroPython](https://github.com/elecfreaks/PlanetX_MicroPython) | PlanetX sensors + Nezha: RJ11 pin maps (J3 → P13/P14 for C/D), pull-ups, per-module I/O. README: 行星传感器和哪吒的micropython模块 |
+| MicroPython | [EF_Produce_MicroPython](https://github.com/elecfreaks/EF_Produce_MicroPython) | Expansion-board products: Nezha / Nezha V2 I2C motor protocol (`0x10`), Cutebot, Wukong, … |
+| MakeCode (PXT) | [pxt-PlanetX](https://github.com/elecfreaks/pxt-PlanetX) | Official PlanetX sensor extension (`pxt.json` name `pxt-PlanetX`, v1.6.5) |
+| MakeCode (PXT) | [pxt-nezha2](https://github.com/elecfreaks/pxt-nezha2) | Official Nezha V2 extension (`pxt.json` name `pxt-nezha2`, v1.2.6) |

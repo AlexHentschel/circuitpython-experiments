@@ -13,6 +13,7 @@ from display._constants import WIDTH, HEIGHT, NUM_PIXELS
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CORE = ROOT / "lib" / "display" / "core.py"
 BUTTONS = ROOT / "lib" / "buttons.py"
+PLANETX_BUTTON = ROOT / "lib" / "planetx" / "button.py"
 
 
 def _module_ast(path):
@@ -65,18 +66,19 @@ def test_display_student_ops_exist_on_display_class():
 
 
 def test_button_student_ops_exist():
-    """Split button classes have letter handlers + ``run`` / ``clear``, no ``Buttons``, no ``update``.
+    """Board button classes have letter handlers + ``run`` / ``clear``, no ``Buttons``, no ``update``.
 
-    - Covers: leftover 4-pin ``Buttons``, missing C/D or A/B, or an Exp09-style ``update()``.
+    - Covers: leftover 4-pin ``Buttons``, missing A/B, PlanetX class still in ``buttons.py``.
     - How: AST of ``buttons.py``; class names + required methods; ``update`` absent.
     """
     tree = _module_ast(BUTTONS)
     names = _class_names(tree)
     assert "Buttons" not in names
-    assert {"PushButton", "Button", "ButtonPair", "PlanetXButtonSensor", "OnboardButtons"} <= names
+    assert "PlanetXButtonSensor" not in names
+    assert {"PushButtonBase", "Button", "ButtonPair", "OnboardButtons"} <= names
 
-    push = _class_methods(tree, "PushButton")
-    for name in ("on_pressed", "on_released", "clear"):
+    push = _class_methods(tree, "PushButtonBase")
+    for name in ("on_pressed", "on_released", "clear", "clear_pressed", "clear_released"):
         assert name in push, name
     assert "run" not in push
     assert "update" not in push
@@ -90,15 +92,25 @@ def test_button_student_ops_exist():
         assert name in pair, name
     assert "update" not in pair
 
-    px = _class_methods(tree, "PlanetXButtonSensor")
-    for name in ("on_c_pressed", "on_d_pressed", "clear_c", "clear_d"):
-        assert name in px, name
-    assert "update" not in px
-
     ab = _class_methods(tree, "OnboardButtons")
     for name in ("on_a_pressed", "on_b_pressed", "clear_a", "clear_b"):
         assert name in ab, name
     assert "update" not in ab
+
+
+def test_planetx_button_student_ops_exist():
+    """``PlanetXButtonSensor`` lives in ``planetx`` with C/D handlers, no ``update``.
+
+    - Covers: class left in ``buttons.py``, or missing C/D names.
+    - How: AST of ``planetx/button.py``; required methods; ``update`` absent.
+    """
+    tree = _module_ast(PLANETX_BUTTON)
+    names = _class_names(tree)
+    assert "PlanetXButtonSensor" in names
+    px = _class_methods(tree, "PlanetXButtonSensor")
+    for name in ("on_c_pressed", "on_d_pressed", "clear_c", "clear_d"):
+        assert name in px, name
+    assert "update" not in px
 
 
 def test_brightness_cap_in_core_source():
