@@ -19,6 +19,10 @@ def _module_ast(path):
     return ast.parse(path.read_text())
 
 
+def _class_names(tree):
+    return {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
+
+
 def _class_methods(tree, class_name):
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == class_name:
@@ -61,22 +65,40 @@ def test_display_student_ops_exist_on_display_class():
 
 
 def test_button_student_ops_exist():
-    """``Buttons`` has letter handlers + ``run`` / ``clear``, and no student ``update``.
+    """Split button classes have letter handlers + ``run`` / ``clear``, no ``Buttons``, no ``update``.
 
-    - Covers: missing C/D, or an Exp09-style ``update()`` loop sneaking in.
-    - How: AST of ``buttons.py``; required names present, ``update`` absent.
+    - Covers: leftover 4-pin ``Buttons``, missing C/D or A/B, or an Exp09-style ``update()``.
+    - How: AST of ``buttons.py``; class names + required methods; ``update`` absent.
     """
-    methods = _class_methods(_module_ast(BUTTONS), "Buttons")
-    for name in (
-        "on_a_pressed",
-        "on_b_pressed",
-        "on_c_pressed",
-        "on_d_pressed",
-        "clear",
-        "run",
-    ):
-        assert name in methods, name
-    assert "update" not in methods
+    tree = _module_ast(BUTTONS)
+    names = _class_names(tree)
+    assert "Buttons" not in names
+    assert {"PushButton", "Button", "ButtonPair", "PlanetXButtonSensor", "OnboardButtons"} <= names
+
+    push = _class_methods(tree, "PushButton")
+    for name in ("on_pressed", "on_released", "clear"):
+        assert name in push, name
+    assert "run" not in push
+    assert "update" not in push
+
+    button = _class_methods(tree, "Button")
+    assert "run" in button
+    assert "update" not in button
+
+    pair = _class_methods(tree, "ButtonPair")
+    for name in ("clear", "run"):
+        assert name in pair, name
+    assert "update" not in pair
+
+    px = _class_methods(tree, "PlanetXButtonSensor")
+    for name in ("on_c_pressed", "on_d_pressed", "clear_c", "clear_d"):
+        assert name in px, name
+    assert "update" not in px
+
+    ab = _class_methods(tree, "OnboardButtons")
+    for name in ("on_a_pressed", "on_b_pressed", "clear_a", "clear_b"):
+        assert name in ab, name
+    assert "update" not in ab
 
 
 def test_brightness_cap_in_core_source():

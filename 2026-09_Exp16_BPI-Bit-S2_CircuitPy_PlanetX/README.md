@@ -1,6 +1,6 @@
 # Exp16 — BPI-Bit-S2 CircuitPython display + PlanetX buttons
 
-Async MakeCode-style **5×5 LED** library and **A/B/C/D button** dispatcher for the [BananaPi BPI-Bit-S2](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2).
+Async MakeCode-style **5×5 LED** library and **per-module button** dispatchers (`OnboardButtons` A/B, `PlanetXButtonSensor` C/D) for the [BananaPi BPI-Bit-S2](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2).
 
 Display architecture: [`lib/display/README.md`](lib/display/README.md).
 
@@ -56,7 +56,7 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 ## Status
 
-**First milestone (async 5×5 display + async A/B/C/D buttons) fully confirmed on-device, 2026-09-13.** All four test stages passed on UID `0740D10F1BE9`: Tier 1 sync rendering (`code_stage0.py`/`code_stage1.py`), Tier 2 async display via the bundle `asyncio` library (`code_stage2.py`), and Tier 2 async display running concurrently with `lib/buttons.py`'s own async dispatcher — including a button press correctly cancelling an in-flight animation (`code_stage3.py`). Host `pytest` is green (160 passed; suite does not import `board` / `display.core`). Per-stage scripts stay frozen as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–3: Tier 1, Tier 2 display/K1, button pumps cancelling an in-flight animation/K3). **Button API (current):** one object per physical module — `OnboardButtons()` (A/B) and `PlanetXButtonSensor(c_pin=..., d_pin=...)` (C/D); extra PlanetX sensors are extra instances. Host `pytest` is green on that API (suite does not import `board` / `display.core`). `code_stage3.py` matches it; on-device re-run of that script is pending. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
 
 Separate, still-open thread: a font inter-glyph-spacing fix (design converged, implementation Phases 1-3 landed and host-green, Phase 4 `core.py` cutover gated on an explicit go-ahead) — not required for the first-milestone claim above.
 
@@ -66,7 +66,7 @@ Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portabil
 
 ```
 lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py      Async A/B/C/D dispatcher
+lib/buttons.py      Async per-module dispatchers (`PushButton`, `Button`, `ButtonPair`, `OnboardButtons`, `PlanetXButtonSensor`)
 code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
 scripts/            Human-run deploy + font-build scripts (see § Deploy)
 .vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt

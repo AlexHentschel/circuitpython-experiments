@@ -31,9 +31,7 @@ from pathlib import Path
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent.parent
 LIB_ROOT = EXPERIMENT_ROOT / "lib"
-DEFAULT_OUTPUT = (
-    LIB_ROOT / "display" / "font_makecode_5" / "spaced_glyphs.py"
-)
+DEFAULT_OUTPUT = LIB_ROOT / "display" / "font_makecode_5" / "spaced_glyphs.py"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dal_pendolino3  # noqa: E402
@@ -80,16 +78,17 @@ def pack_record(ink: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> bytes:
     """``[length, ink..., unused padding to width]`` — ``width + 1`` bytes."""
     if len(ink) > width:
         raise ValueError(f"ink length {len(ink)} exceeds native width {width}")
-    return bytes((len(ink),)) + ink + bytes(width - len(ink))
+    length_prefix = bytes((len(ink),))  # 1-byte header whose value is n; comma → 1-tuple (litteral), specifies values not lenghts (of zero-filled array)
+    occupied = ink  # n column-bytes of authored ink, packed as-is after the length
+    padding = bytes(width - len(ink))  # width-n trailing 0x00; unused slots, fixed ink/pad field of `width`
+    return length_prefix + occupied + padding  # [length, ink..., pad...]; always width+1 bytes
 
 
 def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> bytes:
     """Pack 95 interleaved records from native-width column-major glyphs."""
     n = dal_pendolino3.GLYPH_COUNT
     if len(column_major) != n * width:
-        raise ValueError(
-            f"column-major length {len(column_major)} != {n}×{width}"
-        )
+        raise ValueError(f"column-major length {len(column_major)} != {n}×{width}")
     out = bytearray()
     for i in range(n):
         raw = column_major[i * width : (i + 1) * width]
@@ -101,9 +100,7 @@ def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WID
             start = next(idx for idx, b in enumerate(raw) if b)
             end = len(raw) - next(idx for idx, b in enumerate(reversed(raw)) if b)
             if raw[start:end] != ink:
-                raise RuntimeError(
-                    f"glyph {ASCII_START + i} ink does not match _COLUMN_MAJOR slice"
-                )
+                raise RuntimeError(f"glyph {ASCII_START + i} ink does not match _COLUMN_MAJOR slice")
         elif ASCII_START + i == SPACE_ORD:
             if ink != bytes(SPACE_AUTHORED_WIDTH) or any(raw):
                 raise RuntimeError("space record is not a 4-column blank")
@@ -182,12 +179,7 @@ def _spot_check(table: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> None:
     if not (length == width and needs):
         raise RuntimeError(f"spot-check '7' failed: length={length} ink={ink.hex()} needs={needs}")
 
-    print(
-        "spot-checks: "
-        f"space length={SPACE_AUTHORED_WIDTH} needs_spacer=False; "
-        "'.' length=1 needs_spacer=True; "
-        f"'7' length={width} needs_spacer=True"
-    )
+    print(f"spot-checks: space length={SPACE_AUTHORED_WIDTH} needs_spacer=False; '.' length=1 needs_spacer=True; '7' length={width} needs_spacer=True")
 
 
 def main() -> int:
@@ -201,9 +193,7 @@ def main() -> int:
 
     if converted != stored:
         print(
-            "FAIL: DAL-derived column-major disagrees with glyphs._COLUMN_MAJOR. "
-            "Not writing a new table; the on-device-confirmed bytes win. "
-            "Treat this as a standalone finding.",
+            "FAIL: DAL-derived column-major disagrees with glyphs._COLUMN_MAJOR. Not writing a new table; the on-device-confirmed bytes win. Treat this as a standalone finding.",
             file=sys.stderr,
         )
         return 1
@@ -217,10 +207,7 @@ def main() -> int:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
 
-    print(
-        f"wrote {DEFAULT_OUTPUT.relative_to(EXPERIMENT_ROOT)} "
-        f"({len(table)} bytes, {dal_pendolino3.GLYPH_COUNT} records)"
-    )
+    print(f"wrote {DEFAULT_OUTPUT.relative_to(EXPERIMENT_ROOT)} ({len(table)} bytes, {dal_pendolino3.GLYPH_COUNT} records)")
     return 0
 
 

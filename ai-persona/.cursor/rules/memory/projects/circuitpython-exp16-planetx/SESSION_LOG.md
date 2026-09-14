@@ -4,6 +4,21 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-13: Session 37 — [exp16] (`PushButton` base)
+
+- **Applied:** `PushButton` holds handlers + `_handle` (no scanner, no `run()`). `Button(PushButton)` is the 1-pin scanned device. `ButtonPair.left` / `.right` are `PushButton()` instances; `_dispatch_only` is gone. Pair still one 2-pin `Keys`. Host pytest **168 passed**.
+- **Shape:** `ButtonPair` does not inherit `PushButton`. Letter aliases (`.c` / `.a`) type as `PushButton`.
+
+## 2026-09-13: Session 36 — [exp16] (`Button()` fail-closes; pair uses `_dispatch_only`)
+
+- **Applied:** public `Button()` with neither `pin` nor `event_queue` raises `ValueError`. `ButtonPair` builds `left`/`right` via `Button._dispatch_only()`. `run()` still errors if a pair-owned button is pumped directly. Host pytest **168 passed**.
+- **Why:** the silent no-arg path produced a handler bag that looked constructed; students would only discover the missing scanner at `run()`.
+
+## 2026-09-13: Session 35 — [exp16] (split `Buttons` into per-module classes)
+
+- **Applied:** `lib/buttons.py` — `Button` (1-pin), `ButtonPair` (2-pin scanner + `left`/`right` dispatch-only Buttons), `PlanetXButtonSensor` (C/D, pins required), `OnboardButtons` (A/B, defaults `board.BUTTON_A`/`BUTTON_B`). Shared `_pump` drains the queue then sleeps 10 ms. No `Buttons` class. Tests + `code_stage3.py` use two objects + `gather(ab.run(), px.run(), display)`. Host pytest **167 passed**. On-device re-run of the new Stage 3 script pending.
+- **Docs:** `README.md` student API + status; `Notes/student-api-portability.md` G1/G2 constructor seam.
+
 ## 2026-09-13: Session 34 — [exp16] (polish discussion: `Buttons._keys` lifetime)
 
 - **Q:** does `self._keys = keypad.Keys(...)` need to be a member? Dispatch never reads it (`run()` uses `_queue` only).
@@ -34,7 +49,8 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - **Phase 3** (`69d4fd1`): `SpacedGlyphColumnFeeder` in new pure `lib/display/text_layout.py` (prepend spacer before glyph N iff N-1 had ink; no trailing spacer). `tests/test_text_layout.py` — bootstrap, one-spacer, blank pass-through, no-trailing-spacer, `"27.3"`, `"!!"` ≤ WIDTH / `"ST"` > WIDTH. pytest **160**. Exit criterion holds; § 3b still accepted-as-is.
 - **Not done**: Phase 4 (`core.py` L959 fit-buf loop, L995 feeder instantiation; `show_number` L1039 still pure `show_string` delegation). Phase 5 on-device. Phase 6 old-code-removal question. Working folder `ai-notes/plan/font-spacing-impl/` left in place (gitignored; not this session's cleanup).
 - **Follow-up (same chat, after Phase 3)**: folded `left_bit = width - 1` in `scripts/dal_pendolino3.py` `row_bytes_to_column_major` back into `(width - 1 - col)` — the binding overclaimed generality (Alex: would `left_bit = 0` work?). Also `col_bytes = bytearray(width)` instead of `[0] * width`. DAL first-use expansion in the three conversion scripts. New coding-principles row: *A named binding implies a degree of freedom*. Phase 4 still gated.
-- **Next**: Alex's explicit go for Phase 4, then his Phase 5 on-device pass.
+- **Follow-up (same chat): Alex proposed generate should not depend on saved `glyphs._COLUMN_MAJOR`.** Scrutinized: `generate_spaced_font_table.py` already fetches DAL via `load_column_major()`, then **refuses to write** unless `converted == stored`. That gate duplicates `verify_dal_font_conversion.py` and contradicts settled § 3 Position A (script 2 generates from the DAL source, not from `_COLUMN_MAJOR`). In-memory column-major is still required (DAL is row-major; trim/pack are column-shaped) — the proposal drops the *saved* interim, not the representation. **Recommend adopt**; not applied pending go. Keep verify as the glyphs.py oracle while that table is live.
+- **Next**: Alex's go on dropping generate's `_COLUMN_MAJOR` gate (recommended), then Phase 4, then Phase 5 on-device.
 
 ## 2026-09-13: Session 31 — [exp16] (concurrent chat: rotation-during-scroll test design for Stage 2 + README/code cross-ref comments; `cpfiles.txt` inline-comment bug found + fixed; VS Code sync tasks + interpreter-path pinning; workspace-file identity correction)
 
