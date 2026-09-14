@@ -21,6 +21,12 @@ except ImportError:
 
 _LETTERS = ("a", "b", "c", "d")
 
+# `run()`'s poll interval -- see its own docstring for why this is not `0`.
+# Half of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no
+# event can be missed for longer than one hardware scan cycle would already
+# impose.
+_POLL_INTERVAL_S = 0.01
+
 
 class Buttons:
     """Register press/release handlers for buttons A, B, C, and D.
@@ -41,8 +47,6 @@ class Buttons:
         self._handlers = {
             letter: {"pressed": [], "released": []} for letter in _LETTERS
         }
-        self._index_to_letter = {i: letter for i, letter in enumerate(_LETTERS)}
-        self._keys = None
         if event_queue is not None:
             self._queue = event_queue
             return
@@ -98,7 +102,14 @@ class Buttons:
             self._handlers[letter] = {"pressed": [], "released": []}
 
     def _dispatch(self, event) -> None:
-        letter = self._index_to_letter.get(event.key_number)
+        # `_LETTERS[event.key_number]` directly, not a separate index->letter
+        # dict -- `event.key_number` is a tuple position, and `_LETTERS` is
+        # already ordered to match the pins tuple built in `__init__`. Bounds
+        # -checked explicitly (not a bare try/except IndexError) because a
+        # negative key_number would otherwise silently wrap to a *valid*
+        # tuple element instead of being rejected.
+        index = event.key_number
+        letter = _LETTERS[index] if 0 <= index < len(_LETTERS) else None
         if letter is None:
             return
         kind = "pressed" if event.pressed else "released"
@@ -112,6 +123,22 @@ class Buttons:
         task alongside display animations). Host CPython ``asyncio`` here is
         the test stand-in; the CIRCUITPY bundle ``asyncio`` is a different
         library (K1 / P8).
+
+        Poll interval is ``_POLL_INTERVAL_S`` (10 ms), not ``0``. ``0`` is not
+        just "less aggressive" -- on the bundle ``asyncio`` this loop runs on
+        device, ``asyncio.sleep(0)`` re-queues this task with a ready time of
+        *now*, so whenever it is the only ready task (i.e. whenever the
+        display task is itself mid-sleep between frames) the scheduler's
+        `run_until_complete` loop never takes its blocking-poll fallback
+        (``dt == 0`` skips ``_io_queue.wait_io_event(dt)``) -- a genuine
+        100%-CPU busy-spin, not merely "polls a bit more than needed". A
+        positive interval lets the scheduler actually block until it elapses.
+        10 ms costs nothing in responsiveness: ``keypad.Keys``' own hardware
+        scan/debounce runs in the background at its own ``interval``
+        (default 20 ms, independent of when Python calls ``.get()``) -- new
+        events cannot physically appear faster than that regardless of how
+        often this loop polls, so polling faster than ~20 ms only spins the
+        CPU checking an EventQueue that cannot have changed yet.
         """
         import asyncio
 
@@ -119,4 +146,4 @@ class Buttons:
             event = self._queue.get()
             if event is not None:
                 self._dispatch(event)
-            await asyncio.sleep(0)
+            await asyncio.sleep(_POLL_INTERVAL_S)

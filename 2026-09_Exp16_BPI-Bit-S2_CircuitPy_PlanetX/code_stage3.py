@@ -60,9 +60,9 @@ judgment this time):
   2. Concurrency/liveness self-check, serial-only: repeats Stage 2 step 1's
      exact ``asyncio.sleep(0.5)`` +/-10ms timing check, but this time with
      ``Buttons.run()`` concurrently active as a sibling task (not run
-     sequentially beforehand). If ``Buttons.run()``'s tight
-     ``await asyncio.sleep(0)`` polling loop were starving the event loop,
-     this timing check would drift outside tolerance -- passing is direct
+     sequentially beforehand). If ``Buttons.run()``'s polling loop (10ms
+     interval, see its own docstring) were starving the event loop, this
+     timing check would drift outside tolerance -- passing is direct
      evidence the two tasks genuinely share the loop cooperatively.
   3. A continuous background ``Image.scroll_image`` animation, restarted
      every cycle -- the long-running Tier-2 animation that step 5's button
@@ -121,11 +121,11 @@ print("Stage 3: Buttons(a_pin=BUTTON_A, b_pin=BUTTON_B, c_pin=IO13, d_pin=IO14) 
 # thing," just now interruptible by a real button instead of a synthetic
 # timer.
 _BIG_PATTERN = """
-. . # . . # # # # #
-. # # # . # # # # #
-# # # # # # # # # #
-. # # # . # # # # #
-. . # . . # # # # #
+# . . . . # . . . #
+. # # # . # # . . #
+. # . # . # . # . #
+. # # # . # . . # #
+. . . . # # . . . #
 """
 _big_image = display.create_big_image(_BIG_PATTERN, display.CYAN)
 
@@ -149,28 +149,31 @@ _LETTER_COLOR = {
     "d": display.GOLD,
 }
 
-# Shared, mutable, module-level state read by the display loop and written
-# by the button handlers below. Safe without a lock: CircuitPython asyncio
-# is single-threaded and cooperative (see module docstring, part (b)) -- the
-# handlers only ever run between awaits, never while the display loop is
-# mid-write. A dict (mutated, not rebound) sidesteps needing `global` inside
-# the handler closures.
-_state = {"counts": {"a": 0, "b": 0, "c": 0, "d": 0}, "last": None}
+class _PressCounter:
+    """Stateful, per-letter press handler.
 
+    Each instance owns its own ``letter`` and running ``count`` as plain
+    instance attributes. A callable instance satisfies ``Buttons``'s
+    ``Callable[[], None]`` contract exactly like a function would --
+    ``__call__`` takes no arguments beyond ``self``. Sync only: no ``await``
+    inside ``__call__``, matching every other handler in this file.
 
-def _make_on_pressed(letter: str):
-    """Build the pressed-handler for one letter, closing over it by value.
-
-    A plain sync callable, matching ``Buttons``'s ``Callable[[], None]``
-    contract -- handlers are not coroutines, so only Tier-1 (sync) display
-    calls belong here, never ``await``.
+    Safe without a lock even though four instances all end up calling
+    ``d.render_arrow(...)``: CircuitPython asyncio is single-threaded and
+    cooperative (see module docstring, part (b)) -- a handler only ever runs
+    to completion between two ``await`` points, never concurrently with the
+    display loop's own writes. Each instance's ``count`` is private to that
+    instance -- the only thing shared between letters is ``d`` itself.
     """
 
-    def _handler() -> None:
-        _state["counts"][letter] += 1
-        _state["last"] = letter
+    def __init__(self, letter: str) -> None:
+        self.letter = letter
+        self.count = 0
+
+    def __call__(self) -> None:
+        self.count += 1
         print(
-            f"BUTTON {letter.upper()} pressed (count={_state['counts'][letter]}) -- "
+            f"BUTTON {self.letter.upper()} pressed (count={self.count}) -- "
             f"Buttons.run() dispatch confirmed via this library's own handler "
             f"registration, not the bypassing keypad PoC K2 used"
         )
@@ -179,13 +182,21 @@ def _make_on_pressed(letter: str):
         # display loop below is currently mid-flight on (see module docstring
         # part (b); the real-event counterpart to Stage 2 step 10's
         # synthetic-timer cancellation check).
-        d.render_arrow(_LETTER_ARROW[letter], _LETTER_COLOR[letter])
-
-    return _handler
+        d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter])
 
 
-for _letter in ("a", "b", "c", "d"):
-    getattr(buttons, f"on_{_letter}_pressed")(_make_on_pressed(_letter))
+# One counter object per letter, registered explicitly by name -- a typo
+# here is a NameError/AttributeError at read time, not a silent no-op at
+# runtime. Matches the MakeCode screenshot's own idiom of one
+# distinctly-named handler wired individually per event.
+press_a = _PressCounter("a")
+press_b = _PressCounter("b")
+press_c = _PressCounter("c")
+press_d = _PressCounter("d")
+buttons.on_a_pressed(press_a)
+buttons.on_b_pressed(press_b)
+buttons.on_c_pressed(press_c)
+buttons.on_d_pressed(press_d)
 print("Stage 3: on_a/b/c/d_pressed handlers registered")
 
 
@@ -206,9 +217,9 @@ async def _display_loop() -> None:
         # 2) Concurrency/liveness self-check (K3): identical tolerance check to
         #    Stage 2 step 1, but now running concurrently with Buttons.run()
         #    as a sibling task rather than sequentially beforehand. A clean
-        #    [OK] here is direct evidence that the tight polling loop inside
-        #    Buttons.run() (`await asyncio.sleep(0)`) is not starving this
-        #    coroutine's own scheduling.
+        #    [OK] here is direct evidence that the polling loop inside
+        #    Buttons.run() (10ms interval) is not starving this coroutine's
+        #    own scheduling.
         _sleep_target_s = 0.5
         _tolerance_s = 0.010
         _t0 = time.monotonic()
@@ -236,15 +247,11 @@ async def _display_loop() -> None:
         #    any button has fired yet. Compact, no spaces, to keep the scroll
         #    short (show_string's scroll path was already proven by Stage 2;
         #    this is not re-testing it, just using it).
-        _counts = _state["counts"]
-        _status_line = f"A{_counts['a']}B{_counts['b']}C{_counts['c']}D{_counts['d']}"
+        _status_line = f"A{press_a.count}B{press_b.count}C{press_c.count}D{press_d.count}"
         await d.show_string(_status_line, display.WHITE, interval_ms=150)
         print(f"4/4: show_string('{_status_line}'), live press-count status")
 
-        print(
-            "Cycle complete. Press A, B, C, or D any time -- watch the arrow flash "
-            "and the animation cut short."
-        )
+        print("Cycle complete. Press A, B, C, or D any time -- watch the arrow flash and the animation cut short.")
         await asyncio.sleep(1)
 
 
