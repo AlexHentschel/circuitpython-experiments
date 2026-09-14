@@ -1,4 +1,4 @@
-"""Verify that the pinned DAL ``pendolino3`` source reconstructs ``_COLUMN_MAJOR``.
+"""Verify that the pinned Lancaster micro:bit Device Abstraction Layer [DAL] ``pendolino3`` source reconstructs ``_COLUMN_MAJOR``.
 
 Host-only; never imported or deployed on-device. Fetches Lancaster
 ``MicroBitFont.cpp`` at a commit-SHA pin, integrity-checks the file hash,

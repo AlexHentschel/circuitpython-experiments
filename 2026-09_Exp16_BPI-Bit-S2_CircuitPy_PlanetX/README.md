@@ -45,7 +45,7 @@ Human-run deploy scripts (host → mounted CIRCUITPY drive; the board is a deplo
 
 1. Flash CircuitPython 10.3.0 ([board page](https://circuitpython.org/board/bpi_bit_s2/); 4 MB Espressif needs TinyUF2 ≥ 0.33.0 if using UF2).
 2. When the CIRCUITPY drive mounts, ship the libraries: `python3 scripts/sync_lib_to_board.py` — filtered copy of `lib/` (excludes `__pycache__/`, `.DS_Store`, `README.md`, `*.pyc`; skips unchanged files by size+mtime; never deletes board files). Also ships the vendored `asyncio/` + `adafruit_ticks.mpy`, so no `circup install` step is needed.
-3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line).
+3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line). **Switching which script is active**: edit `.vscode/cpfiles.txt` directly — comment out the currently-active `... -> /code.py` line, uncomment (or add) the one you want, then re-run the sync script. Exactly one `-> /code.py` line must be active at a time; the manifest's own header comment documents the full syntax and a real gotcha (a trailing inline comment on an active line silently corrupts the destination filename instead of erroring).
 4. The board auto-reloads after each copy batch — batch changes into as few sync runs as possible.
 
 The CircuitPythonSync extension's "CP Copy Files to Board" works here too (Exp16 currently sits at workspace folder index 0) and is fine for code-file updates; prefer the scripts for routine deploys. Its "CP Copy Libs to Board" is **not** used in this experiment — unfiltered whole-`lib/` copy (no exclude mechanism), and every extension copy triggers a full-volume `dot_clean` sweep on the live drive.
@@ -56,20 +56,25 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 ## Status
 
-**P6 host-green (2026-09-04):** 146 pytest passed (suite does not import `board` / `display.core`). **P7** (per-experiment `.vscode/`) and **P8** (on-device) are not started. Keep the board unplugged until a human device window. Flash CircuitPython **10.3.0** at P8 (host tools are already on 10.3.0).
+**First milestone (async 5×5 display + async A/B/C/D buttons) fully confirmed on-device, 2026-09-13.** All four test stages passed on UID `0740D10F1BE9`: Tier 1 sync rendering (`code_stage0.py`/`code_stage1.py`), Tier 2 async display via the bundle `asyncio` library (`code_stage2.py`), and Tier 2 async display running concurrently with `lib/buttons.py`'s own async dispatcher — including a button press correctly cancelling an in-flight animation (`code_stage3.py`). Host `pytest` is green (160 passed; suite does not import `board` / `display.core`). Per-stage scripts stay frozen as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+
+Separate, still-open thread: a font inter-glyph-spacing fix (design converged, implementation Phases 1-3 landed and host-green, Phase 4 `core.py` cutover gated on an explicit go-ahead) — not required for the first-milestone claim above.
 
 Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
 
 ## Folder structure
 
 ```
-lib/display/     5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py   Async A/B/C/D dispatcher
-tests/           Host pytest (no board / no display.core); see tests/README.md
-Notes/           Human spec + BananaPi photos (CC BY-SA, unmodified)
+lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
+lib/buttons.py      Async A/B/C/D dispatcher
+code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
+scripts/            Human-run deploy + font-build scripts (see § Deploy)
+.vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt
+tests/              Host pytest (no board / no display.core); see tests/README.md
+Notes/              Human spec + BananaPi photos (CC BY-SA, unmodified)
 ```
 
-No `code.py` or per-experiment `.vscode/` yet. A local `ai-notes/` folder may exist as a gitignored working store; this tree does not depend on it.
+A local `ai-notes/` folder may exist as a gitignored working store; this tree does not depend on it.
 
 ## Further reading
 
@@ -79,6 +84,7 @@ No `code.py` or per-experiment `.vscode/` yet. A local `ai-notes/` folder may ex
 | Host tests (local interpreter path) | [`tests/README.md`](tests/README.md) |
 | Spec / working prefs | [`Notes/overall_goal.md`](Notes/overall_goal.md) |
 | Student-API portability (5×5 → 8×8) | [`Notes/student-api-portability.md`](Notes/student-api-portability.md) |
+| Exp14 vs. Exp16 `lib/display/` divergence (maintainer-facing) | [`Notes/exp14-divergence.md`](Notes/exp14-divergence.md) |
 | Goldfinger pinout (CC BY-SA) | [`Notes/bpi_bit_v2_goldfinger.jpg`](Notes/bpi_bit_v2_goldfinger.jpg) |
 | Board interface photo (CC BY-SA) | [`Notes/bpi_bit_v2_interface_en.jpg`](Notes/bpi_bit_v2_interface_en.jpg) |
 | Firmware | [circuitpython.org/board/bpi_bit_s2](https://circuitpython.org/board/bpi_bit_s2/) |

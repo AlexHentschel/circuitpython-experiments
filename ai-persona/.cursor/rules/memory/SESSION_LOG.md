@@ -62,6 +62,10 @@ When the same fact must live in two places (rare; only when duplication serves d
 
 ## Cross-project & tooling sessions
 
+## 2026-09-13: Session — [tooling] (CircuitPython-profile Black wrap 88 → 160)
+
+- Alex asked to configure the Python auto-formatter for longer rows. Active session uses `circuitpython.code-workspace` → Cursor profile **CircuitPython** (`-7aa41f79`); formatter is `ms-python.black-formatter` with format-on-save, previously no `--line-length` (Black default 88). Set `black-formatter.args` to `--line-length 160` in that profile's `settings.json`. Matches the existing 120-160 comment/doc band (`WORKING_STYLE.md` § Document Authoring, reinforcements 3→4). Takes effect on next format/save; no window reload needed. Other profile (`-4c54adea`) already had Ruff at 180 — left alone.
+
 ## 2026-09-11: Session — [exp16]/[tooling] (`circuitpythonsync` workspaceFolders[0] bug + Cursor rule-discovery order check)
 
 - Exp16: Alex's manual `CP Copy Files to Board` failed (`"!! No files specified to copy exist !!"`). Root-caused by reading `padgettholdings.circuitpythonsync` v2.2.2's bundled `dist/extension.js` directly: the extension hardcodes `workspace.workspaceFolders[0]` for its manifest read + file-existence checks (32 occurrences, zero `getWorkspaceFolder`) — not multi-root-aware. Fails for any experiment not at folder-index 0 in the shared multi-root workspace, independent of that experiment's own setup. Fix: open the target experiment standalone, or reorder (trade-off: breaks whichever experiment was previously at index 0). Durable: `concepts/tooling.md`.

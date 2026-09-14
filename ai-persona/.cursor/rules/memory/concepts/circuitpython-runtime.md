@@ -116,6 +116,18 @@ Standard Python's `__slots__` (a class-level tuple of allowed instance-attribute
 
 **Status:** `evidence-supported` (primary source: the CircuitPython repo's own open issue, not a third-party blog).
 
+### `keypad.Keys` lifetime is separate from `EventQueue` — hold the scanner
+
+`keypad.Keys` owns `self->events`; `EventQueue` has no back-pointer to `Keys` (`shared-module/keypad/{Keys,EventQueue,__init__}.c`, CP **10.3.0**). Keeping only `keys.events` drops the last Python reference to the scanner.
+
+Scanning still continues on this firmware because `keypad_register_scanner` puts `Keys` on `keypad_scanners_linked_list`, a GC root (`MP_REGISTER_ROOT_POINTER`). `Keys` has no `__del__`; `deinit()` (or context-manager `__exit__`) is explicit. That registry-as-GC-root is an implementation detail, not the documented contract — the docs treat `Keys` as the object you own; `events` is the queue associated with it.
+
+**Act:** keep a Python reference to `Keys` whenever the scanner must stay alive or `deinit()` might be needed later. Same class of hold as keeping a `neopixel.NeoPixel` even if you only write its buffer.
+
+**Applied `[project:circuitpython-exp16-planetx]`:** `lib/buttons.py` `self._keys = keypad.Keys(...)` — unread on purpose; comment on that assignment (2026-09-13).
+
+**Status:** `evidence-supported` (CP 10.3.0 C sources + type definition, not inferred from examples).
+
 ### Import-time vs. hot-path allocation
 
 "Allocate large items early while memory space is relatively wide open" [Adafruit-learn, "Reducing memory fragmentation", 2026-04-20]. Allocating, e.g., 48 `Image` wrapper objects at import time produces one burst on a still-contiguous heap. Allocating them lazily scatters small blocks between later runtime allocations and is the textbook path to fragmentation. As a minor but often-believed myth: `from foo import bar` does NOT save RAM versus `import foo` — the whole module is loaded either way [Adafruit-learn, "Optimizing memory use: Importing Libraries", 2026-04-20].

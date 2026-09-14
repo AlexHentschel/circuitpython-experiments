@@ -57,7 +57,7 @@ class Buttons:
         pins = (a_pin, b_pin, c_pin, d_pin)
         if any(p is None for p in pins):
             raise ValueError("a_pin, b_pin, c_pin, d_pin are required when event_queue is omitted")
-        self._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)
+        self._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)  # unread on purpose: owns the scanner; EventQueue does not keep Keys alive
         self._queue = self._keys.events
 
     def on_a_pressed(self, handler: Callable[[], None]) -> None:
