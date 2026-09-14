@@ -7,7 +7,7 @@ This is the **central** session log for the unified persona memory. It holds the
 **Memory layout (unified, since the 2026-06-14 warm reset)**: ONE persona memory home at `.cursor/rules/memory/`, reachable from every project workspace (NOT federated). Structure:
 - `universal/` — behavioral / cross-project: `WORKING_STYLE.md`, `CODING_PRINCIPLES.md`, `MONITORING.md`, `CHANGELOG.md`, `PATTERNS.md`.
 - `PERMITTED_DESTRUCTIVE_ACTIONS.md` — **fail-closed grant ledger** for destructive ops (empty = nothing permitted). Always-on stub: `06-destructive-operations.mdc`. Protocol: corpus `destructive-operations.md`.
-- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`).
+- `concepts/` — domain-knowledge concept graph: `_INDEX.md` (always-read), `_RELATIONS.md` (typed edges), `concepts/<domain>.md` per evidenced domain (today: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`, `nezha`).
 - `projects/` — `_INDEX.md` (roster + path-globs) + `<slug>/` digests (`CONTEXT.md` + `SESSION_LOG.md` + `CONCLUSIONS.md`), linking into each project repo's technical artifacts.
 - `crossref/` — `BY_TOPIC.md` (topic→projects) + `BY_PATTERN.md` (promotion-ladder working surface). First `universal/PATTERNS.md` entry landed 2026-09-04 (public-repo third-party hygiene).
 - `reference/` (sibling of `memory/`, not inside it) — dated corpus **snapshots** (recipe, not house SOT). Last ingest **2026-09-07**. House SOT remains always-injected `.mdc` + `memory/universal/WORKING_STYLE.md`.
@@ -31,7 +31,7 @@ This is the **central** session log for the unified persona memory. It holds the
 - `circuitpython-exp15-microbit` — **active (early)**; Milestone 1 blink set up, on-device run pending board connection. See `projects/circuitpython-exp15-microbit/`.
 - `bamboo-lamp` — **active**; standby/sleep-mode design discussion pending; S3-vs-C6 MCU divergence open. See `projects/bamboo-lamp/`.
 - `coding-tutor` — **active (knowledge-gathering)**; family `education`. Build an AI tutor persona (distinct from this assisting persona) teaching CircuitPython on micro:bit+Nezha2+PlanetX to student persona "Alice". Setup + Scheiter transcript ingested; **research loop iteration 1 done 2026-07-15** — 17-source corpus downloaded (`CodingTutor/materials/papers/`, git-ignored) + cataloged/triaged/ranked in `CodingTutor/notes-.../05_research-corpus_iteration-1.md` (with a ranked can't-access list for Alex). Next: iteration-2 deep-read/digest T1/T2, then tutor-design guidelines. Design not started. See `projects/coding-tutor/`.
-- `circuitpython-exp16-planetx` — **P6 host-green 2026-09-04**; round-1 device window open (P7/P8). K2 (PlanetX buttons) evidence-supported 2026-09-11; K1 (bundle `asyncio` on real device) still unverified. Session 17 (fresh chat, handoff executed): local lib stack re-verified complete, Stage-0 `code.py` drafted, 4-stage test plan presented to Alex — no device write yet. Session 18 (same day, back in the originating chat): retrospective plan-refinement-loop on that handoff prompt — 2 `universal/MONITORING.md` entries + 1 edit to `~/.cursor/skills/handoff-exec-prompt/reference.md` (cross-project tooling improvement, logged here per routing). Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md § Resumption point`.
+- `circuitpython-exp16-planetx` — **P6 host-green**; Stages 0–3 on-device (K1/K2/K3). Font-spacing Phase 4 gated. **Nezha V2 motor I2C** decoded into `concepts/nezha.md` (2026-09-14; no driver). Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md § Resumption point`.
 - exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces). Exp09 5×5 LUT/icons are prior art consumed by exp16.
 
 ## Source-of-truth map (which file owns which content; pre-empts duplication-and-drift)
@@ -61,6 +61,10 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Scope-tag dimensions** — two *orthogonal* axes (D4): (1) *directive scope* `[universal]/[user]/[project]/[task]` (authoritative in `WORKING_STYLE.md` header; echoed in `01-interaction-style.mdc`); (2) *content scope* `[universal]/[domain:x]/[family:y]/[project:slug]/...` (authoritative in `04-multi-project.mdc § Scope tagging`; rubric in `working-docs/warm-reset-plan/microcontroller-multi-project-memory-guidelines.md § 5`). Don't collapse the two.
 
 ## Cross-project & tooling sessions
+
+## 2026-09-14: Session — [user]/[exp16] (`source.txt`-pinned vendor snapshots)
+
+- New `[user]` Workflow row: before treating a local tree with sibling `source.txt` as current, compare pinned SHA to GitHub default-branch HEAD; if remote moved, notify Alex — do not silently refresh. Pins for Exp16 live in `projects/circuitpython-exp16-planetx/CONTEXT.md` *Local vendor snapshots* (notes folder may vanish). First check 2026-09-14: all three local trees matched `master`. Same day: lone-file case added — Bit-S2 schematic PDF size/blob vs GitHub `contents` API.
 
 ## 2026-09-13: Session — [tooling] (CircuitPython-profile Black wrap 88 → 160)
 

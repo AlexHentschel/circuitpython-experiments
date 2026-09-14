@@ -4,6 +4,17 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-14 — extend: seed `concepts/nezha.md` (first concept, C7)
+
+**Trigger:** Alex — persist the Nezha V2 motor-library analysis with cold-AI discoverability in persona memory (not only gitignored `ai-notes/`). Opcode table is a public, non-confidential fact; wrap-up rule forbids leaving it solely in notes that may vanish.
+
+**Change** (`extend`; C7 new domain — ElecFreaks breakout command set, **not** folded into `i2c.md` because that domain is bus-general NXP/TI properties; device packets would bury retrieval):
+
+- New `concepts/nezha.md` with `### Nezha V2 smart-motor I2C protocol (8-byte frame @ 0x10)`: decode `evidence-supported` from `pxt-nezha2` `main.ts` + `Nezha_V2.py`; on-device `unverified`. `_INDEX.md` domain line; Candidate-domains updated (`nezha` now seeded; `led-driving` candidate leftover in `02-domain-structure.mdc` also corrected). `_RELATIONS.md`: `nezha` —instantiates— `i2c: 7-bit addressing`. Domain count 7 → 8.
+- Retrieval hops: exp16 `CONTEXT.md` Domain knowledge + entry points; `CONCLUSIONS.md` Unverified; `crossref/BY_TOPIC.md` Nezha row now points at the concept first. Unpack remains exp16 `ai-notes/digests/nezha-v2-motor-protocol.md`.
+
+**Preserve:** `i2c.md` stays bus-general. PlanetX GPIO buttons stay in exp16 `lib/planetx/` (`sensors` still unseeded). No motor driver.
+
 ## 2026-09-12 — extend: seed `concepts/led-driving.md` (first concept, C7)
 
 **Trigger:** Alex — "promote that" (the PIO-vs-RMT-per-MCU-family fact surfaced while correcting stale "PIO" wording in exp16's ESP32-S2 docs). Reserved candidate domain `led-driving` received its first concrete, evidenced concept.

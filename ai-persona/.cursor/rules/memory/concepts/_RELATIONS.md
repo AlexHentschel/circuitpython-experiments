@@ -6,7 +6,7 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-09-13 — 7 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`)
+## Edges (as of 2026-09-14 — 8 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`, `nezha`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
@@ -21,6 +21,9 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 - `circuitpython-runtime: keypad.Keys lifetime vs EventQueue`  —pairs-with—  `circuitpython-runtime: neopixel allocation`   (both: keep the hardware object even if Python only uses a derived queue/buffer; dropping the parent is not a documented lifetime).
 - `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —composes-with—  `tooling: on-device restart/reload mechanisms`   (auto-reload fires on every host write to the mounted volume — the reason batched syncs and no-mid-flight-cancels matter; an active serial REPL *suspends* auto-reload, the third incident differentiator).
 - `tooling: CIRCUITPY deploy hygiene (lib-wipe edge case)`  —pairs-with—  `tooling: two similarly-named CircuitPython extensions`   (the hygiene rules operationalize that concept's verified extension behavior: unfiltered copy paths + the post-copy full-volume `dot_clean` sweep).
+- `nezha: V2 smart-motor I2C protocol`  —instantiates—  `i2c: 7-bit addressing`   (device at `0x10` on the goldfinger SCL/SDA bus; general bus rules stay in `i2c.md`, this concept is the device command set).
+- `led-driving: BananaPi 5×5 sequential index shared`  —pairs-with—  `led-driving: WS2812/NeoPixel output peripheral (PIO vs RMT)`   (same strip geometry across BananaPi bit generations; data pin + MCU peripheral still re-derived per silicon).
+- `fonts: BananaPi CharData is not DAL pendolino3`  —alternative-to—  `fonts: DAL pendolino3 row-bytes`   (two 5×5 bitmap encodings; Exp16 uses DAL only).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 

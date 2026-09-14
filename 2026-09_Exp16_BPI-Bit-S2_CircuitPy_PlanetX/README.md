@@ -19,7 +19,8 @@ Display architecture: [`lib/display/README.md`](lib/display/README.md).
 | LEDs | Onboard 5×5 WS2812 (25 NeoPixels), `board.NEOPIXEL` (GPIO18), brightness cap 0.20 |
 | Wiring | Column-major, right-to-left. Logical (0,0) = top-left. Strip index `row + 20 - column * 5` |
 | Buttons A/B | Onboard, `board.BUTTON_A` / `board.BUTTON_B` (active-low) |
-| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) connected to goldfinger P13/P14 = `board.IO13` / `board.IO14` |
+| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) on Nezha2 **J3** (P13/P14) = `board.IO13` / `board.IO14`. Jack map: `planetx.J1`–`J4`. |
+| Nezha2 I2C | All IIC jacks share one bus: silk **P19 = SCL**, **P20 = SDA** (`board.SCL` / `board.SDA`). `planetx.I2C`. |
 
 ## This experiment's setup
 
@@ -67,7 +68,7 @@ Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portabil
 ```
 lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
 lib/buttons.py      Async onboard/generic dispatchers (`PushButtonBase`, `Button`, `ButtonPair`, `OnboardButtons`)
-lib/planetx/        PlanetX modules (`PlanetXButtonSensor` C/D; further sensors join here)
+lib/planetx/        PlanetX modules (`J1`–`J4` GPIO jacks; shared `I2C` bus; `PlanetXButtonSensor` C/D)
 code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
 scripts/            Human-run deploy + font-build scripts (see § Deploy)
 .vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt

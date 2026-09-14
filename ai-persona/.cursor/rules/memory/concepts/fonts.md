@@ -1,8 +1,8 @@
 # Concept domain: fonts
 
 **Content scope**: `[domain:fonts]` `[cross-experiment]` — applies to any workload that renders text on a pixel-addressable display (NeoPixel matrix, OLED, e-paper, monochrome LCD). The glyph-coordinate formula specifically is `[project:circuitpython-exp14-display]`. Provenance: the exp14 font-distortion investigation + glyph-coordinate clarification; the font-model facts are family-wide so they live centrally.
-**Status**: `evidence-supported` (both concepts verified — outline-font claim by host-side + on-device decode agreement; glyph-coordinate model against `adafruit_bitmap_font/pcf.py` source).
-**Concepts in this domain**: outline fonts unsuitable at small pixel sizes · glyph coordinate model (metrics y-up, raster y-down) · DAL pendolino3 row-bytes vs column-major. *(The glyph-coordinate concept is display-rendering-flavoured; it folds here rather than seeding a near-empty `display` domain — C7 seed-on-evidence. Split to a `display` domain via accumulate-then-split if display content accrues.)*
+**Status**: `evidence-supported` (outline-font claim by host-side + on-device decode agreement; glyph-coordinate model against `adafruit_bitmap_font/pcf.py`; DAL vs BananaPi `CharData` from vendor source 2026-09-14).
+**Concepts in this domain**: outline fonts unsuitable at small pixel sizes · glyph coordinate model (metrics y-up, raster y-down) · DAL pendolino3 row-bytes vs column-major · BananaPi original-bit `CharData` is not DAL.
 **Related concepts** (`_RELATIONS.md`): glyph-coordinate model *pairs-with* (future) `display`; outline-fonts *complemented-by* `circuitpython-runtime` `memoryview` (glyph raster access). The exp14 follow-up to swap to a hand-designed bitmap font is tracked in `../universal/MONITORING.md`.
 **Provenance / history**: outline-font fact added 2026-04-21 (exp14 session 6); glyph-coordinate model added 2026-06-12 (exp14 session 8 cont’d). Reshaped from `TECHNICAL.md § Fonts for pixel-accurate displays` into this concept-domain file at the 2026-06-14 warm reset (content reproduced faithfully below; concept-graph wrapper new). Source-tag legend inherited from `circuitpython-runtime.md`; adds `[on-device-experiment]` for the exp14 YD-RP2040 anchor.
 
@@ -27,6 +27,14 @@
 **License:** MIT (Copyright 2016 BBC; Lancaster University by arrangement with the BBC). Notice must travel with the glyphs (`font_makecode_5/LICENSE`).
 
 **Why not PCF on 5×5:** overnight host tests cannot load `adafruit_bitmap_font`; a 5-byte table is the font swap unit and is importable on CPython without hardware. Exp14 `_glyph_columns` PCF metric mapping stays in Exp14.
+
+### BananaPi original-bit `CharData` is not DAL pendolino3 — `evidence-supported`
+
+**Claim.** The glyph table in BPI-STEAM `MicroPython-Samples/microbit/display.py` (`CharData`) is a dict of **25-int 0/1 lists in sequential-index order** (same `seq` as the LED strip). It is **not** Lancaster DAL `pendolino3` (five row-bytes, bit4=left). Exp16 5×5 text uses DAL via `font_makecode_5/`. Do not copy `CharData` into Exp16.
+
+**Scope.** `[domain:fonts]` `[project:circuitpython-exp16-planetx]`. Predecessor firmware (original ESP32 bpi:bit), pin `c03ed50`.
+
+**Unpack.** exp16 `ai-notes/vendor-sources/display-vs-exp16.md` (may vanish).
 
 ### Glyph coordinate model: metrics are y-up, raster is y-down (the `_glyph_columns` transform)
 

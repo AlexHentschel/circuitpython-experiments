@@ -1,20 +1,13 @@
 """
-Async button dispatcher: one Python object per physical module.
+One Python object per physical button module.
 
-Student-facing operations are press/release handlers. GPIO identities belong
-on the constructor (portability seam), not inside handlers.
+Student operations are press/release handlers. GPIO identities belong on the
+constructor (portability seam), not inside handlers. There is no ``update()``
+loop; ``await run()`` is a background task (typically gathered with display work).
 
-``PushButtonBase`` is one switch: press/release handlers, no scanner. ``Button``
-is a ``PushButtonBase`` plus a 1-pin scanner and ``run()``. ``ButtonPair`` is two
-pins sharing one scanner, exposing ``left`` / ``right`` as ``PushButtonBase`` instances.
-``OnboardButtons`` is this board's native A/B pair. PlanetX modules live in the
-``planetx`` package (push-button sensor first).
-
-Device backend: CircuitPython ``keypad.Keys`` (active-low, pull-up) → native
-EventQueue → this dispatcher → an asyncio pump (``run``). Host tests inject
-a fake queue with the CircuitPython Event shape (``.key_number``, ``.pressed``).
-
-There is no student ``update()`` loop.
+``Button`` is one pin. ``ButtonPair`` is two pins as ``left`` / ``right``.
+``OnboardButtons`` is this board's native A/B pair. PlanetX modules live in
+the ``planetx`` package.
 """
 
 from __future__ import annotations
@@ -35,10 +28,12 @@ _POLL_INTERVAL_S = 0.01
 def _bind_scanner(owner, pins) -> None:
     """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``.
 
-    ``import keypad`` lives here so a host ``import buttons`` does not load it
-    (tests pass ``event_queue=`` and never call this). Each device-path
-    construct runs the statement; after the first it is a ``sys.modules``
-    lookup. Bind is once per physical module at construct time, not per event.
+    Device path: ``keypad.Keys`` (active-low, pull-up) → native EventQueue on
+    ``owner``. ``import keypad`` lives here so a host ``import buttons`` does
+    not load it (tests pass ``event_queue=`` and never call this). Each
+    device-path construct runs the statement; after the first it is a
+    ``sys.modules`` lookup. Bind is once per physical module at construct time,
+    not per event.
     """
     import keypad  # CircuitPython-only; not Blinka-on-CPython
 
@@ -49,9 +44,8 @@ def _bind_scanner(owner, pins) -> None:
 async def _pump(queue, dispatch) -> None:
     """Drain ``queue`` and call ``dispatch(event)`` until cancelled.
 
-    Student sketches ``await buttons.run()`` (typically as a background task
-    alongside display animations). Host CPython ``asyncio`` here is the test
-    stand-in; the CIRCUITPY bundle ``asyncio`` is a different library.
+    Host CPython ``asyncio`` here is the test stand-in; the CIRCUITPY bundle
+    ``asyncio`` is a different library.
 
     Poll interval is ``_POLL_INTERVAL_S`` (10 ms), not ``0``. On the bundle
     ``asyncio`` this loop runs on device, ``asyncio.sleep(0)`` re-queues this
@@ -80,11 +74,11 @@ async def _pump(queue, dispatch) -> None:
 
 
 class PushButtonBase:
-    """One switch: press/release handlers. No scanner and no ``run()``.
+    """Press and release handlers for one switch.
 
-    A ``Button`` (1-pin) or ``ButtonPair`` (2-pin) owns the queue and calls
-    ``_handle``. Pair children (``left`` / ``right``, and lettered aliases)
-    are ``PushButtonBase`` instances.
+    Register with ``on_pressed`` / ``on_released``. ``clear``, ``clear_pressed``,
+    and ``clear_released`` drop handlers. This object has no ``run()``; call
+    ``run`` on the owning ``Button`` or ``ButtonPair``.
     """
 
     def __init__(self) -> None:
@@ -111,16 +105,17 @@ class PushButtonBase:
         self._released = []
 
     def _handle(self, pressed: bool) -> None:
+        # Owning Button / ButtonPair pump calls this; students do not.
         handlers = self._pressed if pressed else self._released
         for handler in handlers:
             handler()
 
 
 class Button(PushButtonBase):
-    """One pin: a ``PushButtonBase`` plus its own scanner and ``run()`` pump.
+    """One GPIO pin: press/release handlers and ``run()``.
 
-    ``pin`` is constructor config. Overnight host tests pass ``event_queue=``
-    and skip ``keypad``. ``Button()`` with neither pin nor queue raises.
+    ``pin`` is constructor config. Pass ``event_queue=`` instead to skip GPIO
+    (host tests). ``Button()`` with neither raises ``ValueError``.
     """
 
     def __init__(self, pin=None, *, event_queue=None) -> None:
@@ -135,22 +130,27 @@ class Button(PushButtonBase):
         _bind_scanner(self, (pin,))
 
     def _dispatch(self, event) -> None:
+        # Standalone scanner is a 1-tuple; ignore key_number.
         self._handle(event.pressed)
 
     async def run(self) -> None:
-        """Asyncio pump for this button's own EventQueue."""
+        """Never-ending task that delivers this pin's press and release events.
+
+        Typically ``await asyncio.gather(button.run(), display_loop())``.
+        """
         await _pump(self._queue, self._dispatch)
 
 
 class ButtonPair:
-    """Two ``PushButtonBase`` instances sharing one 2-pin scanner: ``left`` (index 0) and ``right`` (index 1).
+    """Two buttons on one module: ``left`` and ``right``.
 
-    ``left_pin`` / ``right_pin`` are constructor config. Overnight host tests
-    pass ``event_queue=`` and skip ``keypad``. Generic names only: lettered
-    A/B live on ``OnboardButtons``; C/D live on ``planetx.PlanetXButtonSensor``.
+    ``left_pin`` / ``right_pin`` are constructor config. Pass ``event_queue=``
+    instead to skip GPIO (host tests). Lettered names live on ``OnboardButtons``
+    (A/B) and ``planetx.PlanetXButtonSensor`` (C/D).
     """
 
     def __init__(self, left_pin=None, right_pin=None, *, event_queue=None) -> None:
+        # Generic pair children (no scanner). Lettered aliases live on subclasses.
         self.left = PushButtonBase()
         self.right = PushButtonBase()
         self._keys = None
@@ -179,19 +179,21 @@ class ButtonPair:
             self.right._handle(event.pressed)
 
     async def run(self) -> None:
-        """Asyncio pump: drain this pair's EventQueue into ``left`` / ``right``.
+        """Never-ending task that delivers this pair's press and release events.
 
-        Contained ``PushButtonBase`` instances have no scanner; this method owns the queue.
+        Typically ``await asyncio.gather(pair.run(), display_loop())``.
+        Call ``run`` on the pair, not on ``left`` or ``right``.
         """
+        # Pair owns the queue; contained PushButtonBase instances do not.
         await _pump(self._queue, self._dispatch)
 
 
 class OnboardButtons(ButtonPair):
-    """BPI-Bit-S2 native A (left) and B (right).
+    """This board's native buttons A and B.
 
-    Device path defaults ``a_pin`` / ``b_pin`` to ``board.BUTTON_A`` /
-    ``board.BUTTON_B``. Overnight host tests pass ``event_queue=`` and skip
-    ``board`` / ``keypad``.
+    Student operations are ``on_a_pressed`` / ``on_b_pressed`` and the matching
+    release and clear names. Pins default to ``board.BUTTON_A`` / ``board.BUTTON_B``.
+    Pass ``event_queue=`` to skip ``board`` / GPIO (host tests).
     """
 
     def __init__(self, a_pin=None, b_pin=None, *, event_queue=None) -> None:
@@ -204,6 +206,7 @@ class OnboardButtons(ButtonPair):
                 b_pin = board.BUTTON_B
         super().__init__(a_pin, b_pin, event_queue=event_queue)
 
+    # Pair slots: A is left (key_number 0), B is right (key_number 1).
     @property
     def a(self) -> PushButtonBase:
         return self.left

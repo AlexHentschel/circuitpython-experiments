@@ -41,8 +41,8 @@ Steps (numbered per cycle; steps 1-4 are autonomous-serial-capture-friendly,
 no physical input needed; step 5 needs Alex present to press buttons):
 
   1. ``OnboardButtons()`` (defaults ``board.BUTTON_A`` / ``BUTTON_B``) and
-     ``PlanetXButtonSensor(c_pin=IO13, d_pin=IO14)`` constructed as two
-     objects: one Python object per physical module.
+     ``PlanetXButtonSensor(port=J3)`` constructed as two objects: one Python
+     object per physical module (J3 is P13/P14 → ``board.IO13``/``IO14``).
   2. Concurrency/liveness self-check, serial-only: Stage 2 step 1's
      ``asyncio.sleep(0.5)`` +/-10ms timing check, now concurrent with
      *two* 10 ms ``run()`` pumps as sibling tasks. A clean [OK] is evidence
@@ -68,12 +68,11 @@ REPL) and because both ``run()`` pumps need to keep listening indefinitely.
 import asyncio
 import time
 
-import board
 import display
 from display import Arrows
 
 from buttons import OnboardButtons
-from planetx import PlanetXButtonSensor
+from planetx import PlanetXButtonSensor, J3
 
 d = display.display
 
@@ -81,10 +80,10 @@ print("Stage 3: import display + buttons + planetx OK")
 
 # Built once, not per-cycle, matching Stage 1/2's allocate-once pattern.
 # One object per physical module: onboard A/B (pin defaults) and PlanetX C/D
-# on the already-confirmed J3 wiring (IO13/IO14).
+# on J3 (P13/P14).
 ab = OnboardButtons()
-px = PlanetXButtonSensor(c_pin=board.IO13, d_pin=board.IO14)
-print("Stage 3: OnboardButtons() + PlanetXButtonSensor(c_pin=IO13, d_pin=IO14) constructed OK")
+px = PlanetXButtonSensor(port=J3)
+print("Stage 3: OnboardButtons() + PlanetXButtonSensor(port=J3) constructed OK")
 
 # Background animation, built once. 10 columns x 5 rows (2 * WIDTH x HEIGHT,
 # the create_big_image contract), same shape family as Stage 2's so a human

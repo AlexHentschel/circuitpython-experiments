@@ -4,11 +4,67 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-14: Session 47 — [exp16] (vendor-vs-Exp16: display.py + PlanetX inventory)
+
+- **Notes:** `ai-notes/vendor-sources/` (`INDEX.md`, `display-vs-exp16.md`, `planetx-vs-lib.md`, `returns/`). Local trees treated current (`c03ed50`, `268740c`). No `lib/` changes.
+- **Display:** BananaPi `Image.seq` = same strip index as Exp16 LUT; font is `CharData` 25-int sequential, **not** DAL; scroller is `_thread` + 1 blank column (BBC `monospace=False` shape); `get_pixel`/`set_pixel` stubs. Student API already MakeCode-shaped — do not port the file. Three `microbit/display.py` paths; only MicroPython-Samples is real.
+- **PlanetX:** `lib/planetx/` = buttons + `J1`–`J4` + shared `I2C`. Next LightTower = `light.py` analog J1/J2. Tree `nezha.py` = V1. pxt-PlanetX v1.6.5 adds DHT/DS18B20/joystick/pump/NeoPixel-strip not in the MP folder.
+- **Durable:** `concepts/fonts.md` CharData≠DAL; CONCLUSIONS light jack constraint. Open Question (PlanetX inventory) closed as notes, not implemented.
+
+## 2026-09-14: Session 46 — [exp16] (BPI-Bit-S2 schematic = BIT-Lite PDF)
+
+- **Identity (`evidence-supported`):** BananaPi Bit-S2 docs name [BPI-BIT-Lite-Doc `sch/BPI-BIT-Lite-V0.2.pdf`](https://github.com/BPI-STEAM/BPI-BIT-Lite-Doc/blob/main/sch/BPI-BIT-Lite-V0.2.pdf) as the board schematic. Vendor aliases: BIT-Lite, BIT-V2 (prior filename), wiki Bit_Lite. MCU on the sheet: ESP32-S2FN4R2. Distinct from original ESP32 `BPI-BIT-Hardware`. Repo MIT; README is one line; only payload is that PDF.
+- **Local:** `ai-notes/BPI-Bit-S2_Hardware/BPI-BIT-Lite-V0.2.pdf` — no `source.txt`; size 183103 = GitHub blob `ea1335e`; HEAD `775cf99` (2022-08-02) current as of this check. Freshness: compare size/blob SHA, notify if stale, do not replace.
+- **Not done:** pin-by-pin schematic decode (pdftotext columns mix); fleet PCB rev vs V0.2. Pin SoT stays `pins.c` + goldfinger JPEG.
+- **Parked (Alex):** PlanetX local-module list vs `lib/planetx/` — later. **Discharged Session 47** as notes (`ai-notes/vendor-sources/`), not as `lib/` code.
+
+## 2026-09-14: Session 45 — [exp16] (local vendor snapshots under `ai-notes/Elecfreaks-Repos/`)
+
+- **Applied:** CONTEXT entry point *Local vendor snapshots*; BY_TOPIC / `nezha.md` / `led-driving.md` point at the local trees as GitHub alternates. `WORKING_STYLE.md` Workflow row: `source.txt`-pinned checkouts — compare SHA to remote HEAD before use; if stale, notify Alex (no silent refresh).
+- **Checked vs GitHub `master` (2026-09-14):** all three pins match. `PlanetX_MicroPython` `268740c`; `EF_Produce_MicroPython` `c0b3a53`; `MicroPython-Samples` `c03ed50` (BPI-STEAM, not ElecFreaks — folder name is a misnomer).
+- **Absent locally:** `pxt-PlanetX`, `pxt-nezha2`, BPI-STEAM Hardware/Webduino/`webbit_i18n`. Notes folder may vanish — pins live in CONTEXT.
+
+## 2026-09-14: Session 44 — [exp16] (BPI-STEAM predecessor repos — catalog, not imports)
+
+- **Reviewed (pointers only):** [BPI-BIT-Hardware](https://github.com/BPI-STEAM/BPI-BIT-Hardware) (original ESP32 bpi:bit pinout + 5×5 sequential table + datasheets); [MicroPython-Samples](https://github.com/BPI-STEAM/MicroPython-Samples) (`microbit/` BBC-API shim, `01.leds/`–`15.algorithm`); [BPI-BIT-Webduino](https://github.com/BPI-STEAM/BPI-BIT-Webduino) (2019 Blockly/MQTT firmware+software hub); [webbit_i18n](https://github.com/BPI-STEAM/webbit_i18n) (`blockly/samples/en/` — `bit-a-*`, `bit-s-01`–`12`, `s0-*`/`s1-*`; `bit-s-02` = 5×5 heart-pair “heartbeat” Blockly demo matching Alex’s screenshot).
+- **Carry / don’t:** sequential LED index **carries**; GPIO/I2C/buttons/buzzer **do not**. Trap: `01.leds/heartbeat.py` is `Pin(18)` status-LED blink, not a matrix animation. Original P19/P20 = MPU9250, not Nezha IIC.
+- **Durable:** `concepts/led-driving.md` new concept; `_INDEX` / `_RELATIONS`; CONTEXT entry point; CONCLUSIONS two rows; `crossref/BY_TOPIC.md` new topic. No vendor code copied. Sibling `BPI-BIT-MicroPython` / `BPI-BIT-Arduino` not reviewed.
+
+## 2026-09-14: Session 43 — [exp16] (button docs: public contract vs internals)
+
+- **Applied:** `lib/buttons.py` (and matching leak in `lib/planetx/button.py`) public docstrings no longer say A/B or C/D are left/right. Pair-slot / `key_number` comments sit on the aliases and `_dispatch`. Student docs: lettered handlers, GPIO on constructors, `run()` as a gather-able task. Device backend (`keypad.Keys`, EventQueue, 10 ms busy-spin) stays on `_bind_scanner` / `_pump`.
+- **Why:** Alex: what maps to left/right is an implementation detail.
+
+## 2026-09-14: Session 42 — [exp16] (Nezha protocol → persona `concepts/nezha.md`)
+
+- **Why:** Session 40 left the opcode table only in gitignored `ai-notes/` (+ thin CONTEXT/BY_TOPIC pointers). Cold-AI session-start read is `concepts/_INDEX.md`; notes can vanish.
+- **Applied:** seeded `concepts/nezha.md` (C7); `_INDEX` / `_RELATIONS` / `02-domain-structure.mdc` / `CHANGELOG.md`; CONTEXT Domain knowledge + entry point; CONCLUSIONS Unverified row; BY_TOPIC primary home = the concept. Digest header now points at the concept as durable home. Shared IIC-jack fact from Session 41 `ports.py` noted in the concept (one bus, not I2C1–I2C4).
+- **Not done:** driver, on-device `0x10` scan.
+
+## 2026-09-14: Session 41 — [exp16] (Nezha2 shared I2C bus in `planetx.ports`)
+
+- **Applied:** `lib/planetx/ports.py` `I2CBus` / `I2C` beside `J1`–`J4`. Silk P19=SCL, P20=SDA; `board.SCL`/`board.SDA` resolved lazily. Re-exported from `planetx`. README hardware row. Host test `test_i2c_bus_is_shared_p19_scl_p20_sda`.
+- **Follow-up:** `_io` inlined. `Port` binds `self.pins` / `self.analog_pin` in `__init__` (same `import board` + `getattr IO{n}` + host `ImportError` as `I2CBus`). Silk still host-checkable.
+
+## 2026-09-14: Session 40 — [exp16] (Nezha V2 motor I2C digest; no driver)
+
+- **Applied:** `ai-notes/digests/nezha-v2-motor-protocol.md` (analysis only). Indexed from `ai-notes/INDEX.md`, `digests/INDEX.md`, `CONTEXT.md` entry points, `crossref/BY_TOPIC.md`.
+- **Frame:** 8-byte writes `[0xFF, 0xF9, motor, arg, opcode, hi, mode/filler, lo]` to I2C `0x10` (goldfinger P19/P20 = `board.SCL`/`board.SDA`).
+- **Opcodes (MakeCode-canonical):** `0x70` relative move, `0x5D` absolute angle, `0x60` start+speed, `0x5F` stop, `0x77` global speed-limit (percent×9), `0x46` read pos (0.1°), `0x47` read speed, `0x1D` encoder zero, `0x88` version. `0x5E` start-without-speed is bak+MP only.
+- **Do not copy MP blindly:** `Nezha_V2.py` `modePostion` (CW=1) ≠ MakeCode `ServoMotionMode` (ShortPath=1, CW=2); MP omits `0x77` before `0x70`; speed-read formula disagrees (`raw*0.0926` vs `floor(raw/3.6)*0.01` laps/s).
+- **LightTower:** M4; nudges/sweeps = `0x70` Degree; park = `0x46` read stored in a student variable. MakeCode "sync" is a host estimated delay, not encoder-done. Combo/diff-drive unused.
+- **Not done:** CircuitPython driver, on-device scan/opcode checks (digest §8).
+
 ## 2026-09-14: Session 39 — [exp16] (ElecFreaks protocol sources as further reading)
 
 - **Applied:** exp16 `README.md` § *ElecFreaks PlanetX / Nezha — protocol sources*; `lib/planetx/__init__.py` docstring; `Notes/student-api-portability.md` See also. Pointers only — no vendor code copied.
 - **Checked:** `pxt-PlanetX` and `pxt-nezha2` **are** MakeCode (PXT) extensions — `pxt.json` `supportedTargets: ["microbit"]`, TypeScript, editor-installable. MicroPython repos (`PlanetX_MicroPython`, `EF_Produce_MicroPython`) use `from microbit import *`; they document GPIO maps (J3 → P13/P14) and Nezha V2 I2C (`0x10`) command bytes, not a CircuitPython API.
 - **Why:** next sensors / mast motor should start from those vendor sequences rather than reverse-engineering MakeCode blocks.
+
+## 2026-09-14: Session 39 — [exp16] (Nezha2 J1–J4 port map in `planetx.ports`)
+
+- **Applied:** `lib/planetx/ports.py` — `Port` / `J1`–`J4` silk tuples; `board.IOn` resolved only at `Port.pins`. `PlanetXButtonSensor(port=J3)` (or still `c_pin`/`d_pin`). `code_stage3.py` uses `port=J3`. Host tests cover silk numbers without `board`.
+- **Map:** J1=(P1,P8) analog P1; J2=(P2,P12) analog P2; J3=(P13,P14); J4=(P15,P16). ElecFreaks driver order. Goldfinger GPIO is comment-only (`IOn` ≠ ESP32 GPIO n).
 
 ## 2026-09-14: Session 38 — [exp16] (`planetx` package; Stage 3 import seam)
 
@@ -491,5 +547,6 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 - Pitchfork-5x5 into `lib/` — not used overnight (DAL MIT taken). Written GPLv3 combination case only if that path is chosen later.
 - **P7** `.vscode/` / **P8** on-device — log-only until Alex opens a human device window. Flash to 10.3.0 first.
 - ~~Trigger reached 2026-09-13 (Session 33): all 4 test stages now confirmed on-device — asked Alex whether a single unified end-to-end script is worth building.~~ **RESOLVED, same session: no — Alex keeps the per-stage `code_stageN.py` scripts, switched via `.vscode/cpfiles.txt`'s comment/uncomment mechanism.** `README.md § Deploy` step 3 gained a one-sentence cross-reference to that switch procedure (previously documented only inside `cpfiles.txt`'s own header comment).
+- ~~**Parked (Alex, 2026-09-14): PlanetX vendor-module inventory vs exp16 `lib/planetx/`.**~~ **DONE as notes 2026-09-14 (Session 47), not implemented.** Unpack: `ai-notes/vendor-sources/planetx-vs-lib.md`. Same session also unpacked BananaPi `display.py` vs `lib/display/`.
 - **TODO (later, not urgent): tune `lib/display/_constants.py` color constants against how they actually look on-device.** Alex, Session 20, watching Stage 1 step 4/6 + 5/6: `YELLOW` is an acceptably-warm yellow but has a visible orange tinge; `ORANGE` renders as plain red. See `CONCLUSIONS.md` Evidence-Supported for the RGB values and cross-check. Needs an iterative visual pass (adjust RGB, resync, re-observe) once display work resumes — not blocking the current Stage 1/2/3 test-stage progression.
 - **TODO (root cause grounded, fix not yet decided): no inter-character gap for full-width glyphs in the `pendolino3` 5×5 font.** Alex, Session 22, watching Stage 2 steps 6/7 (`show_string('STAGE2')` scrolling, `show_number(42)`): some characters look 4 columns wide with a visible gap, others look 5 columns wide with none (`"GE"`, `"42"` touch). Mechanically confirmed: every glyph is a fixed 5-column-byte advance (`font_makecode_5/glyphs.py`); `S`/`A`/`E`/`2`/`K` have a blank rightmost column baked in (self-margining), `T`/`G`/`4` use all 5 columns (no margin); `core.py`'s `_GlyphColumnFeeder`/scroll path never inserts an explicit spacer column, so spacing is purely incidental to which glyphs happen to have a blank margin. See `CONCLUSIONS.md` Evidence-Supported for the full byte-level detail and candidate fix options (not implemented; unresolved whether this diverges from genuine upstream MakeCode/DAL rendering or is inherent to the vendored bitmap table).
