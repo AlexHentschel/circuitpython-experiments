@@ -4,6 +4,17 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-15 — extend: new `[meta]` project `ai-tooling` + anticipatory-seed `concepts/ai-tooling.md` (deliberate C7 exception)
+
+**Trigger:** Alex — (1) add a persona category for AI tooling incl. self-improvement of *this* persona, with a reference to the full memory-maintenance lifecycle launcher prompt; (2) explicitly "already create" `concepts/ai-tooling.md` even without a concrete concept — "kind of exception to our standing rule of not anticipating knowledge" (C7). Context: kicking off a full memory-maintenance lifecycle reusing the external `high-assurance-engineering` persona's method/harness (as a resource, not as this persona's identity).
+
+**Change** (`extend`; first `[meta]` family + first anticipatory domain seed):
+
+- New `projects/ai-tooling/{CONTEXT,SESSION_LOG}.md` (family `meta`; provisional) — workstream home for persona self-improvement + AI tooling. `CONTEXT.md § Entry points` references the launcher prompt `ai-persona/ai-notes/2026-09_full_memory_lifecycle/2026-09_full_memory_lifecycle_prompt.md` (gitignored) + the read-only HA method/harness source. Roster row + path-globs (`ai-persona/**`) added to `projects/_INDEX.md`. (commit `f4608f8`)
+- New `concepts/ai-tooling.md` `[domain:ai-tooling]` `[meta]` — **seeded ahead of evidence at Alex's direction (exception to C7)**. No `### concept` yet (none evidence-supported); candidate concepts recorded as `[anticipated]` pointers only (cold-AI probe harness; harness permissions gotcha; stale expected-reach keys; additive-first structural wins). `_INDEX.md` domain section + "Seeded since" line note the exception. Domain count 8 → 9.
+
+**Preserve:** C7 (seed-on-evidence) remains the standing rule — this is a *named exception*, not a repeal; `[anticipated]` items are explicitly not citable as findings. Process discipline stays in `reference/*` + `00-memory-system.mdc` (not duplicated into the concept). Gitignored-reference concern (launcher prompt lives in `ai-notes/`) flagged, decision deferred to end of cycle. No foundational-file (`00`/`06`/`04`) change.
+
 ## 2026-09-14 — extend: seed `concepts/nezha.md` (first concept, C7)
 
 **Trigger:** Alex — persist the Nezha V2 motor-library analysis with cold-AI discoverability in persona memory (not only gitignored `ai-notes/`). Opcode table is a public, non-confidential fact; wrap-up rule forbids leaving it solely in notes that may vanish.
