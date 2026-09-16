@@ -15,7 +15,7 @@
 | Layer | First milestone | Full LightTower | Portable? |
 |-------|-----------------|-----------------|-----------|
 | Display (`show_icon` / `show_string` / `show_number` / `show_arrow`) | yes | yes | **yes** — 5×5 vs 8×8 is asset swap, not API change |
-| Buttons A/B/C/D as press events | yes | yes | **yes** — handlers stay; pin args on the constructor/config may change |
+| Buttons A/B/C/D as press events | yes | yes | **yes** — lettered handlers stay; constructor seam is *which object* (`buttons.OnboardButtons` vs `planetx.PlanetXButtonSensor`) plus pin args |
 | Mast motor / light sensor | no | Watch II / III | **conditional** — semantic `mast` / `is_dark`, not Nezha2 `M4` or a raw pin |
 
 MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: student constructors/config may pass `board.*` pins.
@@ -24,8 +24,8 @@ MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: stude
 
 | Id | Guideline |
 |----|-----------|
-| G1 | Semantic names for operations, not hardware names in logic. Buttons A/B/C/D; icons YES/NO/DIAMOND; arrows by compass. GPIO as **constructor/config arguments** is allowed. |
-| G2 | Constructors and config are the seam. Pins, LUT, font directory live in swap files and/or constructor args. |
+| G1 | Semantic names for operations, not hardware names in logic. Lettered press handlers (A/B on `OnboardButtons`, C/D on each `PlanetXButtonSensor` instance); icons YES/NO/DIAMOND; arrows by compass. GPIO as **constructor/config arguments** is allowed. |
+| G2 | Constructors and config are the seam. Pins, LUT, font directory live in swap files and/or constructor args. Button wiring is two (or more) objects, not four pins on one dispatcher. Onboard A/B import from ``buttons``; PlanetX C/D from ``planetx`` (``port=J3`` or explicit pins). |
 | G3 | MakeCode-shaped display API is the student API (`show_icon`, `show_string`, `show_number`, `show_arrow`, `pause`). Tier 1 (`render_*`, `set_pixel`, patterns) may remain for tests; LightTower examples must not need them. |
 | G4 | Same icon/arrow *names* on 5×5 and 8×8 for the LightTower set. Extra 8×8-only names may exist only on 8×8. |
 | G5 | Library internals may be rewritten at the platform switch as long as student call sites still use the same operation names. Constructor signatures may gain/change wiring parameters. |
@@ -66,3 +66,4 @@ G1–G4, G6 **confirm** (names + seam). G5 n/a (no platform switch). G7 stand-in
 - Exp16 `lib/display/README.md` — two-tier API
 - LightTower `2026-05-15_lighthouse-keeper_requirements_v1.0.md` — Watch I–III operations
 - Persona `CODING_PRINCIPLES.md` — student-facing API stability directive
+- Exp16 `README.md` § *ElecFreaks PlanetX / Nezha — protocol sources* — vendor MicroPython + MakeCode repos for pin maps / I2C command bytes when motor/light (or further sensors) land; not CircuitPython drivers

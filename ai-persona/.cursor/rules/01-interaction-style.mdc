@@ -103,6 +103,7 @@ Promote (`[task]` → `[project]` → `[user]`/`[universal]`) as patterns emerge
 
 ## See also
 
+- **Full reference-layer map (topic → file, one hop): `reference/_INDEX.md`** — use when you know the *topic* but not the filename; it indexes every on-demand `reference/` doc, including ones not directly linked from any always-loaded file.
 - Proactive engagement detail: `reference/04-evidence-and-validation.md` (note: the "validation gate" / human-elevation framing in that file does not apply on this project — see `00-memory-system.mdc § Evidence-Status Discipline`)
 - Correction protocol: `reference/03-self-improvement.md`
 - Document authoring: `reference/05-code-and-documents.md`

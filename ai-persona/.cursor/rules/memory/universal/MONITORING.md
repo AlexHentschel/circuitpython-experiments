@@ -1,10 +1,8 @@
 # Monitoring
 
-Last updated: 2026-09-13 (exp16 Session 29, second write same day: the *CIRCUITPY lib tree vanished* entry was revised after the bracketed S0-S3 repro — toolchain exonerated (scripts + extension copy + `dot_clean` all clean), cause localized unproven to the cancelled mid-flight copy and/or host-side mass-rm cycle; trigger sharpened, action now starts with read-only evidence capture. Prior: 2026-09-11 API-doc-feedback wrap-up migrate: new entry *Stale internal notes / docs after an API or public-name change* — recurrence-gated; second clean occurrence promotes to a `WORKING_STYLE.md § Document Authoring` directive. First observed exp16 offset→step rename. Prior: new entry from exp16 Session 19 — *autonomous serial-capture vs. one-shot on-device scripts*, the first real exercise of the read-only-serial-probe capability below, surfacing a new timing-race friction and its chosen mitigation (loop the diagnostic script), pending validation. Prior: two entries from a retrospective plan-refinement-loop pass on exp16's Session 16→17 handoff prompt — *chat-only deliverables have no durable-retrieval path* and *autonomy-envelope granularity: read-only probes vs. writes*. Prior: CIRCUITPY-vs-OTA slot-count conflation. Prior: `**/.kilo/` gitignored. Prior: 2026-09-09 Exp16 `ai-notes/` untracked.)
+Last updated: 2026-09-13.
 
-Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
-
-Previous: 2026-04-21 (session 6 continuation: added *Font swap for pixel-accurate display* follow-up. Also added *Pipeline-investigation scope-lift candidate* tracking the new `(experimental)` CODING_PRINCIPLES directive for cross-domain application.)
+*Prior dated header provenance (2026-04-21 … 2026-09-13) is relocated to `CHANGELOG.md § 2026-09-15 — MONITORING.md compaction (P8)` to keep this always-read register lean; each entry's own `First observed` field + any promoted directive's Notes column remain the authoritative per-entry lifecycle record.*
 
 ## Purpose
 
@@ -91,18 +89,11 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **First observed**: 2026-09-07 (corpus ingest; no in-persona incident yet — seeded from corpus Attempt 4).
   - **Scope**: `[universal]` candidate.
 
-- **Exp16 `ai-notes/` untracked 2026-09-09 (grant `G-2026-09-08-1`; files kept on disk)**
-  - **Observation**: checked-in `ai-notes/` is a cleanup opportunity, not a template. House default: gitignored. Durable bits lifted to `Notes/student-api-portability.md` + persona CONTEXT/CONCLUSIONS before untrack.
-  - **Trigger**: a new experiment's `ai-notes/` is about to be committed by reflex.
-  - **Action on trigger**: do **not** copy Exp16's old committed notes as a template. Gitignore at the work unit (`**/ai-notes/` in this repo). Do not `git rm --cached` another folder without a fresh grant.
-  - **First observed**: 2026-09-08 (transitional tracked state). **Closed**: 2026-09-09 untrack.
-  - **Scope**: `[user]` for the default; Exp16 instance done.
-
-- **Kilo Code `.kilo/` is local tool state (gitignored 2026-09-11)**
-  - **Observation**: Exp16 grew an untracked `.kilo/` (`kilo.jsonc` + nested `.gitignore`). Same category as `ai-notes/`: not experiment source. House default: `**/.kilo/` at repo root (+ experiment `.gitignore`). Folder stays on disk.
-  - **Trigger**: a new experiment (or persona folder) is about to commit `.kilo/`, `.kilocode/`, or similar IDE-agent tool state by reflex.
-  - **Action on trigger**: gitignore at repo root (`**/<dir>/`); do not track. Do not `git rm --cached` if it was never indexed. Do not delete the folder unless Alex asks.
-  - **First observed**: 2026-09-09 (left untracked at commit `172e5ef`); ignore added 2026-09-11.
+- **Local tool/agent state (`ai-notes/`, `.kilo/`, `.kilocode/`, IDE-agent dirs): gitignore by default; never `git rm --cached` without a grant**
+  - **Observation**: reflex-committed local tool/agent state is a cleanup opportunity, not a template. Two instances resolved on Exp16: `ai-notes/` (untracked 2026-09-09 under grant `G-2026-09-08-1`; durable bits first lifted to `Notes/student-api-portability.md` + persona CONTEXT/CONCLUSIONS) and `.kilo/` (`kilo.jsonc` + nested `.gitignore`; left untracked at `172e5ef`, ignore added 2026-09-11). House default: gitignore at repo root (`**/ai-notes/`, `**/.kilo/`, etc.); folder stays on disk — not experiment source.
+  - **Trigger**: a new experiment (or persona folder) is about to commit `ai-notes/`, `.kilo/`, `.kilocode/`, or similar IDE-agent tool state by reflex.
+  - **Action on trigger**: gitignore at the work unit (repo-root `**/<dir>/` + experiment `.gitignore`); do **not** copy a prior committed instance as a template; do **not** `git rm --cached` a never-indexed folder, and never `git rm --cached` an indexed one without a fresh grant; do not delete the folder unless Alex asks.
+  - **First observed**: 2026-09-08 (`ai-notes/` transitional tracked state) / 2026-09-09 (`.kilo/`). Both instances **closed**; the `[user]` default stands.
   - **Scope**: `[user]`.
 
 - **Promotion candidate: body-size threshold for *consolidate duplicated code in a shared function***
@@ -153,3 +144,10 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: capture read-only evidence first (inventory + `ls -lT` dates + `df`, before any further write), then clean-slate: Alex runs `import storage; storage.erase_filesystem()` at the REPL (his hands; destructive), then full re-deploy via `scripts/sync_lib_to_board.py` + `scripts/sync_files_to_board.py` (the verified-clean path, repro S1-S2). Check the preceding window for interrupted-copy / host-rm / serial-attached-during-copy events, and whether the Mac has been rebooted since 2026-09-13 (Alex rebooted after the repro — a post-reboot recurrence weakens host-persistent-state causes). **Full resumption path: `concepts/tooling.md` § "CIRCUITPY deploy hygiene" (rules + digest + step-by-step; do not re-run the exonerating repro).**
   - **First observed**: 2026-09-13 (exp16 Session 29; repro + timeline reconstruction same session).
   - **Scope**: `[project:circuitpython-exp16-planetx]` incident; `[cross-experiment]` candidate on a second board/volume.
+
+- **Cold-AI discoverability probes: a strong `auto` navigator saturates raw REACH**
+  - **Observation**: the 2026-09-15 paired lifecycle probe (prior `8c4151b` vs candidate final HEAD, Cursor-SDK harness, `--model auto`) HIT the expected target file in **both** arms on every probe — the model globs `reference/` and guesses filenames, so raw "did it open the file" ceilings out and cannot discriminate a discoverability gain. The real signal was route-directness + hub-consultation (`reference/_INDEX.md` used in the candidate arm) + no-regression. Single run (n=1); harness + verdict preserved in-tree at `../projects/ai-tooling/lifecycle-kit/` (`harness/`, `archive/`).
+  - **Trigger**: the next cold-AI discoverability/retrieval probe run on this persona (any future maintenance cycle or A/B of a structural change).
+  - **Action on trigger**: don't score on raw REACH — pre-register route-directness / hub-consultation / precision controls, or use a weaker navigator model or an unguessable target filename so the metric can actually discriminate. If a second run confirms REACH-saturation as a stable property of strong models, promote this to a harness-design note in `concepts/tooling.md` (or seed the first `concepts/ai-tooling.md` concept) and remove this entry.
+  - **First observed**: 2026-09-15 (ai-tooling lifecycle, final paired probe).
+  - **Scope**: `[user]` — applies to any cold-AI retrieval measurement in Alex's persona-tooling, not CircuitPython-specific.

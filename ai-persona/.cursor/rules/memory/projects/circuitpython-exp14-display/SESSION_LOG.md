@@ -20,6 +20,8 @@ Per-project session memory for **exp14** (MakeCode-style display library for 8×
 
 **Parallel-chat isolation (2026-08-23, Session 9)**: Alex is running Bamboo-Lamp in a *different* chat at the same time. This chat writes **only** to `projects/circuitpython-exp14-display/` + the exp14 repo. Shared/central files (`universal/*`, central `SESSION_LOG.md`, `concepts/*`, `crossref/*`, `projects/_INDEX.md`) stay untouched unless a write is unavoidable — then append-only / section-local, never a wholesale rewrite. Never write `projects/bamboo-lamp/`. See `universal/MONITORING.md` *Concurrent-session write race*.
 
+**Compaction note (2026-09-15 lifecycle-iter4):** exp14 is dormant (crossref-reached only) and this living summary is its thin digest. Only **Session 1** was thinned to an index line — Sessions 2–9 are **deliberately retained in full** because they hold the original *derivation provenance* of core persona meta-directives (abstraction lifecycle, pre-commit-to-targets, contradictions-have-no-default-winner, scope-transfer-check, generalization stopping rule, evidence-status reconciliation), which is high-value and not fully recoverable from the institutionalized directive text alone. Contrast exp16, whose thinned Sessions 1–9 were pre-execution *planning/setup* (outcomes fully mirrored in CONTEXT/CONCLUSIONS).
+
 ## Sessions
 ## 2026-08-23: Session 9 — [exp14] (resume Phase 3)
 
@@ -382,16 +384,6 @@ Per-project session memory for **exp14** (MakeCode-style display library for 8×
 
 ---
 
-## 2026-04-17: Session 1 — [exp14]
+## 2026-04-17: Session 1 — [exp14] (thinned 2026-09-15)
 
-- Technical insights:
-  - `lib/display/bitmap_codec.pattern_to_colmajor` is a design-time authoring helper, not a runtime path; perf micro-optimizations are not worth structural complexity here.
-  - `"".join(raw.split())` is the idiomatic whitespace-collapse in Python: handles all Unicode whitespace uniformly, avoids the chained `.strip()` + per-char `.replace()` anti-pattern.
-  - Tier 1 pytest suite (78 tests) is green on CPython post-restructure — first PENDING item in handoff §7 "Tier 1" can move to DONE.
-- Artifacts created/updated:
-  - `lib/display/bitmap_codec.py`: fused two-phase rows-list-then-encode into a single pass; unified whitespace handling via `"".join(raw.split())`; fail-fast on row overrun; updated docstring + inline rationale comment.
-  - `WORKING_STYLE.md`: recorded evidence-driven critique directive.
-- Patterns extracted:
-  - When a proposal is framed as "perf concern", quantify the concern (bytes, frequency, call site) before accepting or rejecting. If the cost is negligible *and* the alternative hurts readability/error-reporting, keep the readable version.
-- Process corrections received: none.
-- Open questions raised: none.
+- `bitmap_codec.py`: single-pass fuse (rows-list-then-encode → one pass), `"".join(raw.split())` Unicode-whitespace idiom, fail-fast row overrun. Tier-1 78/78 green post-restructure (suite now **137/137** — see `CONCLUSIONS.md` / living summary). Directive derived: *quantify a "perf concern" (bytes / frequency / call site) before accepting or rejecting* → `../../universal/WORKING_STYLE.md`. No process corrections / open questions. *(Full prose recoverable from git history before the 2026-09-15 lifecycle-iter4 commit.)*

@@ -1,11 +1,4 @@
-<!--
-DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
-Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/Flexible Plans for AI Execution.md
-This file is a capability snapshot (recipe), not house source of truth.
-House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
-Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
-Fireable cue: WORKING_STYLE.md Core Principle *Flexible-plan layered commitment*.
--->
+<!-- Corpus snapshot 2026-09-07 — capability recipe, not house SOT; shared caveats (recipe-not-SOT, do-not-port legacy artifacts) live in reference/_INDEX.md header. Live recipe (may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/Flexible Plans for AI Execution.md. Fireable cue: WORKING_STYLE.md Core Principle *Flexible-plan layered commitment*. -->
 
 # Flexible Plans for AI Execution
 

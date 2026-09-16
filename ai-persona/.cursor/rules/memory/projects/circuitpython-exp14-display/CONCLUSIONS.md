@@ -8,7 +8,7 @@ Status tiers: `unverified` · `evidence-supported` · `disputed` · `invalidated
 
 | Finding | Scope | Evidence | Date |
 |---------|-------|----------|------|
-| Tier 1 pytest suite (78 tests) passes on CPython after package restructure; covers all 48 authored bitmaps (round-trip) plus negative paths for `bitmap_codec`. | `[exp14]` | `pytest tests/` → `78 passed in 0.03s`, run from `.venv`. Mechanical verification — re-runnable. | 2026-04-17 |
+| Tier 1 pytest suite passes on CPython after package restructure; covers all 48 authored bitmaps (round-trip) plus negative paths for `bitmap_codec`. **78 tests at this 2026-04-17 checkpoint; suite has since grown to 137/137 green (2026-06-11, `test_geometry` `dest`-path additions — see `CONTEXT.md`/`SESSION_LOG.md`).** Re-run for the current figure rather than trusting either dated count. | `[exp14]` | `pytest tests/` → `78 passed in 0.03s` (2026-04-17); `137 passed` (2026-06-11). Mechanical verification — re-runnable. | 2026-04-17 (updated 2026-06-11) |
 
 ## Unverified
 

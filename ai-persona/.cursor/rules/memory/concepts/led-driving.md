@@ -19,3 +19,21 @@
 - API: `shared-bindings/neopixel_write/__init__.c` + docs.circuitpython.org `neopixel_write` — raw, color-order-independent bytes; "typically not used by user code".
 
 **Scope note.** Off-CircuitPython WS2812 driving (bit-bang, SPI-MOSI, ESP32 I2S/`led_strip`) exists but is not what CircuitPython's `neopixel_write` uses on these ports; this concept is about the CP `common-hal` implementations only.
+
+### BananaPi 5×5 WS2812 sequential index is shared across bit generations; the data GPIO is not — `evidence-supported`
+
+**Claim.** Original **bpi:bit** (ESP-WROOM-32) and **BPI-Bit-S2** (ESP32-S2) wire the onboard 5×5 WS2812 with the **same column-major, right-to-left strip index** (origin top-left → index `row + 20 - column * 5`):
+
+```
+20 15 10  5  0
+21 16 11  6  1
+22 17 12  7  2
+23 18 13  8  3
+24 19 14  9  4
+```
+
+The **data pin is not shared**: original bit matrix = **GPIO 4**; Bit-S2 = **GPIO 18** / `board.NEOPIXEL`. Original-bit GPIO 18 is the separate red status LED (`R_LED` / SPI_SCK). Copying original-bit pin tables or `MicroPython-Samples/01.leds/heartbeat.py` (`Pin(18)` as a GPIO toggle) onto Bit-S2 is wrong — that sample is **not** a matrix heartbeat.
+
+**What may carry (algorithm, not pins):** 25-pixel icon/font buffers in sequential-index order (`microbit/display.py` `Image.seq` / `Image.HEART`); Webduino Blockly 25-bit LED strings (e.g. `webbit_i18n` `bit-s-02.json` heart pair). Re-bind the NeoPixel pin per board.
+
+**Sources.** [BPI-BIT-Hardware `readme_en.md`](https://github.com/BPI-STEAM/BPI-BIT-Hardware/blob/master/readme_en.md) (GPIO 4 + sequential table); BananaPi Bit-S2 “5*5 LED Sequential List” (already in exp16 CONCLUSIONS); Exp09 `lib/display_v0.py`; CircuitPython `bpi_bit_s2` `pins.c` `NEOPIXEL`→GPIO18. Bit-S2 **electrical** schematic (this generation, not original bit): [BPI-BIT-Lite-Doc `sch/BPI-BIT-Lite-V0.2.pdf`](https://github.com/BPI-STEAM/BPI-BIT-Lite-Doc/blob/main/sch/BPI-BIT-Lite-V0.2.pdf) — 25× WS2812B sheet; local `ai-notes/BPI-Bit-S2_Hardware/` (CONTEXT *BPI-Bit-S2 schematic*). Vendor catalog: `crossref/BY_TOPIC.md` *BPI-STEAM predecessor*. **Local alternate for original-bit samples (may vanish):** exp16 `ai-notes/Elecfreaks-Repos/MicroPython-Samples/` pin `c03ed50` — GitHub is canonical; freshness procedure in exp16 CONTEXT *Local vendor snapshots*.

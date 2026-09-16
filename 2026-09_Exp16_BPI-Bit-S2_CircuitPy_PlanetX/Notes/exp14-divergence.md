@@ -77,8 +77,10 @@ Confirmed **byte-identical** between the two libraries' `core.py` (verified 2026
 
 ## 4. Exp16-only surface (no Exp14 counterpart at all)
 
-- **`lib/buttons.py`** — async button-event API (PlanetX C/D via `keypad`). Not a fork of anything in Exp14; net-new for this project's button milestone.
+- **`lib/buttons.py`** — async onboard/generic button-event API (`Button`, `ButtonPair`, `OnboardButtons`). Not a fork of anything in Exp14.
+- **`lib/planetx/`** — ElecFreaks PlanetX modules (`PlanetXButtonSensor` C/D via `keypad`). Net-new; further sensors join this package.
 - **`font_makecode_5/`** — the precomputed glyph table package replacing Exp14's `font_free_mono_8/` + PCF loader (see §2.1).
+- **Font-spacing build pipeline (2026-09-13, Phases 1-3 of `ai-notes/plan/font-spacing-impl/plan_v1.0.md`)** — `scripts/dal_pendolino3.py` (shared DAL-fetch/convert helper, pinned commit SHA), `scripts/verify_dal_font_conversion.py` + `scripts/generate_spaced_font_table.py` (dev-machine-only, never deployed), `lib/display/font_makecode_5/spaced_glyphs.py` (generated `[length, ink...]` table) + `ink.py` (`glyph_ink` accessor), `lib/display/text_layout.py` (`SpacedGlyphColumnFeeder`, pure/no hardware import). All net-new, no Exp14 counterpart. **Not yet wired into `core.py`** — live `show_string` still uses `_COLUMN_MAJOR`/`_GlyphColumnFeeder`; the cutover (Phase 4) is gated on an explicit go-ahead. Once cut over, this whole pipeline becomes portable rollout precedent for the eventual 8×8 font (re-run the same two-script pipeline against a new glyph source).
 
 ## 5. Using this record at the next platform switch
 

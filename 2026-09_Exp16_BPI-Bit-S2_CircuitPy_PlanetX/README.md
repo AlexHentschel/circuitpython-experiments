@@ -1,6 +1,6 @@
 # Exp16 — BPI-Bit-S2 CircuitPython display + PlanetX buttons
 
-Async MakeCode-style **5×5 LED** library and **A/B/C/D button** dispatcher for the [BananaPi BPI-Bit-S2](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2).
+Async MakeCode-style **5×5 LED** library and **per-module button** dispatchers (`OnboardButtons` A/B, `PlanetXButtonSensor` C/D) for the [BananaPi BPI-Bit-S2](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2).
 
 Display architecture: [`lib/display/README.md`](lib/display/README.md).
 
@@ -19,7 +19,8 @@ Display architecture: [`lib/display/README.md`](lib/display/README.md).
 | LEDs | Onboard 5×5 WS2812 (25 NeoPixels), `board.NEOPIXEL` (GPIO18), brightness cap 0.20 |
 | Wiring | Column-major, right-to-left. Logical (0,0) = top-left. Strip index `row + 20 - column * 5` |
 | Buttons A/B | Onboard, `board.BUTTON_A` / `board.BUTTON_B` (active-low) |
-| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) connected to goldfinger P13/P14 = `board.IO13` / `board.IO14` |
+| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) on Nezha2 **J3** (P13/P14) = `board.IO13` / `board.IO14`. Jack map: `planetx.J1`–`J4`. |
+| Nezha2 I2C | All IIC jacks share one bus: silk **P19 = SCL**, **P20 = SDA** (`board.SCL` / `board.SDA`). `planetx.I2C`. |
 
 ## This experiment's setup
 
@@ -45,7 +46,7 @@ Human-run deploy scripts (host → mounted CIRCUITPY drive; the board is a deplo
 
 1. Flash CircuitPython 10.3.0 ([board page](https://circuitpython.org/board/bpi_bit_s2/); 4 MB Espressif needs TinyUF2 ≥ 0.33.0 if using UF2).
 2. When the CIRCUITPY drive mounts, ship the libraries: `python3 scripts/sync_lib_to_board.py` — filtered copy of `lib/` (excludes `__pycache__/`, `.DS_Store`, `README.md`, `*.pyc`; skips unchanged files by size+mtime; never deletes board files). Also ships the vendored `asyncio/` + `adafruit_ticks.mpy`, so no `circup install` step is needed.
-3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line).
+3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line). **Switching which script is active**: edit `.vscode/cpfiles.txt` directly — comment out the currently-active `... -> /code.py` line, uncomment (or add) the one you want, then re-run the sync script. Exactly one `-> /code.py` line must be active at a time; the manifest's own header comment documents the full syntax and a real gotcha (a trailing inline comment on an active line silently corrupts the destination filename instead of erroring).
 4. The board auto-reloads after each copy batch — batch changes into as few sync runs as possible.
 
 The CircuitPythonSync extension's "CP Copy Files to Board" works here too (Exp16 currently sits at workspace folder index 0) and is fine for code-file updates; prefer the scripts for routine deploys. Its "CP Copy Libs to Board" is **not** used in this experiment — unfiltered whole-`lib/` copy (no exclude mechanism), and every extension copy triggers a full-volume `dot_clean` sweep on the live drive.
@@ -56,20 +57,26 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 ## Status
 
-**P6 host-green (2026-09-04):** 146 pytest passed (suite does not import `board` / `display.core`). **P7** (per-experiment `.vscode/`) and **P8** (on-device) are not started. Keep the board unplugged until a human device window. Flash CircuitPython **10.3.0** at P8 (host tools are already on 10.3.0).
+**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–3: Tier 1, Tier 2 display/K1, button pumps cancelling an in-flight animation/K3). **Button API (current):** one object per physical module — `OnboardButtons()` from `buttons` (A/B) and `PlanetXButtonSensor(c_pin=..., d_pin=...)` from `planetx` (C/D); extra PlanetX sensors are extra instances. Host `pytest` is green on that API (suite does not import `board` / `display.core`). `code_stage3.py` matches it; on-device re-run of that script is pending. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+
+Separate, still-open thread: a font inter-glyph-spacing fix (design converged, implementation Phases 1-3 landed and host-green, Phase 4 `core.py` cutover gated on an explicit go-ahead) — not required for the first-milestone claim above.
 
 Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
 
 ## Folder structure
 
 ```
-lib/display/     5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py   Async A/B/C/D dispatcher
-tests/           Host pytest (no board / no display.core); see tests/README.md
-Notes/           Human spec + BananaPi photos (CC BY-SA, unmodified)
+lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
+lib/buttons.py      Async onboard/generic dispatchers (`PushButtonBase`, `Button`, `ButtonPair`, `OnboardButtons`)
+lib/planetx/        PlanetX modules (`J1`–`J4` GPIO jacks; shared `I2C` bus; `PlanetXButtonSensor` C/D)
+code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
+scripts/            Human-run deploy + font-build scripts (see § Deploy)
+.vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt
+tests/              Host pytest (no board / no display.core); see tests/README.md
+Notes/              Human spec + BananaPi photos (CC BY-SA, unmodified)
 ```
 
-No `code.py` or per-experiment `.vscode/` yet. A local `ai-notes/` folder may exist as a gitignored working store; this tree does not depend on it.
+A local `ai-notes/` folder may exist as a gitignored working store; this tree does not depend on it.
 
 ## Further reading
 
@@ -79,6 +86,20 @@ No `code.py` or per-experiment `.vscode/` yet. A local `ai-notes/` folder may ex
 | Host tests (local interpreter path) | [`tests/README.md`](tests/README.md) |
 | Spec / working prefs | [`Notes/overall_goal.md`](Notes/overall_goal.md) |
 | Student-API portability (5×5 → 8×8) | [`Notes/student-api-portability.md`](Notes/student-api-portability.md) |
+| Exp14 vs. Exp16 `lib/display/` divergence (maintainer-facing) | [`Notes/exp14-divergence.md`](Notes/exp14-divergence.md) |
 | Goldfinger pinout (CC BY-SA) | [`Notes/bpi_bit_v2_goldfinger.jpg`](Notes/bpi_bit_v2_goldfinger.jpg) |
 | Board interface photo (CC BY-SA) | [`Notes/bpi_bit_v2_interface_en.jpg`](Notes/bpi_bit_v2_interface_en.jpg) |
 | Firmware | [circuitpython.org/board/bpi_bit_s2](https://circuitpython.org/board/bpi_bit_s2/) |
+
+### ElecFreaks PlanetX / Nezha — protocol sources (not CircuitPython)
+
+Vendor code for **micro:bit MicroPython** and **MakeCode (PXT)**. Do not import these into this experiment. They are the working references for GPIO maps, I2C command bytes, and per-module read/write sequences when adding further PlanetX sensors, Nezha motors/servos, or other ElecFreaks expansion hardware.
+
+Checked 2026-09-14: the two `pxt-*` repos **are** MakeCode extensions (`pxt.json` `supportedTargets: ["microbit"]`, TypeScript, installable from the MakeCode editor).
+
+| Runtime | Repo | What it shows |
+|---------|------|----------------|
+| MicroPython (`from microbit import *`) | [PlanetX_MicroPython](https://github.com/elecfreaks/PlanetX_MicroPython) | PlanetX sensors + Nezha: RJ11 pin maps (J3 → P13/P14 for C/D), pull-ups, per-module I/O. README: 行星传感器和哪吒的micropython模块 |
+| MicroPython | [EF_Produce_MicroPython](https://github.com/elecfreaks/EF_Produce_MicroPython) | Expansion-board products: Nezha / Nezha V2 I2C motor protocol (`0x10`), Cutebot, Wukong, … |
+| MakeCode (PXT) | [pxt-PlanetX](https://github.com/elecfreaks/pxt-PlanetX) | Official PlanetX sensor extension (`pxt.json` name `pxt-PlanetX`, v1.6.5) |
+| MakeCode (PXT) | [pxt-nezha2](https://github.com/elecfreaks/pxt-nezha2) | Official Nezha V2 extension (`pxt.json` name `pxt-nezha2`, v1.2.6) |

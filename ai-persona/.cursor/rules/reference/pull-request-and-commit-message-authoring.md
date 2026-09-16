@@ -1,11 +1,4 @@
-<!--
-DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
-Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/pull-request-and-commit-message-authoring.md
-This file is a capability snapshot (recipe), not house source of truth.
-House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
-Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
-Alex's commit *format* stays in WORKING_STYLE.md § Document Authoring. This file adds two-audience altitude (commit vs PR).
--->
+<!-- Corpus snapshot 2026-09-07 — capability recipe, not house SOT; shared caveats (recipe-not-SOT, do-not-port legacy artifacts) live in reference/_INDEX.md header. Live recipe (may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/pull-request-and-commit-message-authoring.md. Alex's commit *format* stays in WORKING_STYLE.md § Document Authoring. This file adds two-audience altitude (commit vs PR). -->
 
 # Authoring commit messages and pull-request descriptions
 

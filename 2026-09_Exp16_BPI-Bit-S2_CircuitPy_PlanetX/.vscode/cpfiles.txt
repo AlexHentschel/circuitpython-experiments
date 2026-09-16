@@ -19,10 +19,16 @@ readme.txt
 # on the board instead of "/code.py", silently leaving the real /code.py stale. Put the
 # description on its own comment line directly above the entry instead (see below).
 
+# Default idle demo: HEART icon cycling through named colors, 3s hold each
 # code.py
+
 # Tier 1 sync, minimal (basic primitives + brightness floor)
 # code_stage0.py -> /code.py
 # Tier 1 sync, broader (patterns + arrows + rotations)
 # code_stage1.py -> /code.py
-# Tier 2 async display + rotate-mid-scroll (steps 1-12: adds rotate-while-scrolling)
-code_stage2.py -> /code.py
+
+# Tier 2 async display + rotate-mid-scroll (show_*/Image API; major feature: rotate-while-scrolling)
+# code_stage2.py -> /code.py
+
+# Tier 2 async display + buttons combined (Buttons.run() + Image.scroll_image; K3 concurrency/cancellation check)
+code_stage3.py -> /code.py

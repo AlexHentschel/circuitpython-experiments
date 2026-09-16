@@ -8,6 +8,7 @@ import display.font_makecode_5  # noqa: F401
 import display.geometry  # noqa: F401
 import display.icons  # noqa: F401
 import buttons  # noqa: F401
+import planetx  # noqa: F401
 
 
 def test_display_package_skips_core_on_cpython():
@@ -23,7 +24,7 @@ def test_display_package_skips_core_on_cpython():
 def test_board_not_imported_by_pure_stack():
     """The overnight stack must not ``import board`` (Blinka in this venv is broken on purpose).
 
-    - Covers: a pure submodule or ``buttons`` pulling ``board`` as a side effect.
+    - Covers: a pure submodule, ``buttons``, or ``planetx`` pulling ``board`` as a side effect.
     - How: after the module-level imports above, ``board`` absent from ``sys.modules``.
     """
     # Blinka ``board`` in this venv is broken on purpose; tests must not need it.
