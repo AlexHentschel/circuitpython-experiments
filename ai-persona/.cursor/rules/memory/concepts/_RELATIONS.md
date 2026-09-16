@@ -6,7 +6,7 @@ Read on placement (to find where a new concept connects) and on lateral traversa
 
 Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
-## Edges (as of 2026-09-14 — 8 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`, `nezha`)
+## Edges (as of 2026-09-15 — 8 domains: `circuitpython-runtime`, `fonts`, `power`, `i2c`, `git`, `tooling`, `led-driving`, `nezha`)
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
@@ -24,6 +24,7 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 - `nezha: V2 smart-motor I2C protocol`  —instantiates—  `i2c: 7-bit addressing`   (device at `0x10` on the goldfinger SCL/SDA bus; general bus rules stay in `i2c.md`, this concept is the device command set).
 - `led-driving: BananaPi 5×5 sequential index shared`  —pairs-with—  `led-driving: WS2812/NeoPixel output peripheral (PIO vs RMT)`   (same strip geometry across BananaPi bit generations; data pin + MCU peripheral still re-derived per silicon).
 - `fonts: BananaPi CharData is not DAL pendolino3`  —alternative-to—  `fonts: DAL pendolino3 row-bytes`   (two 5×5 bitmap encodings; Exp16 uses DAL only).
+- `tooling: circup does not pin per-library versions`  —pairs-with—  `circuitpython-runtime: mpy-cross is CircuitPython’s binary`   (both are version-pinning for a *reproducible* on-device deploy: circup pins the library **bundle tag**, mpy-cross pins the **bytecode/firmware** version — think of them together when a fresh checkout must restore the exact same board state).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 
