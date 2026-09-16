@@ -4,6 +4,27 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-15 — full memory-maintenance lifecycle (umbrella; branch `alex/ai-persona-maintanance`)
+
+**Trigger:** Alex — "perform a full AI persona memory lifecycle" (task spec: `ai-notes/2026-09_CPy-full_memory_lifecycle/2026-09_CPy-full_memory_lifecycle_prompt.md`). This is the **umbrella entry** framing the whole 2026-09 cycle; the four sibling `2026-09-15` entries below (SESSION_LOG thinning · MONITORING P8 · P-prov header relocation · `ai-tooling` seed) are its children — not restated here. Session narrative: `projects/ai-tooling/SESSION_LOG.md § 2026-09-15 (lifecycle EXECUTED)`.
+
+**Method:** analysis → PLAN-v2 (a self-critique pass caught two coupled flaws — saturated probes + an ASK-gated-only index anchor — and was integrated before execution) → 3 measured cold-AI probe iterations → 8 human-approved proposals → follow-up compactions → final paired probe → consistency/bloat audit. Discipline: additive-first; foundational `.mdc` (00/04/06) edits **proposed, not auto-enacted**; deletions/lossy changes human-gated; fidelity by **claims-coverage**, not line-diff; all on a branch (not merged to `master` — adoption = Alex's fast-forward).
+
+**Structural / additive changes logged here** (`extend`/`compact`/`refine`; the four children below cover the rest; all git-recoverable):
+
+- **NEW `reference/_INDEX.md`** — topic→file hub for the 22-doc read-on-demand `reference/` layer (the layer had **no index**; `07-meta-learnings.md` was a true cold-path orphan, two others weakly linked). Anchored from `00-memory-system.mdc` + `01-interaction-style.mdc` See-also **and** central `SESSION_LOG.md`. **Primary structural win** — gives 3 orphan/weak files a directed route (empirically exercised as a hub on probes P19/P20/P21; `eval/iter-final/VERDICT.md`).
+- **`reference/*` boilerplate dedup** (`compact`) — a shared 5-line caveat block hoisted from 22 file headers into `reference/_INDEX.md`; each file keeps a 1-line source-path pointer + any file-specific note. −145L across the layer.
+- **`concepts/_INDEX.md` re-skeletonized** (P6, `compact`) — five bullets that had drifted into prose re-tightened to keyword skeletons; trimmed detail verified resident in the domain files.
+- **`projects/circuitpython-exp16-planetx/CONCLUSIONS.md`** (P7, `compact`) — four rows de-duplicated against `concepts/led-driving.md` / `tooling.md`; exp16-specific evidence (GPIO tables, byte-exact measurements) retained, general mechanism replaced by a concept pointer.
+- **`projects/circuitpython-exp16-planetx/CONTEXT.md`** (P3, `compact`) — verbose stale status header condensed to a digest; chronology deferred to Resumption point.
+- **`projects/circuitpython-exp14-display/CONCLUSIONS.md`** (P4, `refine`) — dated "78 tests" finding annotated with growth to 137 (original 2026-04-17 evidence preserved).
+- **`00-memory-system.mdc`** (P1) — explicit `reference/_INDEX.md` anchor added to See-also.
+- **bamboo-lamp R-6 correction** (`refine`) — a stale "standalone-open coverage" claim corrected (persona loads only when `ai-persona` is an open workspace root).
+- **`circup` concept** — indexed in `concepts/_INDEX.md` + a `circup —pairs-with— mpy-cross` edge added to `concepts/_RELATIONS.md` (both are version-pinning for a reproducible deploy).
+- **Roster resync** (consistency pass) — `ai-tooling` domain propagated to its three echo sites; a *Seeded concept-domain roster* duplication note added to central `SESSION_LOG.md`.
+
+**Verification:** final paired cold-AI probe (prior `8c4151b` vs candidate final HEAD, Cursor-SDK harness, 6 probes × 2 arms) — **no discoverability regression** on any compacted always-read file; `reference/_INDEX.md` consulted as a directed hub on all three orphan probes; raw REACH saturated as pre-registered (see the MONITORING observation banked 2026-09-15). Full verdict: `ai-notes/2026-09_CPy-full_memory_lifecycle/eval/iter-final/VERDICT.md`. **Net always-read surface ~770→~700L, zero information loss** (verbatim relocation / claims-coverage-verified / git-recoverable).
+
 ## 2026-09-15 — SESSION_LOG thinning (`compact`; central + exp16 + exp14)
 
 **Trigger:** Alex — full memory-maintenance lifecycle: the largest session logs carried superseded blow-by-blow narrative whose durable outcomes are institutionalized elsewhere.
