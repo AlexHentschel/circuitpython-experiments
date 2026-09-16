@@ -1,11 +1,4 @@
-<!--
-DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
-Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/08-BOOTSTRAPPING.md
-This file is a capability snapshot (recipe), not house source of truth.
-House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
-Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
-Create-from-scratch path. This persona is *adopting* (already running). Use house session-start retrieval, not 08 Genesis.
--->
+<!-- Corpus snapshot 2026-09-07 — capability recipe, not house SOT; shared caveats (recipe-not-SOT, do-not-port legacy artifacts) live in reference/_INDEX.md header. Live recipe (may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/08-BOOTSTRAPPING.md. Create-from-scratch path. This persona is *adopting* (already running). Use house session-start retrieval, not 08 Genesis. -->
 
 # Bootstrapping: Starting From Scratch
 

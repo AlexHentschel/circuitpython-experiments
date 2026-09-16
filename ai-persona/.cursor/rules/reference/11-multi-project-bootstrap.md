@@ -1,11 +1,4 @@
-<!--
-DURABLE PERSONA COPY — corpus snapshot 2026-09-07.
-Live recipe (optional, may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/11-MULTI-PROJECT-BOOTSTRAP.md
-This file is a capability snapshot (recipe), not house source of truth.
-House SOT: always-injected `.mdc` files + `memory/universal/WORKING_STYLE.md`.
-Do not port corpus `verified` tier, flat TECHNICAL.md, 08-Genesis, symlink-fanout, or 11's literal tree into the house.
-Do NOT re-execute. Warm reset ran 2026-06-14 (adapted). Dedicated `ai-persona` root replaced symlink-fanout 2026-07-15.
--->
+<!-- Corpus snapshot 2026-09-07 — capability recipe, not house SOT; shared caveats (recipe-not-SOT, do-not-port legacy artifacts) live in reference/_INDEX.md header. Live recipe (may move): /Users/alex/Git/rnd-ai-skills/generalized-agent-learnings/11-MULTI-PROJECT-BOOTSTRAP.md. Do NOT re-execute. Warm reset ran 2026-06-14 (adapted). Dedicated `ai-persona` root replaced symlink-fanout 2026-07-15. -->
 
 # Multi-Project Bootstrap: A Flexible Plan for Cold AI
 
