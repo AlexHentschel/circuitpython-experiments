@@ -4,6 +4,24 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-15 — MONITORING.md compaction (P8): header provenance relocation + entry consolidation
+
+**Trigger:** Alex — full memory-maintenance lifecycle follow-through: `MONITORING.md` is always-read (M5) and was the second-largest always-read file (155L), never given a compaction pass. Same header-provenance accretion as the P-prov catalogs, plus two separate entries for one pattern.
+
+**Change** (`compact`; no information loss — moved verbatim / merged, nothing dropped):
+
+- **Header provenance relocated verbatim below** — kept only `# Monitoring` + `Last updated: 2026-09-13` + a one-line pointer. Each entry's own `First observed` field + any promoted directive's Notes column remain the authoritative per-entry lifecycle record.
+- **Merged two entries into one** — *Exp16 `ai-notes/` untracked* (already **Closed** 2026-09-09) + *Kilo Code `.kilo/` is local tool state* were the same `[user]` pattern (gitignore local tool/agent state; folder stays on disk; never `git rm --cached` without a grant). Consolidated to a single *Local tool/agent state* entry retaining both instances' provenance + all rules. ~19 lines → ~6.
+- Schema/rules sections (Purpose / What-goes / Entry-schema / Retention) and **all active banked triggers left intact** — leanness pass targeted only header provenance + the resolved-duplicate pair, per Alex's "keep active triggers" framing. Reversible (git-tracked).
+
+### Relocated verbatim — `MONITORING.md` header provenance (newest first)
+
+Last updated: 2026-09-13 (exp16 Session 29, second write same day: the *CIRCUITPY lib tree vanished* entry was revised after the bracketed S0-S3 repro — toolchain exonerated (scripts + extension copy + `dot_clean` all clean), cause localized unproven to the cancelled mid-flight copy and/or host-side mass-rm cycle; trigger sharpened, action now starts with read-only evidence capture. Prior: 2026-09-11 API-doc-feedback wrap-up migrate: new entry *Stale internal notes / docs after an API or public-name change* — recurrence-gated; second clean occurrence promotes to a `WORKING_STYLE.md § Document Authoring` directive. First observed exp16 offset→step rename. Prior: new entry from exp16 Session 19 — *autonomous serial-capture vs. one-shot on-device scripts*, the first real exercise of the read-only-serial-probe capability below, surfacing a new timing-race friction and its chosen mitigation (loop the diagnostic script), pending validation. Prior: two entries from a retrospective plan-refinement-loop pass on exp16's Session 16→17 handoff prompt — *chat-only deliverables have no durable-retrieval path* and *autonomy-envelope granularity: read-only probes vs. writes*. Prior: CIRCUITPY-vs-OTA slot-count conflation. Prior: `**/.kilo/` gitignored. Prior: 2026-09-09 Exp16 `ai-notes/` untracked.)
+
+Previous: 2026-04-25 (session 7 continuation: added two entries — *On-device verification of `str.translate` performance* (Phase 3 smoke-run trigger) and *Body-size threshold for the consolidate-shared-helper rule* (second-incident promotion candidate).)
+
+Previous: 2026-04-21 (session 6 continuation: added *Font swap for pixel-accurate display* follow-up. Also added *Pipeline-investigation scope-lift candidate* tracking the new `(experimental)` CODING_PRINCIPLES directive for cross-domain application.)
+
 ## 2026-09-15 — relocated directive-header provenance (compact: WORKING_STYLE.md + CODING_PRINCIPLES.md)
 
 **Trigger:** Alex — full memory-maintenance lifecycle, proposal P-prov: the always-read behavioral catalogs had accreted a long inline `Previous:` provenance stack in their headers, adding session-start read cost with no retrieval value (per-entry lifecycle detail already lives in each directive's own Notes column, and structural events here).
