@@ -46,4 +46,4 @@ Two series: **numbered `00`–`11`** (curated corpus-snapshot chapters) and **na
 
 > **This index is a topic→file map, not an authoritative link-graph mirror.** The "Anchored from / Fireable cue" column names the *typical* route; the authoritative cue lives in the anchoring file's own text. Do not treat this column as an exhaustive inbound-link ledger (that state drifts — F10). Entries marked "this index" are reachable on the cold path *only* via this hub (cold-path orphans); this index is their discoverability home.
 >
-> Reached on the cold path from: always-injected `01-interaction-style.mdc § See also` + the central `SESSION_LOG.md` living summary. Anchoring it *also* from `00-memory-system.mdc § See also` is proposed (ask-gated foundational edit) for maximal session-start reach.
+> Reached on the cold path from: always-injected `00-memory-system.mdc § See also` + `01-interaction-style.mdc § See also` + the central `SESSION_LOG.md` living summary.

@@ -106,6 +106,7 @@ Higher level = more stable = stronger evidence required to change.
 
 ## See also (read on demand)
 
+- **Full reference-layer map (topic → file, one hop): `reference/_INDEX.md`** — indexes every on-demand `reference/` doc (the entries below + the named topic files), including ones not directly linked from any always-loaded file.
 - Full rationale for this rule's directives: `reference/01-memory-system.md` (blueprint source)
 - Top-down architectural overview: `reference/00-overview.md`
 - Evidence-handling and presentation patterns: `reference/04-evidence-and-validation.md` (note: the human-elevation "validation gate" framing in that file does not apply on this project — see § Evidence-Status Discipline above)
