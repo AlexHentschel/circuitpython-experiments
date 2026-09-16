@@ -4,6 +4,17 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-15 — SESSION_LOG thinning (`compact`; central + exp16 + exp14)
+
+**Trigger:** Alex — full memory-maintenance lifecycle: the largest session logs carried superseded blow-by-blow narrative whose durable outcomes are institutionalized elsewhere.
+
+**Change** (`compact`; superseded narrative collapsed to thin index blocks, durable one-liners + pointers retained; full prose git-recoverable):
+
+- **Central `SESSION_LOG.md`** (279→218L): the 2026-06-14/15 **warm-reset planning+execution cluster (Sessions 10–12)** → one index block. Homes verified present first: `CHANGELOG.md § 2026-06-14 — warm reset`, seeded `WORKING_STYLE.md` directives, `working-docs/warm-reset-plan/`. Living summary + source-of-truth map + recent sessions + Session 13 (newer, live open thread) + the RESOLVED open-questions block kept verbatim.
+- **`projects/circuitpython-exp16-planetx/SESSION_LOG.md`** (552→436L, prior P2): pre-execution planning cluster (Sessions 1–9) → thin index; Sessions 10–47 + Open Questions verbatim.
+- **`projects/circuitpython-exp14-display/SESSION_LOG.md`** (397→389L, prior P2, dormant): only Session 1 thinned; **Sessions 2–9 deliberately retained** (they hold the derivation provenance of core persona meta-directives — higher value than a planning cluster). Rationale documented in that file's living summary.
+- **Verification:** final paired cold-AI probe (prior `8c4151b` vs candidate final HEAD) confirmed the central-log thinning left the warm-reset record reachable (candidate opened `SESSION_LOG.md` + `CHANGELOG.md` directly). See `ai-notes/2026-09_CPy-full_memory_lifecycle/eval/iter-final/VERDICT.md`.
+
 ## 2026-09-15 — MONITORING.md compaction (P8): header provenance relocation + entry consolidation
 
 **Trigger:** Alex — full memory-maintenance lifecycle follow-through: `MONITORING.md` is always-read (M5) and was the second-largest always-read file (155L), never given a compaction pass. Same header-provenance accretion as the P-prov catalogs, plus two separate entries for one pattern.
