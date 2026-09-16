@@ -3,13 +3,14 @@
 Per-project session memory for **ai-tooling** (`meta` family: AI tooling + self-improvement of *this* persona). Behavioral/process directives: `../../universal/`. Method-discipline references: `../../../reference/*` + `../../../00-memory-system.mdc`. Roster + routing: `../_INDEX.md`. External method/harness source (read-only, not this persona): `high-assurance-engineering` — see `CONTEXT.md § Entry points`.
 
 ## Sessions
-## 2026-09-15: Session — [project:ai-tooling] (pre-warm-reset snapshot is git-tracked)
+## 2026-09-15: Session — [project:ai-tooling] (pre-warm-reset snapshot removed by Alex; refs updated)
 
 - Alex asked whether `ai-persona/.cursor/rules/memory-pre-warm-reset-20260614-150919/` is git-tracked (digest observation: leave it unless archived out of the rules tree).
 - Confirmed: **all 7 files tracked** in the CircuitPython repo (`ai-persona/` is not its own `.git`). Not gitignored. Working tree clean. Same 7 files also on `master`.
 - Provenance: added `72a8575` (2026-06-15) at `.cursor/rules/memory-pre-warm-reset-20260614-150919/`; moved to current path in `2e93f17` (2026-07-15 dedicated-root).
 - Restore path: working-tree delete → `git restore -- ai-persona/.cursor/rules/memory-pre-warm-reset-20260614-150919`; committed delete → revert that commit or checkout from `2e93f17`/`master`. Cheap as long as history is not rewritten.
 - Distinction vs digest: a *move to an untracked archive* would **not** be git-reversible; a `git rm` of this tree would. Still a backup-delete under `06` — do not act without a grant. Inbound refs (`00-memory-system.mdc`, central `SESSION_LOG.md`, `CHANGELOG.md` rollback recipe) would need updating if removed.
+- **Update (2026-09-15, later): Alex removed the snapshot himself** (working-tree delete of all 7 tracked files — git-recoverable, not the agent acting under `06`). Enacted the "if removed" ref-updates flagged above: fixed the live pointer in `00-memory-system.mdc` (now records the removal + git-restore path) and added a restore-first caveat to the `CHANGELOG.md` warm-reset rollback recipe. **Left as historical (not rewritten):** central `SESSION_LOG.md` 2026-06-14 narrative (true as of then), `mandates/multi-project.md` (executed procedure), `concepts/_INDEX.md` "reshaped from the pre-warm-reset `TECHNICAL.md`" lineage note. Bamboo-Lamp snapshot (`-171818`, separate repo) untouched. Deletion committed alongside these ref-updates; revert the commit to restore.
 
 ## 2026-09-15: Session — [project:ai-tooling] (launcher prompt for full memory-maintenance lifecycle)
 

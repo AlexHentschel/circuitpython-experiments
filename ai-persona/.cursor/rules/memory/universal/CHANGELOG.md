@@ -275,6 +275,7 @@ Agent provided the exact `rm` commands (not executed by the agent — Alex's exp
 **Provisional marker (C7)**: the new structure is tagged `provisional (as of 2026-06-14)` with a cold-AI-testable watch-for (in `concepts/_INDEX.md` + `projects/_INDEX.md`). Confirm = a real query resolves one-hop; refute = needs multi-file/speculative search or a finding has no deterministic placement-gate home; trigger = re-evaluate after ~5 real memory additions or next maintenance session.
 
 **Rollback** (exact, from the CircuitPython workspace root unless noted):
+> **Note (2026-09-15):** the `memory-pre-warm-reset-20260614-150919/` snapshot was removed from the working tree (Alex). It is git-tracked, so step 1 below first requires restoring it: `git checkout 2e93f17 -- ai-persona/.cursor/rules/memory-pre-warm-reset-20260614-150919` (or from `master`). The rollback is otherwise unchanged.
 1. `rm -rf .cursor/rules/memory && cp -R .cursor/rules/memory-pre-warm-reset-20260614-150919 .cursor/rules/memory`
 2. `git checkout -- .cursor/rules/*.mdc .cursor/rules/COLLABORATOR_GUIDE.md .cursor/rules/mandates/multi-project.md` — reverts the edited rule files / guide / mandate. **Confirmed git-tracked 2026-06-14** (`git status` shows them as `M`/`D`), so this is clean; the `memory/` snapshot does not cover these (they live above `memory/`), git does.
 3. `rm -f .cursor/rules/04-multi-project.mdc` (new untracked file, no prior version).

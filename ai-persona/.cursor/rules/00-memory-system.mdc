@@ -32,7 +32,7 @@ Central (`memory/…`), behavioral catalog under `universal/`:
 | `memory/crossref/BY_TOPIC.md` | Cross-*project* index: which projects touched a topic (prior-art retrieval). | Agent (free) |
 | `memory/crossref/BY_PATTERN.md` | Promotion-ladder working surface: candidate cross-project patterns + occurrence counts. | Agent (free) |
 
-Project repos hold the heavy technical artifacts (code, working-docs, diagrams), **linked** from `projects/<slug>/CONTEXT.md`. The pre-reset snapshot is at `memory-pre-warm-reset-<ts>/` (rollback reference).
+Project repos hold the heavy technical artifacts (code, working-docs, diagrams), **linked** from `projects/<slug>/CONTEXT.md`. The pre-reset snapshot `memory-pre-warm-reset-20260614-150919/` was **removed from the working tree 2026-09-15** (Alex); it stays git-recoverable (tracked — restore from `2e93f17`/`master`) should the warm-reset rollback ever be needed.
 
 **Content vs structure.** *Content* is what is known (directives, findings, decisions). *Structure* is how that content is organized for retrieval (directory layout, indexes, placement gate, session-start order). Name which layer a change touches. Content edits are cheap; structure edits are Content-Hierarchy Level 2 — mark new structure `provisional` + watch-for, and batch heavy reorgs into user-gated lifecycle iterations. Full discipline: `reference/10-adaptive-memory-structure.md`.
 
