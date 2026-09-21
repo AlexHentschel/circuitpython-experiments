@@ -9,9 +9,12 @@ Each glyph is a fixed ``WIDTH + 1``-byte record::
     [length, ink_0, ..., ink_{length-1}, unused...]
 
 ``length`` is the authored occupied span (ink-bearing glyphs: columns that
-contain ink; space: 4 blank columns). ``needs_spacer`` is not stored; it is
-``any(ink)`` at access time. Unknown/out-of-range characters are not in this
-table.
+contain ink; space: 3 blank columns). Unknown/out-of-range characters are
+not in this table; the accessor draws tofu (``ink._TOFU_INK``).
+
+Original source:
+
+  https://github.com/lancaster-university/microbit-dal/blob/master/source/core/MicroBitFont.cpp
 
 MIT notice: ``LICENSE`` in this directory (Copyright 2016 BBC; Lancaster
 University by arrangement with the BBC).
@@ -25,7 +28,7 @@ _RECORD_STRIDE = WIDTH + 1
 
 # Packed from DAL pendolino3 @ b60953b19634… . 95 glyphs × (WIDTH+1) bytes.
 _SPACED_GLYPHS = bytes.fromhex(
-    "040000000000011700000000030300030000050a1f0a1f0a050a17151d0a05130904"
+    "030000000000011700000000030300030000050a1f0a1f0a050a17151d0a05130904"
     "1219050a15150a10010300000000020e1100000002110e000000030a040a00000304"
     "0e040000021008000000030404040000010800000000051008040201040e11110e00"
     "03121f100000041915151200040911150b00050c0a091f0805171515150905081416"
@@ -43,6 +46,3 @@ _SPACED_GLYPHS = bytes.fromhex(
     "050e10101e10050608100806051e1008101e04120c0c120005121408040204121a16"
     "120003041f110000011f0000000003111f040000040404080800"
 )
-
-if len(_SPACED_GLYPHS) != (_ASCII_END - _ASCII_START + 1) * _RECORD_STRIDE:
-    raise RuntimeError("spaced glyph table length does not match ASCII range × stride")

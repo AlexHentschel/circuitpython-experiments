@@ -5,7 +5,7 @@
 **Status digest** — *live/chronological state is in § Resumption point below (maintained per session); this header holds only the stable anchors + current headline. The per-stage confirmation blow-by-blow (commits `b99152b`/`94e54ca`/… , frozen `code_stageN.py` siblings) lives in § Resumption point Sessions 19/20/22/33 and `SESSION_LOG.md`.*
 
 - **Headline**: first-milestone scope (async 5×5 display + async buttons, PoC-quality with a library upgrade path) is **discharged end-to-end on real hardware** — **K1/K2/K3 all evidence-supported**, all four original test stages confirmed on-device (Session 33). Stages 0/1/2 frozen as `code_stage{0,1,2}.py`; Stage 3 in `code_stage3.py`.
-- **Open threads**: (a) font-spacing plan **Phase 4 (`core.py` cutover) gated on a fresh explicit go from Alex** — Phases 1-3 landed 2026-09-13 (DAL-pinned build scripts + `glyph_ink` + `SpacedGlyphColumnFeeder`; `core.py` untouched); Phase 5 = Alex's on-device re-confirm. (b) `code_stage2.py` steps 11/12 (rotation *during* an in-flight Tier-2 animation) drafted 2026-09-13, **not yet run on-device**. (c) `planetx`-package Stage-3 on-device re-run pending (Session 39+).
+- **Open threads**: (a) font-spacing **Phase 4 landed 2026-09-20** (`show_string` → `SpacedGlyphColumnFeeder`); **Phase 5 = Alex's on-device re-confirm**. (b) `code_stage2.py` steps 11/12 (rotation *during* an in-flight Tier-2 animation) drafted 2026-09-13, **not yet run on-device** (step 11 duration formula assumes fixed `WIDTH`/glyph — stale vs spaced layout). (c) `planetx`-package Stage-3 on-device re-run pending (Session 39+).
 - **Board**: UID `0740D10F1BE9`, CircuitPython **10.3.0**. **Brightness floor (authoritative, Alex)**: 0.01 off, 0.02 lowest lit; library default `core.py BRIGHTNESS = 0.20`.
 
 ## Scope & goal
@@ -67,6 +67,12 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 - Nezha V2 smart motors (I2C `0x10`, 8-byte `FF F9` frame) → `../../concepts/nezha.md` (seeded 2026-09-14; decode evidence-supported, on-device unverified). Unpack: `ai-notes/digests/nezha-v2-motor-protocol.md` (may vanish)
 
 ## Resumption point
+
+**2026-09-20 — Session 50: host font-spacing simplified, then Phase 4 cutover.** Unknown → tofu (`_TOFU_INK`); always-between-char spacer; space authored 3 columns. Live `show_string` now `SpacedGlyphColumnFeeder` / `glyph_ink`. `_GlyphColumnFeeder` removed. Phase 5 = on-device re-confirm.
+
+**2026-09-20 — Session 49: familiarization for `text_layout.py` review.** No code edits. Open threads unchanged from Session 48.
+
+**2026-09-20 — Session 48: back after ~1 week.** Exp16 tree clean (`4b61867`, 2026-09-14). No hanging code. Open threads unchanged: (a) font-spacing Phase 4 gated; (b) `code_stage2.py` steps 11/12 not on-device; (c) Stage 3 `planetx` package re-run pending. Next LightTower hardware = analog light on J1/J2, then Nezha V2 motor (decoded, no driver).
 
 **2026-09-14 — Session 47: vendor-vs-Exp16 unpack in `ai-notes/vendor-sources/`.** BananaPi `display.py` is predecessor firmware (index carries; `CharData`/GPIO/`Pixel` do not). PlanetX: only C/D present in `lib/planetx/`; next LightTower = analog light on J1/J2; `nezha.py` in that tree is V1. Home: CONTEXT *Vendor-vs-Exp16 unpack*.
 

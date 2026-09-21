@@ -4,6 +4,26 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Sessions
 
+## 2026-09-20: Session 50 — [exp16] (tofu + always-spacer + space=3)
+
+- Implemented on the host parallel path (no `core.py`): unknown/empty/`☐` → `_SMALL_SQUARE` ink; feeder always prepends a spacer after the first glyph; space authored 3 blank columns. `glyph_ink` now returns `bytes` only (`needs_spacer` dropped). Regenerated `spaced_glyphs.py` from pinned DAL. Host pytest 14 passed (`test_font_spacing` + `test_text_layout`).
+- Interior `"A B"` still 5 gap columns. Trailing/leading space shrink by 1 vs the old 4-column space. Live `show_string` still `_COLUMN_MAJOR` / blank-unknown until Phase 4.
+- Follow-up: `glyph_ink` indexes `_SPACED_GLYPHS` directly. `_TOFU_INK = bytes((0x0E, 0x0A, 0x0E))` (stripped ink, not a packed record). Test: trim `icons.SMALL_SQUARE` == tofu (`test_tofu_matches_stripped_small_square`, cited on `_TOFU_INK`). Packed `_SMALL_SQUARE` dropped from `spaced_glyphs.py`. Dropped dead `_iter_pattern_rows_fast` + `_HOTPATH_WS` from `core.py` (fused `_write_pattern_on_the_fly` is the live hot path). Dropped unused `_FONT_PATH` and `_glyph_columns` wrapper; import is `glyph_columns as _glyph_columns`. Public docs on `Image.width` / `__init__`, `Display.__init__`, `Image.show_image`. `scroll_image` raises `ValueError` if `step <= 0` (before `_acquire`); TODO for bi-directional / negative `step`. `show_image` / `show_leds` / `show_icon` / `show_arrow`: "hold" → "wait … before returning" (coroutine delay, pixels stay).
+- **Phase 4 cutover:** live `show_string` uses `SpacedGlyphColumnFeeder` for both the fit-on-screen probe and the scroll ring. `_GlyphColumnFeeder` and the `_glyph_columns` import removed from `core.py`. `show_number` still `await self.show_string(str(n), ...)`. Unknown chars now tofu (not blank). `"!!"` holds; `"ST"`/`"STAGE2"`/`"42"` still scroll. Frozen `code_stage2.py` step 11 duration formula still assumes `WIDTH` columns/glyph — do not treat a short elapsed as a fail if re-run. Phase 5 = on-device.
+
+## 2026-09-20: Session 49 — [exp16] (familiarization for `text_layout.py` review)
+
+- Alex reviewing `lib/display/text_layout.py`. This chat re-read CONTEXT / CONCLUSIONS / README / display+buttons+planetx libraries + live `show_string` / `_GlyphColumnFeeder`.
+- **Follow-up:** `generate_spaced_font_table.py`'s inlined f-string module text → `scripts/templates/spaced_glyphs.py.in` + stdlib `string.Template`. `render_module(_SPACED_GLYPHS)` byte-identical to current `spaced_glyphs.py` (2557 B). Phase 4 still gated.
+
+## 2026-09-20: Session 48 — [exp16] (resumption after ~1 week)
+
+- Alex back after a break. Exp16 working tree **clean**; last code commit `4b61867` (2026-09-14, button-library cleanup). Branch `alex/display-mvp_5x5` tracks origin.
+- No in-flight Exp16 code. One chat ([Elecfreaks repos, then wait](f35cd208-fda8-46d5-b1d7-379393e4660f)) was left waiting 2026-09-14; the wait was discharged in other chats (Sessions 44–47 vendor catalog/unpack). Sept 15 chats in this workspace were persona lifecycle (`ai-tooling`, merged PR #4), not Exp16.
+- Stale Open Questions struck: flash-to-10.3.0 / P7 / P8 (done 2026-09-11…13); font-spacing “not yet decided” (design + Phases 1–3 landed; Phase 4 still gated).
+- **Next (Alex picks):** font Phase 4 go; Stage 3 `planetx` on-device re-run; Stage 2 steps 11/12; LightTower light/motor; or color/`show_number` polish.
+- **Font-review follow-up:** unknown→visible tofu plus always-between-char spacer (space authored 3 cols) analyzed, not applied. No `☐` in ASCII 32–126; always-spacer would drop `needs_spacer`. Added `_SMALL_SQUARE` spaced-glyph record (icons.py `# 38: SMALL_SQUARE`, trimmed+packed) + host test; not yet wired as unknown tofu.
+
 ## 2026-09-14: Session 47 — [exp16] (vendor-vs-Exp16: display.py + PlanetX inventory)
 
 - **Notes:** `ai-notes/vendor-sources/` (`INDEX.md`, `display-vs-exp16.md`, `planetx-vs-lib.md`, `returns/`). Local trees treated current (`c03ed50`, `268740c`). No `lib/` changes.
@@ -423,13 +443,13 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Open Questions
 
-- **REMINDER: flash BPI-Bit-S2 to CircuitPython 10.3.0** — Alex: board disconnected; **not needed for overnight P1–P6**. Plug in at P8 / first human device window.
-- On-device P8: `help("modules")` + `circup install asyncio` (firmware matrix already lists `keypad`/`_asyncio`; user `asyncio` is bundle).
-- LightTower extras (servo, light sensor) — out of first milestone; capture when that phase starts.
+- ~~**REMINDER: flash BPI-Bit-S2 to CircuitPython 10.3.0**~~ **DONE 2026-09-11** — UID `0740D10F1BE9` is 10.3.0 (Path A). Other fleet boards not assumed.
+- ~~On-device P8: `help("modules")` + `circup install asyncio`.~~ **Superseded** — bundle `asyncio` + `adafruit_ticks` shipped via `scripts/sync_lib_to_board.py`; K1 discharged Stage 2. `help("modules")` never separately logged; not blocking.
+- LightTower extras (servo, light sensor) — out of first milestone. Next hardware when that phase starts: analog light on J1/J2, then Nezha V2 motor (`concepts/nezha.md`; no driver).
 - ~~PlanetX C/D **cable** on P13/P14 (firmware names now known: `board.IO13`/`IO14`).~~ **RESOLVED 2026-09-11** — K2 fully discharged, see Session 16 + `CONCLUSIONS.md`.
-- Pitchfork-5x5 into `lib/` — not used overnight (DAL MIT taken). Written GPLv3 combination case only if that path is chosen later.
-- **P7** `.vscode/` / **P8** on-device — log-only until Alex opens a human device window. Flash to 10.3.0 first.
+- Pitchfork-5x5 into `lib/` — not used (DAL MIT taken). Written GPLv3 combination case only if that path is chosen later.
+- ~~**P7** `.vscode/` / **P8** on-device.~~ **DONE 2026-09-11…13** — `.vscode/` exists; Stages 0–3 confirmed on-device.
 - ~~Trigger reached 2026-09-13 (Session 33): all 4 test stages now confirmed on-device — asked Alex whether a single unified end-to-end script is worth building.~~ **RESOLVED, same session: no — Alex keeps the per-stage `code_stageN.py` scripts, switched via `.vscode/cpfiles.txt`'s comment/uncomment mechanism.** `README.md § Deploy` step 3 gained a one-sentence cross-reference to that switch procedure (previously documented only inside `cpfiles.txt`'s own header comment).
 - ~~**Parked (Alex, 2026-09-14): PlanetX vendor-module inventory vs exp16 `lib/planetx/`.**~~ **DONE as notes 2026-09-14 (Session 47), not implemented.** Unpack: `ai-notes/vendor-sources/planetx-vs-lib.md`. Same session also unpacked BananaPi `display.py` vs `lib/display/`.
 - **TODO (later, not urgent): tune `lib/display/_constants.py` color constants against how they actually look on-device.** Alex, Session 20, watching Stage 1 step 4/6 + 5/6: `YELLOW` is an acceptably-warm yellow but has a visible orange tinge; `ORANGE` renders as plain red. See `CONCLUSIONS.md` Evidence-Supported for the RGB values and cross-check. Needs an iterative visual pass (adjust RGB, resync, re-observe) once display work resumes — not blocking the current Stage 1/2/3 test-stage progression.
-- **TODO (root cause grounded, fix not yet decided): no inter-character gap for full-width glyphs in the `pendolino3` 5×5 font.** Alex, Session 22, watching Stage 2 steps 6/7 (`show_string('STAGE2')` scrolling, `show_number(42)`): some characters look 4 columns wide with a visible gap, others look 5 columns wide with none (`"GE"`, `"42"` touch). Mechanically confirmed: every glyph is a fixed 5-column-byte advance (`font_makecode_5/glyphs.py`); `S`/`A`/`E`/`2`/`K` have a blank rightmost column baked in (self-margining), `T`/`G`/`4` use all 5 columns (no margin); `core.py`'s `_GlyphColumnFeeder`/scroll path never inserts an explicit spacer column, so spacing is purely incidental to which glyphs happen to have a blank margin. See `CONCLUSIONS.md` Evidence-Supported for the full byte-level detail and candidate fix options (not implemented; unresolved whether this diverges from genuine upstream MakeCode/DAL rendering or is inherent to the vendored bitmap table).
+- ~~**TODO (design decided, live path not cut over): no inter-character gap for full-width glyphs.**~~ **DONE 2026-09-20 (Phase 4).** Live `show_string` uses `SpacedGlyphColumnFeeder` / `glyph_ink` (always-spacer, space=3, tofu). Phase 5 = on-device re-confirm (`"STAGE2"` / `"42"` / `"!!"`). Frozen `code_stage2.py` step 11 duration formula still assumes fixed `WIDTH`/glyph.

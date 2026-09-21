@@ -59,7 +59,7 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 **First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–3: Tier 1, Tier 2 display/K1, button pumps cancelling an in-flight animation/K3). **Button API (current):** one object per physical module — `OnboardButtons()` from `buttons` (A/B) and `PlanetXButtonSensor(c_pin=..., d_pin=...)` from `planetx` (C/D); extra PlanetX sensors are extra instances. Host `pytest` is green on that API (suite does not import `board` / `display.core`). `code_stage3.py` matches it; on-device re-run of that script is pending. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
 
-Separate, still-open thread: a font inter-glyph-spacing fix (design converged, implementation Phases 1-3 landed and host-green, Phase 4 `core.py` cutover gated on an explicit go-ahead) — not required for the first-milestone claim above.
+Separate, still-open thread: font-spacing Phase 4 (`show_string` → spaced feeder) landed 2026-09-20; Phase 5 is Alex's on-device re-confirm (`"STAGE2"` / `"42"` / `"!!"` hold-vs-scroll). Frozen `code_stage2.py` step 11 still assumes a fixed `WIDTH` columns per glyph for its duration formula — re-running that step against the new library will finish early relative to that formula.
 
 Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
 
@@ -67,7 +67,7 @@ Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portabil
 
 ```
 lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py      Async onboard/generic dispatchers (`PushButtonBase`, `Button`, `ButtonPair`, `OnboardButtons`)
+lib/buttons.py      Async onboard button dispatchers (`PushButtonBase`, `Button`, `OnboardButtons`)
 lib/planetx/        PlanetX modules (`J1`–`J4` GPIO jacks; shared `I2C` bus; `PlanetXButtonSensor` C/D)
 code_stage0-3.py    Frozen, on-device-confirmed test-stage scripts (replay via cpfiles.txt)
 scripts/            Human-run deploy + font-build scripts (see § Deploy)

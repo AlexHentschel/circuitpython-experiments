@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-13.
+Last updated: 2026-09-20.
 
 *Prior dated header provenance (2026-04-21 … 2026-09-13) is relocated to `CHANGELOG.md § 2026-09-15 — MONITORING.md compaction (P8)` to keep this always-read register lean; each entry's own `First observed` field + any promoted directive's Notes column remain the authoritative per-entry lifecycle record.*
 
@@ -39,6 +39,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 - **Cross-reference on promotion**: when an entry graduates to a full directive / `concepts/<domain>.md` entry / `projects/<slug>/CONCLUSIONS.md` finding, cite this file as the original observation site in the promoted entry's Notes column so the provenance chain is preserved.
 
 ## Entries
+
+- **Oversolve a questioned cost into a parallel interned table**
+  - **Observation**: Alex asked to avoid an extra method on `glyph_ink`'s hot path, with an uncertain aside ("I think slice copy?"). I built a 95-element `_INK` tuple of pre-sliced `bytes`. He then said the complaint was the helper, not a cache; a tuple is also GC-managed.
+  - **Trigger**: a "hot path" request that names one certain cost (extra call, extra copy) plus a hedged second cost (`I think` / `?`).
+  - **Action on trigger**: fix the certain cost (inline the helper). Leave the hedged cost unless confirmed. Do not add a second interned copy of an existing blob to dodge a once-per-glyph `bytes` slice.
+  - **First observed**: 2026-09-20 (exp16 Session 50, `ink.py`).
+  - **Scope**: `[user]`.
 
 - **Promotion trigger: MicroPython perf-guidance source-verification pattern**
   - **Observation**: one `docs.micropython.org/reference/speed_python.html` claim (LOAD_FAST vs LOAD_GLOBAL) has been source-verified against CircuitPython's `py/vm.c` + `py/runtime.c` and lives in `concepts/circuitpython-runtime.md` (§ "Name loading: LOAD_FAST vs LOAD_GLOBAL"). Other claims from the same doc — e.g. `const()` folding, buffer-protocol access, viper — have not been verified for this port.
