@@ -4,7 +4,7 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Current state (2026-09-21)
 
-Code at `4a337f4` (2026-09-20, "library cleanup"), plus a 2026-09-21 docstring edit on `code_stage3.py` (behavior only; run status stays in this file, `CONTEXT.md`, `CONCLUSIONS.md`, and the experiment `README.md`). Host pytest **178 passed** (2026-09-21, from `tests/`). Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0.
+Code at `4a337f4` (2026-09-20, "library cleanup"), plus 2026-09-21 docstring edits on `code_stage1.py`, `code_stage2.py`, and `code_stage3.py` (behavior only; run status stays in this file, `CONTEXT.md`, `CONCLUSIONS.md`, and the experiment `README.md`). Host pytest **178 passed** (2026-09-21, from `tests/`). Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0.
 
 | Work item | End state | Still open |
 |-----------|-----------|------------|

@@ -1,41 +1,27 @@
-"""Round-1 LED-matrix on-device test -- Stage 1 (Tier 1 sync only, broader).
+"""Round-1 LED-matrix on-device test, Stage 1 (Tier 1 sync, broader).
 
-Additive, not repetitive: Stage 0 (minimal Tier 1 -- ``fill``/``clear_screen``/
-``set_pixel``/``render_icon``/``set_brightness``/``set_rotation(90)``/the
-brightness-floor edge case) is already confirmed on-device and frozen in the
-sibling `code_stage0.py` -- see `CONCLUSIONS.md` for its findings. This script
-only exercises what Stage 0 did **not** cover, so a human re-running this
-doesn't have to re-watch already-confirmed behaviour. See the LED-matrix test
-plan (persona memory, projects/circuitpython-exp16-planetx/SESSION_LOG.md,
-Session 17) for the original stage breakdown.
+Sync rendering only. This script does not import ``asyncio`` and does not
+use the button modules.
 
-Deliberately does NOT import ``asyncio`` and does NOT touch ``lib/buttons.py``
--- still Tier 1 only, isolating the sync rendering path before K1 (bundle
-asyncio) enters the picture at Stage 2.
+Stage 0 walked ``fill``, ``clear_screen``, ``set_pixel``, ``render_icon``
+(``Icons.HEART``), ``set_brightness``, ``set_rotation(90)``, and the
+brightness-floor edge case. We assume that works, and use those calls here
+as setup. This script adds the calls Stage 0 did not walk.
 
-Looped (``while True``), not one-shot: a CircuitPython script that reaches
-its end falls back to the REPL and stops producing output. Since the human
-message that triggers an autonomous serial-log capture can't be reliably
-timed against a single ~10s run, the whole sequence repeats indefinitely
-instead -- any capture window of a bit more than one cycle is guaranteed
-to observe a full cycle, regardless of when it starts. This is diagnostic-
-harness shape, not the project's eventual production shape (that will be
-an async main loop once Stage 2+ brings asyncio in).
+What runs:
 
-What this proves, if it prints all six lines each cycle and the matrix
-behaves as described: ``render_pattern`` (direct grid-string render),
-``render_arrow``, ``get_pixel`` read-back (self-checking via a printed
-match/mismatch, no visual judgment needed), ``set_rotation`` at 180/270
-(closes the rotation matrix Stage 0 left partial -- it only exercised
-0/90), a second icon (generalizes the icon-decode path beyond Stage 0's
-``HEART``), ``create_image`` (the ``Image.from_pattern`` decode path,
-distinct from ``render_pattern``'s direct-write path), and the
-``colorwheel`` re-export from ``rainbowio``.
+  1. ``render_pattern`` — a green diamond from a grid string, written
+     directly (no ``Image``).
+  2. ``render_arrow(Arrows.NORTH)``.
+  3. ``set_pixel`` then ``get_pixel`` at (2, 2). Serial prints ``[OK]``
+     when the read-back matches ``MAGENTA``.
+  4. ``render_icon(Icons.HAPPY)`` at rotations 0, 90, 180, and 270.
+  5. ``create_image`` of a ring, then ``render_icon`` of that image.
+     ``Image.from_pattern`` decoded it; step 1 writes the grid directly.
+  6. ``fill(colorwheel(hue))`` at hues 0, 85, and 170.
 
-At the end of the larger test architecture (once Stage 2/3 are also
-confirmed), consider whether a single unified end-to-end script combining
-all stages is worth building for a future maintainer to re-run everything
-in one go -- ask Alex when that point is reached rather than assuming.
+Each cycle starts at rotation 0 and brightness 0.20 (the library default).
+The sequence repeats so the script does not fall through to the REPL.
 """
 
 import time
@@ -71,33 +57,25 @@ _ring_image = display.create_image(_RING_PATTERN, display.ORANGE)
 cycle = 0
 while True:
     cycle += 1
-    # Defensive baseline at the top of every cycle: set_rotation() rebuilds the LUT for an
-    # *absolute* target angle (see lib/display/core.py docstring), and step 4 below leaves
-    # rotation at 0 on its own, but resetting explicitly here keeps every cycle's starting
-    # state independent of what a future added step might leave behind. Brightness resets to
-    # 0.20 -- the library's actual default (lib/display/core.py BRIGHTNESS, not re-exported
-    # publicly, hardcoded here to match); nothing in this script currently changes it, but the
-    # explicit reset costs nothing and avoids relying on that staying true.
+    # Each cycle starts at rotation 0 and brightness 0.20 (the library
+    # default), independent of what the previous cycle left set.
     d.set_rotation(0)
     d.set_brightness(0.20)
     print(f"\n=== cycle {cycle} ===")
 
-    # 1) render_pattern -- direct grid-string render (no intermediate Image), distinct
-    #    code path from render_icon/render_arrow's column-major buffer lookup.
+    # 1) render_pattern writes the grid string directly. No Image object.
     d.clear_screen()
     d.render_pattern(_DIAMOND, display.GREEN)
     print("1/6: render_pattern(diamond) -- direct grid string, green diamond")
     time.sleep(2)
 
-    # 2) render_arrow -- confirms the arrow table (separate from the icon table, same
-    #    column-major decode machinery).
+    # 2) render_arrow(Arrows.NORTH). The arrow table is separate from icons.
     d.clear_screen()
     d.render_arrow(Arrows.NORTH, display.CYAN)
     print("2/6: render_arrow(Arrows.NORTH) -- arrow pointing up")
     time.sleep(2)
 
-    # 3) get_pixel read-back -- SERIAL SELF-CHECK, no visual judgment needed: prints
-    #    whether the read-back value matches what was just written.
+    # 3) set_pixel then get_pixel. [OK] means the read-back equals MAGENTA.
     d.clear_screen()
     d.set_pixel(2, 2, display.MAGENTA)
     _readback = d.get_pixel(2, 2)
@@ -105,9 +83,8 @@ while True:
     print(f"3/6: set_pixel(2,2,MAGENTA) -> get_pixel(2,2) = {_readback} [{_match}] -- center LED")
     time.sleep(2)
 
-    # 4) second icon at all four rotations -- generalizes icon-decode beyond Stage 0's
-    #    HEART and closes the rotation matrix Stage 0 only partially covered (0/90 only;
-    #    180/270 untested until now).
+    # 4) Icons.HAPPY at 0, 90, 180, and 270, then back to 0.
+    #    Stage 0 used HEART at 0 and 90; we assume that path works.
     d.clear_screen()
     for _deg in (0, 90, 180, 270):
         d.set_rotation(_deg)
@@ -116,15 +93,14 @@ while True:
         time.sleep(1.5)
     d.set_rotation(0)
 
-    # 5) create_image -- exercises Image.from_pattern's decode-at-parse-time path
-    #    (distinct from step 1's render_pattern direct-write path); image built once
-    #    above the loop, only rendered here.
+    # 5) The ring Image was built once above. render_icon draws it.
+    #    from_pattern decoded it; step 1's render_pattern does not.
     d.clear_screen()
     d.render_icon(_ring_image, display.ORANGE)
     print("5/6: create_image(ring pattern) + render_icon -- Image.from_pattern decode path")
     time.sleep(2)
 
-    # 6) colorwheel -- confirms the rainbowio re-export returns a usable RGB tuple.
+    # 6) colorwheel(hue) returns an RGB tuple; fill paints the matrix with it.
     d.clear_screen()
     for _hue in (0, 85, 170):
         _c = display.colorwheel(_hue)
