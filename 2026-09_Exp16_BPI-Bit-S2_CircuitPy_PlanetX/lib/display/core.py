@@ -3,8 +3,8 @@ Runtime display engine for the 5x5 WS2812 NeoPixel matrix (BPI-Bit-S2).
 
 Owns the live NeoPixel buffer, the coordinate Look-Up Table [LUT] (populated via
 ``geometry.build_lut``), the MakeCode-style 5×5 font (sibling
-``font_makecode_5/`` table, ``__file__``-relative path), and
-the ``Display`` + ``Image`` classes.
+``font_makecode_5/`` spaced table, laid out by ``text_layout``), and the
+``Display`` + ``Image`` classes.
 
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, clear_screen,
@@ -55,8 +55,8 @@ import neopixel
 from rainbowio import colorwheel  # noqa: F401 — re-export for user convenience
 
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
-from .font_makecode_5 import glyph_columns as _table_glyph_columns
 from .geometry import build_lut
+from .text_layout import SpacedGlyphColumnFeeder
 from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
 
 
@@ -82,18 +82,15 @@ _LUT = build_lut(0)
 
 
 # ---------------------------------------------------------------------------
-# Runtime pattern-row parsers. Two specialised helpers, one per call-site
-# profile:
-#   - ``_iter_pattern_rows`` — cold path. Used by ``Image.from_pattern``,
+# Runtime pattern parsers:
+#   - ``_iter_pattern_rows`` for cold path. Used by ``Image.from_pattern``,
 #     ``create_image``, ``create_big_image``. Lenient: collapses *all* Python
 #     whitespace via ``"".join(raw.split())`` (matches the design-time idiom
 #     in ``bitmap_codec.pattern_to_colmajor``). Allocations are not
 #     performance-critical here.
-#   - ``_iter_pattern_rows_fast`` — two-stage hot-path parser (kept).
-#     ``Display.render_pattern`` now uses the fused ``_write_pattern_on_the_fly``
-#     scan; this helper remains the row-yielding alternative (single string
-#     allocation per row via ``str.translate``). Whitespace tolerance is
-#     narrower than the cold path: only space, tab, CR are stripped.
+#   - ``_write_pattern_on_the_fly`` for hot path. Used by ``Display.render_pattern``.
+#     One scan of the source string; skips space / tab / CR; writes cells
+#     directly to the NeoPixel buffer.
 # For strict design-time pattern validation, use
 # ``bitmap_codec.pattern_to_colmajor`` (raises on shape and unknown-cell
 # errors instead of silently dropping or padding).
@@ -109,45 +106,10 @@ def _iter_pattern_rows(pattern_str: str):
     of whitespace) are skipped.
 
     Cold-path callers: ``Image.from_pattern``, ``create_image``,
-    ``create_big_image``. For per-frame parsing in render code, use
-    ``_iter_pattern_rows_fast``.
+    ``create_big_image``. Per-frame render uses ``_write_pattern_on_the_fly``.
     """
     for raw in pattern_str.split("\n"):
         row = "".join(raw.split())
-        if row:
-            yield row
-
-
-# Translation table for ``_iter_pattern_rows_fast``. Maps the three
-# realistically-occurring whitespace ordinals (space, tab, CR) to ``None``,
-# which ``str.translate`` omits from its output.
-# Built once at import time.
-_HOTPATH_WS = {ord(" "): None, ord("\t"): None, ord("\r"): None}
-
-
-def _iter_pattern_rows_fast(pattern_str: str):
-    """Yield non-blank rows from a pattern — *two-stage hot-path* parser.
-
-    Kept as the row-yielding alternative after ``render_pattern`` switched to
-    the fused ``_write_pattern_on_the_fly`` scan. One string allocation per
-    row via ``str.translate(_HOTPATH_WS)`` — no list allocation as
-    ``"".join(raw.split())`` would induce. Strips only space, tab, CR; other
-    whitespace (``\\v``, ``\\f``) is left in the row and would render as
-    ``OFF`` (unknown char) in mono mode. This is acceptable because those
-    characters do not appear in human-typed pattern strings.
-
-    Compared to the cold-path ``_iter_pattern_rows`` this parser is *less*
-    whitespace-lenient: it strips only space/tab/CR, not every Python
-    whitespace character. The render path is still lenient compared to
-    ``bitmap_codec.pattern_to_colmajor`` because unknown row characters are
-    not validation errors — they simply render as ``OFF`` in mono mode or
-    as the palette default in multi-color mode.
-
-    The payoff is fewer allocations per row and lower fragmentation pressure
-    on CircuitPython's non-compacting GC.
-    """
-    for raw in pattern_str.split("\n"):
-        row = raw.translate(_HOTPATH_WS)
         if row:
             yield row
 
@@ -163,14 +125,10 @@ def _write_pattern_on_the_fly(
 ) -> None:
     """Fused hot-path used by ``render_pattern``: one scan of the pattern string.
 
-    Replaces the two-stage ``_iter_pattern_rows_fast`` + per-row write loop
-    as the live hot path. The fast parser is kept as the two-stage alternative
-    (cold-path ``Image.from_pattern`` still uses ``_iter_pattern_rows``).
     Scan the source string once, skip only space / tab / CR, write each cell
     directly to the NeoPixel buffer, ignore columns past ``width``, ignore
-    rows past ``height``, pad short / missing rows with ``off``. Avoids both
-    the per-row string allocation of ``_iter_pattern_rows_fast`` and
-    generator-yield overhead.
+    rows past ``height``, pad short / missing rows with ``off``. No per-row
+    string allocation and no generator.
 
     Does NOT call ``pixels.show()`` — caller is responsible for flushing
     the buffer to the display after invocation.
@@ -291,29 +249,6 @@ def _render_colmajor(data: bytes, offset: int, color: tuple[int, int, int]) -> N
 
 
 # ---------------------------------------------------------------------------
-# Font — MakeCode-style 5×5 table (DAL pendolino3, MIT). Swap unit is the
-# ``font_makecode_5/`` directory. Path kept as a hook so a later 8×8 PCF
-# can restore the Exp14 loader without touching the feeder / scroll path.
-# os.path coverage on CircuitPython is partial so rsplit is preferred.
-# ---------------------------------------------------------------------------
-_FONT_PATH = __file__.rsplit("/", 1)[0] + "/font_makecode_5"
-
-
-def _glyph_columns(ch: str) -> bytes:
-    """Return column-major bytes for one glyph on this HEIGHT-row matrix.
-
-    Returns one byte per column spanning the glyph's advance width (here
-    always ``WIDTH`` for the 5×5 table). Bit N of each byte = row N
-    (row 0 = top). Blank ``WIDTH`` bytes for unknown characters.
-
-    Storage is a preconverted column-major table (see ``font_makecode_5``).
-    The Exp14 PCF metric mapping (ascent / dy / dx → display row) is the
-    8×8 swap-unit algorithm and is not used on this 5×5 path.
-    """
-    return _table_glyph_columns(ch)
-
-
-# ---------------------------------------------------------------------------
 # Scrolling-text helpers: ring-window renderer + one-column-at-a-time
 # glyph feeder. Used by ``Display.show_string``; see that method's
 # docstring for the ring-size derivation.
@@ -341,43 +276,7 @@ def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, in
         for y in range(HEIGHT):
             pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
         x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
-    pixels.show()
-
-
-class _GlyphColumnFeeder:
-    """Yield one glyph column byte at a time across a text string.
-
-    Materialises exactly one glyph's column buffer at a time (via
-    ``_glyph_columns``), then exposes its bytes one-by-one. ``next_column``
-    returns ``None`` once the text is exhausted — callers substitute
-    blank columns (``0``) to pad the scroll-out tail.
-
-    Bounded memory: only the current glyph's cols plus a cursor live in
-    the feeder, regardless of how long the text is. This is the whole
-    point of the ring-buffer scroll path.
-    """
-
-    __slots__ = ("_text", "_char_idx", "_cols", "_col_idx")
-
-    def __init__(self, text: str) -> None:
-        self._text = text
-        self._char_idx = 0
-        self._cols = b""
-        self._col_idx = 0
-
-    def next_column(self) -> int | None:
-        # Load the next glyph whenever the current glyph's columns are exhausted;
-        # `while` condition initially succeeds because `_cols` is empty and `_col_idx = 0`.
-        # Usage of `while` here (instead of `if`) skips any zero-width glyphs.
-        while self._col_idx >= len(self._cols):
-            if self._char_idx >= len(self._text):
-                return None
-            self._cols = _glyph_columns(self._text[self._char_idx])  # load glyph
-            self._char_idx += 1
-            self._col_idx = 0  # for the new glyph, we start at column with index 0
-        b = self._cols[self._col_idx]
-        self._col_idx += 1
-        return b
+        pixels.show()
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +287,7 @@ class _GlyphColumnFeeder:
 # MCU library.
 # ---------------------------------------------------------------------------
 class Image:
-    """Bitmap image for the HEIGHT-row LED matrix.
+    """Bitmap image for the LED matrix.
 
     An image is always ``HEIGHT`` rows tall. Its width is independent of the
     display and may be smaller, equal to, or **larger** than the ``WIDTH``
@@ -417,6 +316,13 @@ class Image:
         multi: bool,
         color: tuple[int, int, int] | None,
     ) -> None:
+        """Build an image from already-encoded pixels.
+
+        Prefer ``from_pattern``, ``create_image``, or ``create_big_image``.
+        ``width`` is this image's column count (independent of the LED
+        matrix). ``multi`` is True for a fixed color per pixel, False for
+        one shared mono color (``color``).
+        """
         self._data = data
         self._width = width
         self._multi = multi
@@ -466,6 +372,12 @@ class Image:
 
     @property
     def width(self) -> int:
+        """Column count of this image, not the physical display width.
+
+        May be smaller, equal to, or larger than ``WIDTH``. ``create_image``
+        is exactly ``WIDTH``; ``create_big_image`` is ``2 * WIDTH``;
+        ``from_pattern`` uses the widest kept row. Read-only.
+        """
         return self._width
 
     @property
@@ -489,7 +401,13 @@ class Image:
             self._color = new_color
 
     async def show_image(self, offset: int = 0, interval_ms: int = 0) -> None:
-        """Render WIDTH columns starting at offset. Holds for interval_ms milliseconds."""
+        """Show a ``WIDTH``-column window of this image, then wait before returning.
+
+        ``offset`` is the image column placed at display column 0. It may
+        be negative or past the right edge; uncovered display columns are
+        ``OFF``. Waits ``interval_ms`` milliseconds before returning
+        (0 = return after render). Cancels any prior Tier 2 animation.
+        """
         display._acquire()
         self._render_window(offset)
         if interval_ms > 0:
@@ -498,16 +416,20 @@ class Image:
     async def scroll_image(self, step: int = 1, interval_ms: int = 200) -> None:
         """Scroll through the image, advancing `step` columns per frame, with `interval_ms` milliseconds between frames.
 
-        `step` is a per-frame *increment*, distinct from `show_image`'s
-        `offset` (a window *position*) despite both being about columns,
-        deliberately different names so the two concepts aren't conflated.
+        `step` is a per-frame *incremental* movement of the columns.
         The scroll always starts at position 0; there is no parameter to
         change the starting position (unlike `show_image`, which can start
         anywhere, including negative or past the image's right edge).
 
         Cancellable: any newer display operation causes this coroutine to
         return early (see module docstring's cancellation policy).
+
+        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative
+        ``step``) is not yet supported.
         """
+        if step <= 0:
+            # TODO: allow step < 0 for bi-directional (right-to-left) scrolling.
+            raise ValueError(f"step must be > 0, got {step}")
         token = display._acquire()
         max_start = self._width - WIDTH
         if max_start < 0:
@@ -518,8 +440,6 @@ class Image:
                 return
             self._render_window(pos)
             await asyncio.sleep(interval_ms / 1000)
-            if display._is_cancelled(token):
-                return
             pos += step
 
     def _render_window(self, offset: int) -> None:
@@ -728,6 +648,11 @@ class Display:
     """
 
     def __init__(self) -> None:
+        """Create the matrix controller.
+
+        Use the module-level ``display`` instance; do not construct another.
+        A second instance would still drive the same LEDs.
+        """
         self._seq = 0
 
     # — Cancellation token --------------------------------------------------
@@ -874,7 +799,7 @@ class Display:
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
         interval_ms: int = 0,
     ) -> None:
-        """Render a pattern, then hold for interval_ms milliseconds (0 = return after render).
+        """Render a pattern, then wait ``interval_ms`` milliseconds before returning (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
 
@@ -887,7 +812,7 @@ class Display:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_icon(self, icon: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an icon ``Image`` (e.g. ``Icons.HEART``), hold for interval_ms milliseconds.
+        """Render an icon ``Image`` (e.g. ``Icons.HEART``), then wait ``interval_ms`` milliseconds before returning.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
@@ -898,7 +823,7 @@ class Display:
             await asyncio.sleep(interval_ms / 1000)
 
     async def show_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), hold for interval_ms milliseconds.
+        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), then wait ``interval_ms`` milliseconds before returning.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
@@ -918,7 +843,8 @@ class Display:
         """Scroll text across the display.
 
         The typical case where text is wider than ``WIDTH`` glyph-columns:
-        we scroll one column every ``interval_ms`` time step.
+        we scroll one column every ``interval_ms`` time step. A one-column
+        blank sits between characters, so adjacent glyphs do not merge.
 
         A non-looping scroll ends exactly when the last meaningful column
         has left the screen: the display is left fully blank (not paused
@@ -953,10 +879,15 @@ class Display:
             return
         sleep_s = interval_ms / 1000
 
-        # Materialise glyphs only as far as needed to decide "fits on screen?".
+        # Probe with the same feeder the scroll path uses, so spacer / tofu /
+        # space-width rules cannot drift between "fits?" and the actual render.
+        probe = SpacedGlyphColumnFeeder(text)
         fit_buf = bytearray()
-        for ch in text:
-            fit_buf.extend(_glyph_columns(ch))
+        while True:
+            col = probe.next_column()
+            if col is None:
+                break
+            fit_buf.append(col)
             if len(fit_buf) > WIDTH:
                 break
 
@@ -971,6 +902,8 @@ class Display:
             padded = bytearray(WIDTH)
             for i in range(len(fit_buf)):
                 padded[pad + i] = fit_buf[i]
+            if self._is_cancelled(token):
+                return
             _render_colmajor(padded, 0, color)
             if loop:
                 poll_s = sleep_s if interval_ms > 0 else 0.05
@@ -992,7 +925,7 @@ class Display:
             # is the scroll-in padding, so the first frame renders as a fully
             # blank display with the first column arriving from the right,
             # rather than jumping straight to a partially-filled window.
-            feeder = _GlyphColumnFeeder(text)
+            feeder = SpacedGlyphColumnFeeder(text)
             ring = bytearray(WIDTH)
             read_head = 0
             trailing_blanks = 0
@@ -1032,7 +965,7 @@ class Display:
         """Display a number via ``show_string(str(n))``.
 
         Fit-on-screen numbers (total glyph width <= WIDTH — typically
-        one digit in the bundled monospace font) are centered and held;
+        one digit in the bundled font) are centered and held;
         longer numbers scroll. See ``show_string`` for the full behavior
         including ``loop=True``.
         """

@@ -45,7 +45,7 @@ NeoPixel buffer; no ``await``):
 **Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_leds` / `show_icon` / `show_arrow` — render + hold.
+- `show_leds` / `show_icon` / `show_arrow` — render, then wait ``interval_ms`` before returning.
 - `show_string(text, color=WHITE, interval_ms=150, loop=False)` — scroll
   text (single character displays centered). With `loop=True`, keeps
   scrolling (or holding, for short text) until cancelled by another

@@ -25,6 +25,8 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 - `led-driving: BananaPi 5×5 sequential index shared`  —pairs-with—  `led-driving: WS2812/NeoPixel output peripheral (PIO vs RMT)`   (same strip geometry across BananaPi bit generations; data pin + MCU peripheral still re-derived per silicon).
 - `fonts: BananaPi CharData is not DAL pendolino3`  —alternative-to—  `fonts: DAL pendolino3 row-bytes`   (two 5×5 bitmap encodings; Exp16 uses DAL only).
 - `tooling: circup does not pin per-library versions`  —pairs-with—  `circuitpython-runtime: mpy-cross is CircuitPython’s binary`   (both are version-pinning for a *reproducible* on-device deploy: circup pins the library **bundle tag**, mpy-cross pins the **bytecode/firmware** version — think of them together when a fresh checkout must restore the exact same board state).
+- `tooling: Cursor syntax completion for CircuitPython`  —pairs-with—  `tooling: circup does not pin per-library versions`   (completion of a bundle library is only as current as the `.py` Sync extracted for that bundle tag; a tag pin that does not match the stub pin completes the wrong API).
+- `tooling: Cursor syntax completion for CircuitPython`  —composes-with—  `tooling: two similarly-named CircuitPython extensions`   (Sync writes the extraPaths; `wmerkens` is the VS Code/Pylance path. Copy-to-board `workspaceFolders[0]` is a different bug from the shared extraPaths array).
 
 ## Anticipated edges (record when the target concept is seeded — do not pre-create the target)
 

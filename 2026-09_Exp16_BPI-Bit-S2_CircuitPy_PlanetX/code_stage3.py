@@ -1,68 +1,48 @@
 """Round-1 LED-matrix + buttons on-device test, Stage 3 (Tier 2 + two button modules).
 
-Additive, not repetitive: Stage 0 (minimal Tier 1), Stage 1 (broader Tier 1),
-and Stage 2 (Tier 2 async, display only) are already confirmed on-device and
-frozen in the sibling `code_stage0.py` / `code_stage1.py` / `code_stage2.py`.
-See `CONCLUSIONS.md` (K1: bundle ``asyncio`` via this project's own Tier-2 API;
-K2: PlanetX C/D wiring fires real button events). This is the **final stage
-in the original 4-stage breakdown**: Tier 2 display animations running
-concurrently with ``OnboardButtons.run()`` and ``planetx.PlanetXButtonSensor.run()``.
+``OnboardButtons.run()`` and ``PlanetXButtonSensor.run()`` deliver press
+events while a display loop scrolls an image, then a short status string.
+A press handler calls ``Display.render_arrow``, which cancels whichever
+Tier-2 animation is in flight.
 
-Deliberately does **not** re-individually-prove the five async ``show_*``
-wrappers, ``Image.show_image``/``scroll_image``, or the timer-triggered
-cancellation check. Stage 2 already did that (steps 2-10). This script
-reuses ``show_string``/``scroll_image`` only as *background* animation, not
-as a re-test of those code paths.
+Stage 2 walked the five async ``show_*`` wrappers, ``Image.show_image`` /
+``scroll_image``, and the timer-triggered cancellation check (steps 2-10).
+We assume that works, and use ``show_string`` / ``scroll_image`` here as the
+background animation.
 
-**Claim this stage discharges (K3): do `OnboardButtons` and
-`PlanetXButtonSensor` — via each object's own `run()` pump, not a bypassing
-PoC — dispatch real hardware events *while* a Tier-2 display animation is
-concurrently in flight, and does a button-triggered Tier-1 write correctly
-cancel that animation?** Two sub-parts:
+  (a) Each module owns its scanner. ``run()`` is the coroutine that keeps
+      reading that scanner and calling the handler for the button that was
+      pressed.
+      ``OnboardButtons()`` exposes ``button_a`` / ``button_b`` (defaults
+      ``board.BUTTON_A`` / ``board.BUTTON_B``). ``PlanetXButtonSensor(port=J3)``
+      exposes ``button_c`` / ``button_d`` (J3 is edge-connector P13/P14,
+      ``board.IO13`` / ``board.IO14``). Handlers register with ``.on_pressed``.
+      Release handlers are not registered.
 
-  (a) K2's on-device confirmation (2026-09-11) used raw ``keypad.Keys`` +
-      ``neopixel`` directly, bypassing this library, and only exercised the
-      PlanetX C/D pair. This script is the first on-device use of this
-      library's registration API and ``run()`` pumps, and the first
-      exercise of the onboard A/B pair on this board.
-  (b) Cooperative multitasking: ``ab.run()``, ``px.run()``, and the display
-      animation loop are *sibling* coroutines under one ``asyncio.gather``.
-      A button press fires its handler from inside that module's ``run()``,
-      which then makes an ordinary Tier-1 write (``Display.render_arrow``)
-      against the same module-level ``display`` singleton the animation
-      coroutine is concurrently animating. This is safe without a lock
-      because CircuitPython's ``asyncio`` is single-threaded and
-      cooperative: coroutines only interleave at ``await`` points, so the
-      shared cancellation-token counter (``Display._acquire`` /
-      ``_is_cancelled``, see ``core.py``'s module docstring) cannot be
-      corrupted by a data race.
+  (b) ``ab.run()`` (onboard buttons A/B), ``px.run()`` (PlanetX buttons
+      C/D on J3), and the display loop are sibling coroutines under one
+      ``asyncio.gather``. A press handler runs inside that module's
+      ``run()`` and writes the same ``display`` object the animation coroutine
+      uses. CircuitPython asyncio is single-threaded and cooperative:
+      coroutines interleave only at ``await``, so ``Display._acquire`` /
+      ``_is_cancelled`` (see ``core.py``) is not updated from two places at once.
 
-Steps (numbered per cycle; steps 1-4 are autonomous-serial-capture-friendly,
-no physical input needed; step 5 needs Alex present to press buttons):
+What runs:
 
-  1. ``OnboardButtons()`` (defaults ``board.BUTTON_A`` / ``BUTTON_B``) and
-     ``PlanetXButtonSensor(port=J3)`` constructed as two objects: one Python
-     object per physical module (J3 is P13/P14 → ``board.IO13``/``IO14``).
-  2. Concurrency/liveness self-check, serial-only: Stage 2 step 1's
-     ``asyncio.sleep(0.5)`` +/-10ms timing check, now concurrent with
-     *two* 10 ms ``run()`` pumps as sibling tasks. A clean [OK] is evidence
-     the pumps are not starving this coroutine.
-  3. A continuous background ``Image.scroll_image`` animation, restarted
-     every cycle: the long-running Tier-2 animation that step 5's button
-     presses interrupt.
-  4. ``show_string`` status line with live per-letter press counts (e.g.
-     ``A0B0C0D0``): confirms Tier 2 keeps rendering fresh frames every
-     cycle regardless of whether any button has been pressed yet.
-  5. Physical button presses (A/B/C/D): each fires this library's own
-     registered handler, prints a confirmation line with letter + running
-     count, and renders a letter-specific arrow via an ordinary Tier-1
-     write, which cancels whatever Tier-2 animation is in flight. On
-     release, nothing happens: ``on_*_released`` is not exercised this
-     stage (K2's on-device scope was press-only).
+  1. Construct both modules and register one press handler per letter.
+  2. Each cycle, ``asyncio.sleep(0.5)`` while both ``run()`` coroutines
+     are running. Serial prints elapsed time and ``[OK]`` when it is
+     within +/-10 ms.
+  3. ``Image.scroll_image`` — the long animation a press can cut short.
+     Restarted every cycle, after rotation 0 and brightness 0.10.
+  4. ``show_string`` of the press counts (``A0B0C0D0``). No spaces, so the
+     scroll stays short.
+  5. A press increments that letter's count, prints it, and renders that
+     letter's arrow. Presses are delivered whenever those coroutines are
+     running, including during steps 2-4.
 
-Looped (``asyncio.gather`` of three never-returning coroutines), for the
-same reason as Stage 0-2 (a script that reaches its end falls back to the
-REPL) and because both ``run()`` pumps need to keep listening indefinitely.
+The three tasks do not return, so both ``run()`` coroutines keep
+listening and the script does not fall through to the REPL.
 """
 
 import asyncio
@@ -78,9 +58,7 @@ d = display.display
 
 print("Stage 3: import display + buttons + planetx OK")
 
-# Built once, not per-cycle, matching Stage 1/2's allocate-once pattern.
-# One object per physical module: onboard A/B (pin defaults) and PlanetX C/D
-# on J3 (P13/P14).
+# Built once, not per cycle. Onboard A/B use pin defaults; PlanetX C/D use J3.
 ab = OnboardButtons()
 px = PlanetXButtonSensor(port=J3)
 print("Stage 3: OnboardButtons() + PlanetXButtonSensor(port=J3) constructed OK")
@@ -141,14 +119,10 @@ class _PressCounter:
     def __call__(self) -> None:
         self.count += 1
         print(
-            f"BUTTON {self.letter.upper()} pressed (count={self.count}) — "
-            f"library handler dispatch confirmed, not the bypassing keypad PoC K2 used"
+            f"BUTTON {self.letter.upper()} pressed (count={self.count})"
         )
-        # Ordinary Tier-1 write, fired from inside that module's ``run()``
-        # coroutine: the interrupting event for whatever Tier-2 animation
-        # the display loop below is currently mid-flight on (see module
-        # docstring part (b); the real-event counterpart to Stage 2 step 10's
-        # synthetic-timer cancellation check).
+        # Tier-1 write from inside that module's ``run()``. Cancels whatever
+        # Tier-2 animation the display loop is in the middle of.
         d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter])
 
 
@@ -160,30 +134,28 @@ press_a = _PressCounter("a")
 press_b = _PressCounter("b")
 press_c = _PressCounter("c")
 press_d = _PressCounter("d")
-ab.on_a_pressed(press_a)
-ab.on_b_pressed(press_b)
-px.on_c_pressed(press_c)
-px.on_d_pressed(press_d)
-print("Stage 3: on_a/b_pressed + on_c/d_pressed handlers registered")
+ab.button_a.on_pressed(press_a)
+ab.button_b.on_pressed(press_b)
+px.button_c.on_pressed(press_c)
+px.button_d.on_pressed(press_d)
+print("Stage 3: button_a/b and button_c/d press handlers registered")
 
 
 async def _display_loop() -> None:
     cycle = 0
     while True:
         cycle += 1
-        # Defensive baseline at the top of every cycle, matching Stage 0-2:
-        # keeps every cycle's starting state independent of what a future
-        # added step might leave behind.
+        # Each cycle starts from the same rotation and brightness, independent
+        # of what the previous cycle's animation or a press left on screen (matching Stage 0-2).
         d.set_rotation(0)
-        d.set_brightness(0.10)  # matches Alex's live override on Stage 2's code.py
+        d.set_brightness(0.10)  # dimmer than the library default 0.20
         print(f"\n=== cycle {cycle} ===")
 
         # 1) Construction + handler registration already happened above.
 
-        # 2) Concurrency/liveness self-check (K3): identical tolerance check
-        #    to Stage 2 step 1, concurrent with both module pumps rather than
-        #    sequentially beforehand. A clean [OK] here is evidence that the
-        #    10 ms polling loops are not starving this coroutine.
+        # 2) Sleep 0.5 s while both run() coroutines are already running.
+        #    [OK] means the elapsed time stayed within 10 ms, so those
+        #    coroutines did not starve this one.
         _sleep_target_s = 0.5
         _tolerance_s = 0.010
         _t0 = time.monotonic()
@@ -194,7 +166,7 @@ async def _display_loop() -> None:
         print(
             f"2/4: asyncio.sleep({_sleep_target_s}) returned after {_elapsed:.4f}s "
             f"(deviation={_timing_deviation * 1000:.1f}ms, tolerance=+/-{_tolerance_s * 1000:.0f}ms) [{_status}] "
-            f"(concurrent with OnboardButtons.run() + PlanetXButtonSensor.run(), K3 liveness check)"
+            f"(concurrent with OnboardButtons.run() + PlanetXButtonSensor.run())"
         )
 
         # 3) Continuous background animation: the long-running Tier-2 op that

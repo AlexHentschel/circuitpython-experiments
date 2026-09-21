@@ -25,52 +25,65 @@ def test_bootstrap_first_glyph_has_no_spacer():
 
     - Covers: a leftover pending-spacer on construction, or a trailing pad
       after a single ink-bearing glyph.
-    - How: injected lookup returns one two-byte glyph that owes a spacer;
-      drain equals those two bytes.
+    - How: injected lookup returns one two-byte glyph; drain equals those two bytes.
     """
-    cols = _drain("X", lookup=lambda ch: (b"\x01\x02", True))
+    cols = _drain("X", lookup=lambda ch: b"\x01\x02")
     assert cols == [1, 2]
 
 
-def test_one_spacer_exactly_once_between_two_ink_glyphs():
-    """Adjacent ink-bearing glyphs get exactly one 0 between them.
+def test_one_spacer_exactly_once_between_two_glyphs():
+    """Adjacent glyphs get exactly one 0 between them.
 
     - Covers: missing spacer (collision), doubled spacer, or a trailing 0
       after the second glyph.
-    - How: injected ``A``/``B`` each one ink byte that owes a spacer.
+    - How: injected ``A``/``B`` each one ink byte.
     """
-    table = {"A": (b"\x0a", True), "B": (b"\x0b", True)}
+    table = {"A": b"\x0a", "B": b"\x0b"}
     cols = _drain("AB", lookup=lambda ch: table[ch])
     assert cols == [0x0A, 0, 0x0B]
 
 
-def test_blank_glyph_is_pass_through_with_no_spacer_owed():
-    """A blank glyph does not consume the previous spacer and does not owe one.
+def test_space_is_three_blanks_with_spacers_around_it():
+    """Space is three zeros; the uniform spacer still sits on both sides.
 
-    - Covers: dropping the prepend before a blank, or inserting a spacer
-      after it (word-gap collapse / extra pad).
-    - How: ``A`` (ink, owes) + 4-zero blank (owes nothing) + ``B`` (ink).
+    Interior ``"A B"`` is then five blank columns — same as the former
+    4-column space with a spacer only after ink.
+
+    - Covers: dropping the prepend before a blank, omitting the spacer after
+      it, or keeping space at 4 authored columns (would yield six blanks).
+    - How: ``A`` + 3-zero space + ``B``.
     """
     table = {
-        "A": (b"\x0a", True),
-        " ": (b"\x00\x00\x00\x00", False),
-        "B": (b"\x0b", True),
+        "A": b"\x0a",
+        " ": b"\x00\x00\x00",
+        "B": b"\x0b",
     }
     cols = _drain("A B", lookup=lambda ch: table[ch])
     assert cols == [0x0A, 0, 0, 0, 0, 0, 0x0B]
 
 
-def test_no_trailing_spacer_after_last_ink_glyph():
+def test_trailing_space_has_no_extra_spacer():
+    """A last-character space is three blanks after the preceding spacer, not four.
+
+    - Covers: emitting a pending spacer after the last glyph (would restore
+      the old trailing-space width of 4).
+    - How: ``A`` then space.
+    """
+    table = {"A": b"\x0a", " ": b"\x00\x00\x00"}
+    cols = _drain("A ", lookup=lambda ch: table[ch])
+    assert cols == [0x0A, 0, 0, 0, 0]
+
+
+def test_no_trailing_spacer_after_last_glyph():
     """Exhaustion returns ``None`` without a synthetic pad after the last glyph.
 
     - Covers: append-after semantics leaking a trailing 0 that would shift
       fit-on-screen centering.
-    - How: one ink-bearing glyph that *would* owe a spacer to a successor;
-      drain length equals the ink length, last byte is the ink byte.
+    - How: one glyph; drain length equals the ink length, last byte is the ink byte.
     """
-    cols = _drain("Z", lookup=lambda ch: (b"\xff", True))
+    cols = _drain("Z", lookup=lambda ch: b"\xff")
     assert cols == [0xFF]
-    extra = SpacedGlyphColumnFeeder("Z", lookup=lambda ch: (b"\xff", True))
+    extra = SpacedGlyphColumnFeeder("Z", lookup=lambda ch: b"\xff")
     for _ in cols:
         extra.next_column()
     assert extra.next_column() is None
@@ -84,10 +97,10 @@ def test_twenty_seven_point_three_column_sequence():
     - How: drain the live feeder; compare to the Phase-2-pinned slices with
       a 0 between each pair. Last byte is ``3``'s last ink column.
     """
-    two, _ = glyph_ink("2")
-    seven, _ = glyph_ink("7")
-    period, _ = glyph_ink(".")
-    three, _ = glyph_ink("3")
+    two = glyph_ink("2")
+    seven = glyph_ink("7")
+    period = glyph_ink(".")
+    three = glyph_ink("3")
     expected = (
         list(two) + [0] + list(seven) + [0] + list(period) + [0] + list(three)
     )

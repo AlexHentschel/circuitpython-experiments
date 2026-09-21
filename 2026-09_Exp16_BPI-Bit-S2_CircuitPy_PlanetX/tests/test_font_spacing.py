@@ -5,7 +5,14 @@ Sequence-level spacing belongs in ``test_text_layout.py``.
 """
 
 from display._constants import WIDTH
-from display.font_makecode_5 import glyph_ink
+from display.font_makecode_5.ink import _TOFU_INK, glyph_ink
+from display.font_makecode_5.spaced_glyphs import (
+    _ASCII_END,
+    _ASCII_START,
+    _RECORD_STRIDE,
+    _SPACED_GLYPHS,
+)
+from display.icons import ICONS, ICON_NAMES
 
 
 def _cols_from_rows(rows: list[str]) -> bytes:
@@ -25,11 +32,11 @@ def _trim_ink(cols: bytes) -> bytes:
     return cols[start:end]
 
 
-def test_margined_glyph_is_trimmed_and_owes_a_spacer():
-    """A letter with a blank trailing column returns the trimmed slice + True.
+def test_margined_glyph_is_trimmed():
+    """A letter with a blank trailing column returns the trimmed slice.
 
-    - Covers: accessor returning a full ``WIDTH`` record, or ``needs_spacer=False``,
-      for an ink-bearing glyph that has a native self-margin.
+    - Covers: accessor returning a full ``WIDTH`` record for an ink-bearing
+      glyph that has a native self-margin.
     - How: hand-drawn ``A`` (DAL shape, independent of the generated table);
       encode → trim locally; compare to ``glyph_ink("A")``.
     """
@@ -42,16 +49,15 @@ def test_margined_glyph_is_trimmed_and_owes_a_spacer():
             "#..#.",
         ]
     )
-    ink, needs_spacer = glyph_ink("A")
+    ink = glyph_ink("A")
     assert ink == _trim_ink(native)
     assert len(ink) < WIDTH
-    assert needs_spacer is True
 
 
-def test_full_width_glyph_keeps_width_and_owes_a_spacer():
-    """``7`` fills every column, so the accessor returns ``WIDTH`` bytes + True.
+def test_full_width_glyph_keeps_width():
+    """``7`` fills every column, so the accessor returns ``WIDTH`` bytes.
 
-    - Covers: trimming a glyph that has no blank margin, or dropping ``needs_spacer``.
+    - Covers: trimming a glyph that has no blank margin.
     - How: hand-drawn ``7``; encode; compare length and bytes.
     """
     native = _cols_from_rows(
@@ -63,32 +69,31 @@ def test_full_width_glyph_keeps_width_and_owes_a_spacer():
             "#....",
         ]
     )
-    ink, needs_spacer = glyph_ink("7")
+    ink = glyph_ink("7")
     assert ink == native
     assert len(ink) == WIDTH
-    assert needs_spacer is True
 
 
-def test_space_is_four_blank_columns_without_a_spacer():
-    """Space is a 4-column blank and does not owe a following spacer.
+def test_space_is_three_blank_columns():
+    """Space is a 3-column blank (the uniform inter-glyph spacer is not stored).
 
     - Covers: treating space as a full-``WIDTH`` pass-through, trimming it to
-      empty, or setting ``needs_spacer=True`` on a blank glyph.
-    - How: ``glyph_ink(" ") == (bytes(4), False)``.
+      empty, or keeping the former 4-column authored width.
+    - How: ``glyph_ink(" ") == bytes(3)``.
     """
-    ink, needs_spacer = glyph_ink(" ")
-    assert ink == bytes(4)
-    assert needs_spacer is False
+    assert glyph_ink(" ") == bytes(3)
 
 
-def test_unknown_is_full_width_blank_without_a_spacer():
-    """Out-of-table characters (NUL, empty string) are ``WIDTH`` zeros + False.
+def test_unknown_is_tofu():
+    """Out-of-table characters are tofu, not a hole or ``?``.
 
-    - Covers: ``ord``/slice exception, substituting ``?``, or ``needs_spacer=True``.
-    - How: ``glyph_ink("\\x00")`` and ``glyph_ink("")`` equal ``(bytes(WIDTH), False)``.
+    - Covers: ``ord``/slice exception, substituting ``?``, a full-``WIDTH`` blank,
+      or omitting the glyph.
+    - How: NUL, empty string, and ``☐`` (U+25A1) equal ``_TOFU_INK``.
     """
-    assert glyph_ink("\x00") == (bytes(WIDTH), False)
-    assert glyph_ink("") == (bytes(WIDTH), False)
+    assert glyph_ink("\x00") == _TOFU_INK
+    assert glyph_ink("") == _TOFU_INK
+    assert glyph_ink("☐") == _TOFU_INK
 
 
 def test_period_and_three_match_hand_drawn_slices():
@@ -117,10 +122,30 @@ def test_period_and_three_match_hand_drawn_slices():
             ".##..",
         ]
     )
-    period_ink, period_needs = glyph_ink(".")
-    three_ink, three_needs = glyph_ink("3")
+    period_ink = glyph_ink(".")
+    three_ink = glyph_ink("3")
     assert period_ink == _trim_ink(period_native)
     assert len(period_ink) == 1
-    assert period_needs is True
     assert three_ink == _trim_ink(three_native)
-    assert three_needs is True
+
+
+def test_spaced_glyphs_table_covers_ascii_printable_range():
+    """``_SPACED_GLYPHS`` is one ``WIDTH + 1``-byte record per ASCII 32..126.
+
+    - Covers: truncated or padded table, stride drift vs ``WIDTH + 1``.
+    - How: ``len(_SPACED_GLYPHS) == (_ASCII_END - _ASCII_START + 1) * _RECORD_STRIDE``.
+    """
+    assert len(_SPACED_GLYPHS) == (_ASCII_END - _ASCII_START + 1) * _RECORD_STRIDE
+
+
+def test_tofu_matches_stripped_small_square():
+    """Stripping ``icons.py`` ``SMALL_SQUARE`` produces the same ink as tofu.
+
+    - Covers: ``_TOFU_INK`` drifting from the named icon, or keeping the icon's
+      lead/trail zeros.
+    - How: slice ``ICONS`` at ``ICON_NAMES.index("SMALL_SQUARE")``; drop leading
+      and trailing zero columns; compare to ``_TOFU_INK``.
+    """
+    slot = ICON_NAMES.index("SMALL_SQUARE")
+    native = ICONS[slot * WIDTH : (slot + 1) * WIDTH]
+    assert _trim_ink(native) == _TOFU_INK

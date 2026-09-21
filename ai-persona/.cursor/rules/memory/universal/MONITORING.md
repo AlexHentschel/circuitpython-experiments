@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-13.
+Last updated: 2026-09-21.
 
 *Prior dated header provenance (2026-04-21 … 2026-09-13) is relocated to `CHANGELOG.md § 2026-09-15 — MONITORING.md compaction (P8)` to keep this always-read register lean; each entry's own `First observed` field + any promoted directive's Notes column remain the authoritative per-entry lifecycle record.*
 
@@ -39,6 +39,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 - **Cross-reference on promotion**: when an entry graduates to a full directive / `concepts/<domain>.md` entry / `projects/<slug>/CONCLUSIONS.md` finding, cite this file as the original observation site in the promoted entry's Notes column so the provenance chain is preserved.
 
 ## Entries
+
+- **Oversolve a questioned cost into a parallel interned table**
+  - **Observation**: Alex asked to avoid an extra method on `glyph_ink`'s hot path, with an uncertain aside ("I think slice copy?"). I built a 95-element `_INK` tuple of pre-sliced `bytes`. He then said the complaint was the helper, not a cache; a tuple is also GC-managed.
+  - **Trigger**: a "hot path" request that names one certain cost (extra call, extra copy) plus a hedged second cost (`I think` / `?`).
+  - **Action on trigger**: fix the certain cost (inline the helper). Leave the hedged cost unless confirmed. Do not add a second interned copy of an existing blob to dodge a once-per-glyph `bytes` slice.
+  - **First observed**: 2026-09-20 (exp16 Session 50, `ink.py`).
+  - **Scope**: `[user]`.
 
 - **Promotion trigger: MicroPython perf-guidance source-verification pattern**
   - **Observation**: one `docs.micropython.org/reference/speed_python.html` claim (LOAD_FAST vs LOAD_GLOBAL) has been source-verified against CircuitPython's `py/vm.c` + `py/runtime.c` and lives in `concepts/circuitpython-runtime.md` (§ "Name loading: LOAD_FAST vs LOAD_GLOBAL"). Other claims from the same doc — e.g. `const()` folding, buffer-protocol access, viper — have not been verified for this port.
@@ -130,13 +137,6 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: add a `WORKING_STYLE.md` Domain-Specific row — do not infer user-FS size from OTA slot count; named flash partition ≠ mounted volume. Cite this entry as provenance. Then remove this observation.
   - **First observed**: 2026-09-11 (agent claimed pre-0.33 CIRCUITPY would be larger). Tables: `concepts/tooling-4mb-partitions.md`.
   - **Scope**: `[user]`.
-
-- **Stale internal notes / docs after an API or public-name change**
-  - **Observation**: after an API refinement was applied to library code (renaming `Image.scroll_image`'s parameter `offset` → `step`, exp16), Alex explicitly asked for a follow-up pass to bring *internal/persona notes* up to date — "In a secondary refinement and update iteration, please make sure also all your internal notes are up to date." The code edit and the notes-sweep were separable, so the notes could silently lag the code. May just be *Describe current state, not the delta* (`WORKING_STYLE.md`) applied to the notes layer, but that directive governs the *phrasing* of a note; this governs *remembering to sweep* notes after a code change. Single incident.
-  - **Trigger**: the next time an API surface or public name is changed in library code (rename, signature change, semantics change) on any project.
-  - **Action on trigger**: in the same or an immediate follow-up pass, sweep persona memory (`projects/<slug>/CONTEXT.md`/`CONCLUSIONS.md`, `concepts/`, `crossref/`) *and* any in-repo design/divergence docs (e.g. exp16 `Notes/exp14-divergence.md`) for now-stale references to the old name/shape; update to current state. Do not treat the code edit as complete until the note sweep is done or explicitly deferred. On a second clean occurrence, promote to a `WORKING_STYLE.md § Document Authoring` directive (cite this entry as origin).
-  - **First observed**: 2026-09-11 (exp16, offset→step rename; recorded in the API-doc-feedback wrap-up).
-  - **Scope**: `[user]` — a cross-project authoring/maintenance habit; not yet claimed universal.
 
 - **CIRCUITPY lib tree vanished from the board (host-synced files lost, epoch-zeroed dir entries)**
   - **Observation**: exp16 2026-09-13: board's entire `lib/` tree (~100 KB, 19 files) gone; `lib/`, `.Trashes/`, `.Trash-1000/` empty dirs with **Dec 31 1999 (epoch-zeroed) entry dates**; fresh writes fine. Presented as "board hangs / problems reading the code" — actually `code.py` dying at `import asyncio` with no `lib/` → straight to REPL. **Same-day bracketed repro (S0-S3) exonerated the whole toolchain** (scripts + extension copy + auto-reload + full-volume `dot_clean` sweep: `lib/` invariance held at every step; extension bundle has no reformat code path) — the incident's epoch-empty signature equals a *fresh `erase_filesystem()` format* (S0 calibration), yet nobody ran one before the incident (the parallel chat prescribed it; Alex chose the rm route). Alex's context (11:48): the same workflow — extension Copy Files **with serial terminal attached** — worked all day 2026-09-11/12; the first failure ever appeared immediately after an accidental mid-flight cancel. Cause localized, unproven, to the three incident-only differentiators: the **mid-flight cancelled extension copy** (<10:38), the **host-side mass rm of `lib/`+`code.py`** on the live volume + eject cycles, and/or **serial-attached-during-copy** (contributing-condition candidate; an active serial REPL suspends auto-reload).

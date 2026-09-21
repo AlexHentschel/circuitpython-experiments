@@ -3,6 +3,12 @@
 Per-project session memory for **ai-tooling** (`meta` family: AI tooling + self-improvement of *this* persona). Behavioral/process directives: `../../universal/`. Method-discipline references: `../../../reference/*` + `../../../00-memory-system.mdc`. Roster + routing: `../_INDEX.md`. External method/harness source (read-only, not this persona): `high-assurance-engineering` — see `CONTEXT.md § Entry points`.
 
 ## Sessions
+## 2026-09-20: Session — [project:ai-tooling] (skill inventory + restore backup)
+
+- Catalog + restore copies: `ai-persona/skill-catalog/` (`INVENTORY.md` + `backup/{workspace-cursor,workspace-claude,personal-cursor,builtin-cursor,personal-claude}/`).
+- 34 live skill entries (1 workspace Cursor, 1 workspace Claude, 4 personal Cursor, 28 `~/.cursor/skills-cursor` including 4 symlinks). **33 backed up.** `notebooklm` symlink → `~/.claude/skills/notebooklm` is **broken** (no `~/.claude/skills/`). Three other `skills-cursor` symlinks point at `/Users/alex/Git/rnd-ai-skills/skills/` and were dereferenced into the backup.
+- `backup/` is a local restore snapshot (Cursor-managed + personal trees); do not commit unless intending to vendor those files.
+
 ## 2026-09-15: Session — [project:ai-tooling] (full memory-maintenance lifecycle EXECUTED + wrapped to memory)
 
 The lifecycle the launcher-prompt session (below) set up was run end-to-end on branch `alex/ai-persona-maintanance` (not merged to `master`; adoption = Alex's fast-forward). Structural spine: `universal/CHANGELOG.md § 2026-09-15 — full memory-maintenance lifecycle (umbrella)` + its four child entries. This is the session narrative + method breadcrumb.
