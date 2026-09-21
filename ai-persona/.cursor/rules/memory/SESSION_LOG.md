@@ -31,7 +31,7 @@ This is the **central** session log for the unified persona memory. It holds the
 - `circuitpython-exp15-microbit` — **active (early)**; Milestone 1 blink set up, on-device run pending board connection. See `projects/circuitpython-exp15-microbit/`.
 - `bamboo-lamp` — **active**; standby/sleep-mode design discussion pending; S3-vs-C6 MCU divergence open. See `projects/bamboo-lamp/`.
 - `coding-tutor` — **active (knowledge-gathering)**; family `education`. Build an AI tutor persona (distinct from this assisting persona) teaching CircuitPython on micro:bit+Nezha2+PlanetX to student persona "Alice". Setup + Scheiter transcript ingested; **research loop iteration 1 done 2026-07-15** — 17-source corpus downloaded (`CodingTutor/materials/papers/`, git-ignored) + cataloged/triaged/ranked in `CodingTutor/notes-.../05_research-corpus_iteration-1.md` (with a ranked can't-access list for Alex). Next: iteration-2 deep-read/digest T1/T2, then tutor-design guidelines. Design not started. See `projects/coding-tutor/`.
-- `circuitpython-exp16-planetx` — **first milestone on-device** (K1/K2/K3, Stages 0–3). Font-spacing Phase 4 gated. **Nezha V2 motor I2C** decoded (`concepts/nezha.md`; no driver). Last code `4b61867` 2026-09-14; resumed 2026-09-20. Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md § Resumption point`.
+- `circuitpython-exp16-planetx` — **first milestone on-device** (K1/K2/K3 for the 2026-09-13 code). Font Phase 4 and the `button_a` / `button_c` API landed `4a337f4` (2026-09-20); Phase 5 and a Stage-3 re-run are still on-device. **Nezha V2 motor I2C** decoded (`concepts/nezha.md`; no driver). Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md § Resumption point`. Notes compacted 2026-09-21.
 - exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces). Exp09 5×5 LUT/icons are prior art consumed by exp16.
 
 ## Source-of-truth map (which file owns which content; pre-empts duplication-and-drift)
@@ -62,6 +62,13 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Seeded concept-domain roster** — authoritative in `concepts/_INDEX.md` (the domain `### <file>.md` headers). Echoed for distinct consumers in `02-domain-structure.mdc § Domain knowledge` and this living summary's `concepts/` bullet, and (edge-bearing subset) in `concepts/_RELATIONS.md § Edges` header. When seeding/removing a domain, update all four. (Drifted once — `ai-tooling` omitted from the three echoes after its 2026-09-15 seed; resynced 2026-09-15.)
 
 ## Cross-project & tooling sessions
+
+## 2026-09-21: Session — [tooling]/[exp16] (Cursor syntax completion)
+
+- Research only. No library or workspace edit. Notes: `ai-persona/ai-notes/circuitpython-syntax-completion/` (gitignored; may vanish). Durable: `concepts/tooling.md` concept *Cursor syntax completion for CircuitPython*.
+- Cursor Pyright (`anysphere.cursorpyright` 1.0.12) reads `cursorpyright.analysis.extraPaths`. Sync 2.2.2 writes that key. Pylance's `python.analysis.extraPaths` is the VS Code side (`wmerkens`).
+- This workspace: stubs **10.1.3**, board firmware **10.3.0**, own `lib/` not on the path, every experiment's `libstubs` in one array (Exp11 first). `Icons`/`Arrows` built with `setattr` — predicted invisible. Popup checks C1–C6 not run.
+- Correction recorded on the two-extensions concept: `circuitpythonsync.*` version/drive keys **are** in `~/Development/Cursor Workspaces/circuitpython.code-workspace` (the 2026-09-11 "zero hits" grep was the in-repo workspace file).
 
 ## 2026-09-14: Session — [user]/[exp16] (`source.txt`-pinned vendor snapshots)
 
