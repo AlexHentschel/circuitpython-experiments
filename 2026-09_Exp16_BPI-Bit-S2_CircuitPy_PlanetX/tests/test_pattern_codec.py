@@ -12,7 +12,7 @@ import pytest
 
 from display._constants import WIDTH, HEIGHT, _MAX_HEIGHT_PER_COLUMN_BYTE
 from display.bitmap_codec import pattern_to_colmajor, colmajor_to_pattern
-from display.icons import ICONS, ARROWS
+from display.icons import EMOJIS, ARROWS
 
 
 def _slices(data, stride):
@@ -22,11 +22,11 @@ def _slices(data, stride):
 
 @pytest.mark.parametrize(
     "idx,original",
-    list(_slices(ICONS, WIDTH)),
+    list(_slices(EMOJIS, WIDTH)),
     ids=lambda arg: f"icon_{arg}" if isinstance(arg, int) else None,
 )
-def test_icons_round_trip(idx, original):
-    """Codec invertibility for each ICONS slice: bytes → ASCII → bytes.
+def test_emojis_round_trip(idx, original):
+    """Codec invertibility for each EMOJIS slice: bytes → ASCII → bytes.
 
     - Covers: encoder/decoder disagreeing (bit order, whitespace, row/column swap).
     - Does not cover: the picture matching MakeCode (starts from stored bytes).
@@ -34,7 +34,7 @@ def test_icons_round_trip(idx, original):
     """
     rendered = colmajor_to_pattern(original, width=WIDTH, height=HEIGHT)
     re_encoded = pattern_to_colmajor(rendered, width=WIDTH, height=HEIGHT)
-    assert re_encoded == original, f"icon index {idx} did not round-trip"
+    assert re_encoded == original, f"emoji index {idx} did not round-trip"
 
 
 @pytest.mark.parametrize(

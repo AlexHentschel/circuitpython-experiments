@@ -6,7 +6,7 @@ animation.
 
 Stage 0 and Stage 1 walked the sync calls (``fill`` / ``clear_screen`` /
 ``set_pixel`` / ``render_icon`` / ``render_pattern`` / ``render_arrow`` /
-``get_pixel`` / ``set_rotation`` / ``create_image`` / ``colorwheel``).
+``get_pixel`` / ``set_rotation`` / ``Icon.create`` / ``colorwheel``).
 We assume that works, and use those calls here as setup around the async
 steps.
 
@@ -14,18 +14,18 @@ What runs:
 
   1. ``asyncio.sleep(0.5)``. Serial prints ``[OK]`` when the elapsed time
      stays within 10 ms.
-  2. ``show_leds`` — a green checkerboard, held by ``interval_ms``.
-  3. ``show_icon(Icons.DUCK)``.
+  2. ``show_pattern`` — a green checkerboard, held by ``interval_ms``.
+  3. ``show_icon(Emojis.DUCK)``.
   4. ``show_arrow(Arrows.SOUTH)``.
   5. ``show_string("K")`` — narrower than the display, so the centered-hold
      path.
   6. ``show_string("STAGE2")`` — wider than the display, so the scrolling
      path (``SpacedGlyphColumnFeeder`` into a ring buffer).
   7. ``show_number(42)`` — ``show_string(str(42))``, also the scroll path.
-  8. ``Image.show_image`` on a 10-column image at offsets 0, 3, 5, -2,
+  8. ``Display.show_image`` on a 10-column image at offsets 0, 3, 5, -2,
      and 8 (left half, straddling both halves, right half, off the left
      edge, off the right edge).
-  9. ``Image.scroll_image`` of that same image.
+  9. ``Display.scroll_image`` of that same image.
   10. A slow ``scroll_image`` gathered with a Tier-1 ``fill`` after 1 s.
       ``fill`` cancels the animation (``Display._acquire``), so elapsed
       time should fall short of the uninterrupted length. Serial prints
@@ -37,7 +37,7 @@ What runs:
       (``WIDTH`` columns per character, plus a ``WIDTH + 1`` blank tail).
       That estimate leaves out the spacer column
       ``SpacedGlyphColumnFeeder`` inserts between characters.
-  12. ``Image.scroll_image`` gathered with ``set_rotation(180)`` after 1 s.
+  12. ``Display.scroll_image`` gathered with ``set_rotation(180)`` after 1 s.
       Same non-cancel check, through ``Image._render_window`` rather than
       step 11's ring buffer. 180 mirrors in place. The estimate is
       ``(width - WIDTH) // step + 1`` frames.
@@ -54,18 +54,18 @@ import asyncio
 import time
 
 import display
-from display import Icons, Arrows
+from display import Emojis, Arrows
 
 d = display.display
 
 print("Stage 2: import asyncio OK")
 
 # Constants for steps 8-10, built once (not per-cycle), matching Stage 1's
-# own allocate-once pattern. 10 columns x 5 rows (2 * WIDTH x HEIGHT, the
-# `create_big_image` contract): left half is a diamond (distinct shape),
-# right half is a solid block, so `show_image` at offset 0 vs. offset 5
-# renders two visually distinct windows and `scroll_image` shows a clear
-# transition between them.
+# own allocate-once pattern. 10 columns x 5 rows (2 * WIDTH x HEIGHT):
+# left half is a diamond (distinct shape), right half is a solid block, so
+# `Display.show_image` at offset 0 vs. offset 5 renders two visually
+# distinct windows and `Display.scroll_image` shows a clear transition
+# between them.
 _BIG_PATTERN = """
 . . # . . # # # # #
 . # # # . # # # # #
@@ -73,17 +73,17 @@ _BIG_PATTERN = """
 . # # # . # # # # #
 . . # . . # # # # #
 """
-_big_image = display.create_big_image(_BIG_PATTERN, display.CYAN)
+_big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
 
 
 async def _trigger_cancellation_after(delay_s: float) -> None:
     """Wait ``delay_s`` seconds, then perform an ordinary Tier-1 write.
 
     Every Tier-1 mutating method (here: ``fill``) calls ``Display._acquire``
-    internally, which bumps the display's cancellation-token generation.
-    Any Tier-2 animation still running with an older token sees this on its
-    next ``_is_cancelled`` check and returns early (see ``core.py``'s
-    module docstring, "Cancellation policy").
+    internally, which expires the display's current cancellation ``Token``
+    and mints a new one. Any Tier-2 animation still holding the old token
+    sees its ``is_expired`` become True on its next check and returns early
+    (see ``core.py``'s module docstring, "Cancellation policy").
 
     Runs concurrently with a slow Tier-2 scroll (via ``asyncio.gather``) in
     step 10 below, acting as the interrupting event.
@@ -137,10 +137,10 @@ async def main() -> None:
             f"(asyncio.sleep honored the delay)"
         )
 
-        # 2) show_leds holds the checkerboard for interval_ms. Stage 1's
+        # 2) show_pattern holds the checkerboard for interval_ms. Stage 1's
         #    render_pattern returned immediately and the script slept itself.
         d.clear_screen()
-        await d.show_leds(
+        await d.show_pattern(
             """
             . # . # .
             # . # . #
@@ -151,13 +151,13 @@ async def main() -> None:
             display.GREEN,
             interval_ms=1500,
         )
-        print("2/12: show_leds(checkerboard), async pattern render + interval_ms hold")
+        print("2/12: show_pattern(checkerboard), async pattern render + interval_ms hold")
 
-        # 3) show_icon(Icons.DUCK). Stage 0 used HEART and Stage 1 used HAPPY;
+        # 3) show_icon(Emojis.DUCK). Stage 0 used HEART and Stage 1 used HAPPY;
         #    we assume those icon paths work.
         d.clear_screen()
-        await d.show_icon(Icons.DUCK, color=display.YELLOW, interval_ms=1500)
-        print("3/12: show_icon(Icons.DUCK), async icon render + interval_ms hold")
+        await d.show_icon(Emojis.DUCK, color=display.YELLOW, interval_ms=1500)
+        print("3/12: show_icon(Emojis.DUCK), async icon render + interval_ms hold")
 
         # 4) show_arrow(Arrows.SOUTH). Stage 1 used NORTH; we assume that
         #    arrow path works.
@@ -192,17 +192,17 @@ async def main() -> None:
         #    leaves this shared image PURPLE.
         _big_image.recolor(display.CYAN)
         for _offset in (0, 3, 5, -2, 8):
-            await _big_image.show_image(offset=_offset, interval_ms=900)
-            print(f"8/12: Image.show_image(offset={_offset}) rendered")
-        print("8/12: Image.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
+            await d.show_image(_big_image, offset=_offset, interval_ms=900)
+            print(f"8/12: Display.show_image(offset={_offset}) rendered")
+        print("8/12: Display.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
 
         # 9) scroll_image walks the same image one column per frame.
         #    PURPLE so it is distinct from step 8's CYAN. Step 8 recolors
         #    back to CYAN at the start of the next cycle.
         d.clear_screen()
         _big_image.recolor(display.PURPLE)
-        await _big_image.scroll_image(step=1, interval_ms=250)
-        print("9/12: Image.scroll_image, full-width scroll animation (PURPLE, vs. step 8's CYAN)")
+        await d.scroll_image(_big_image, step=1, interval_ms=250)
+        print("9/12: Display.scroll_image, full-width scroll animation (PURPLE, vs. step 8's CYAN)")
 
         # 10) Slow white scroll gathered with a Tier-1 fill after 1 s.
         #     fill calls _acquire, so the scroll should return early.
@@ -216,7 +216,7 @@ async def main() -> None:
         _t0 = time.monotonic()
         try:
             await asyncio.gather(
-                _big_image.scroll_image(step=1, interval_ms=400),
+                d.scroll_image(_big_image, step=1, interval_ms=400),
                 _trigger_cancellation_after(_interrupt_at_s),
             )
             _elapsed = time.monotonic() - _t0
@@ -275,14 +275,14 @@ async def main() -> None:
         _t0 = time.monotonic()
         try:
             await asyncio.gather(
-                _big_image.scroll_image(step=_step_12, interval_ms=_interval_ms_12),
+                d.scroll_image(_big_image, step=_step_12, interval_ms=_interval_ms_12),
                 _trigger_rotation_after(_rotate_at_s_12, 180),
             )
             _elapsed_12 = time.monotonic() - _t0
             _not_cancelled_12 = _elapsed_12 >= (_full_length_s_12 - 0.5)
             _status_12 = "OK" if _not_cancelled_12 else "MISMATCH"
             print(
-                f"12/12: rotate-while-scrolling (Image.scroll_image), elapsed={_elapsed_12:.2f}s "
+                f"12/12: rotate-while-scrolling (Display.scroll_image), elapsed={_elapsed_12:.2f}s "
                 f"vs rotate-at={_rotate_at_s_12:.2f}s vs uninterrupted-full-length={_full_length_s_12:.2f}s "
                 f"[{_status_12}] (set_rotation must NOT shorten the scroll, contrast step 10) "
                 f"-- watch for the same motion mirrored in place (not turned 90 degrees, unlike step 11)"

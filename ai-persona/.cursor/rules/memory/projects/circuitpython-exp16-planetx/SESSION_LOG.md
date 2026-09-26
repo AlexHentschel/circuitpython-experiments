@@ -142,6 +142,24 @@ Procedural session notes for finished items are collapsed to start, end, result,
 - **Not done:** on-device look at `show_string("STAGE2")`. Other 2026-09-21 findings are unchanged.
 - **Re-read later 2026-09-25** (question: is the per-column flush addressed?): yes in source. Line 279 `pixels.show()` is at function-body indent, after `for x`. `show_string` calls `_render_ring_window` once per step (line 935) and then sleeps. `interval_ms=0` still sleeps 0 once per column; each step is one latch of a finished frame.
 
+## 2026-09-25 — `Icon` class replaces `Image` for the catalog; `ICONS`→`EMOJIS` clean rename (implemented)
+
+Separate design thread from the cancellation-chaining brainstorm above (both touch `core.py`, different classes, no interaction). Alex: "I am slowly tending towards a more self-contained API that is clearer in itself rather than partially mirroring existing APIs," proposed three changes, evaluated in chat, then confirmed and applied same session:
+
+- New `Icon` class (`__slots__ = ("_data",)` — WIDTH×HEIGHT monochrome, no width/multi/color fields at all; not an `Image` subclass). New `create_icon(pattern_str) -> Icon` (mono only, no `color` param; reuses `Image.from_pattern`'s parse path).
+- `ICONS`/`ICON_NAMES` → `EMOJIS`/`EMOJI_NAMES` (`icons.py`); `Icons` → `Emojis` (`core.py`); clean rename, no back-compat aliases (Alex: "please apply clean rename" — no external consumers).
+- `Emojis`/`Arrows` namespace classes now built as `Icon` instances (`_build_icon_namespace`, was `_build_image_namespace`).
+- `render_icon`/`show_icon` lose the `offset` parameter (checked every call site across `code.py`/`code_stage0-3.py`: never passed, always `0`; `Icon`'s fixed `WIDTH` makes any nonzero value an immediate `IndexError` regardless).
+- `render_arrow`/`show_arrow` kept as separate public names (not merged into `render_icon`/`show_icon` — `Notes/student-api-portability.md` § G3 locks both as distinct MakeCode-parity operations) but now one-line delegates to `render_icon`/`show_icon`.
+- Confirmed multi-color WIDTH×HEIGHT patterns stay `Image` forever (Alex: "yes") — `Icon` never grows a multi-color mode.
+- Bonus finding surfaced during evaluation: `.recolor()` on a catalog `Image` was already dead for every real call path (`render_icon`/`show_icon`/`render_arrow`/`show_arrow` always pass `color=` and never read the instance's stored color) — confirmed via grep that `.recolor()` is only ever called on `_big_image` (a `create_big_image` scrollable `Image`), never on a catalog entry. `Icon` having no color field makes that former footgun structurally impossible instead of merely documented (README's old "Sharing hazard" note).
+
+**Files touched:** `lib/display/{icons.py, core.py, __init__.py, bitmap_codec.py, README.md}`, `{code.py, code_stage0-2}.py` (call sites + `code_stage1.py`'s `_ring_image`→`_ring_icon` via `create_icon`), `tests/{test_icons_data.py (~20 refs + 7 test-name renames), test_font_spacing.py, test_pattern_codec.py}`. `code_stage3.py` untouched (only uses `Arrows`, name unchanged). Verified: host `tests/` 178 passed (venv `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode`), `py_compile` clean on every touched file. **Not yet done:** on-device run — `code_stage1.py` step 5 (`create_icon`) has no prior host-test coverage of that specific new function (thin wrapper over the already-tested `Image.from_pattern` mono path, but still first-run-on-hardware).
+
+Supersedes the naming used in the 2026-09-21 "Icons catalog: generate the class body" entry below (`class Icons`/`ICON_NAMES` → would now be `class Emojis`/`EMOJI_NAMES`) — that entry's core recommendation (generate the namespace class body for completion, replacing `type()`+`setattr`) is otherwise unaffected and still open.
+
+Full reasoning + before/after table: `ai-notes/design/icon-class-and-emoji-rename.md`.
+
 ## 2026-09-25 — Cancellation-fix recommendation (not applied)
 
 - Alex asked to see the half-implemented cancellation rule and a recommended fix. No code change.

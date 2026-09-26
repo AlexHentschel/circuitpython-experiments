@@ -1,7 +1,7 @@
 """
 Shape, value-range, LightTower name-alignment, and ASCII↔byte tests for ``display.icons``.
 
-``test_pattern_codec.test_icons_round_trip`` only checks codec invertibility
+``test_pattern_codec.test_emojis_round_trip`` only checks codec invertibility
 (bytes → generated pattern → bytes). It cannot catch an icon whose *comments
 and bytes agree with each other* but disagree with MakeCode. The tests below
 split that: comments must encode to the stored bytes, and named MakeCode
@@ -13,22 +13,22 @@ import re
 
 from display._constants import WIDTH, HEIGHT
 from display.bitmap_codec import colmajor_to_pattern, pattern_to_colmajor
-from display.icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
+from display.icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
 
 
-EXPECTED_ICON_COUNT = 40
+EXPECTED_EMOJI_COUNT = 40
 EXPECTED_ARROW_COUNT = 8
-LIGHTHOUSE_ICONS = ("YES", "NO", "DIAMOND")
+LIGHTHOUSE_EMOJIS = ("YES", "NO", "DIAMOND")
 LIGHTHOUSE_ARROWS = ("NORTH", "EAST", "SOUTH", "WEST")
 
 
-def test_icons_length():
-    """ICONS is 40 icons × one column-byte per column.
+def test_emojis_length():
+    """EMOJIS is 40 emojis × one column-byte per column.
 
     - Covers: truncated/padded table, WIDTH drift after a 5×5 swap.
-    - Approach: ``len(ICONS)`` vs ``EXPECTED_ICON_COUNT * WIDTH``.
+    - Approach: ``len(EMOJIS)`` vs ``EXPECTED_EMOJI_COUNT * WIDTH``.
     """
-    assert len(ICONS) == EXPECTED_ICON_COUNT * WIDTH
+    assert len(EMOJIS) == EXPECTED_EMOJI_COUNT * WIDTH
 
 
 def test_arrows_length():
@@ -40,31 +40,31 @@ def test_arrows_length():
     assert len(ARROWS) == EXPECTED_ARROW_COUNT * WIDTH
 
 
-def test_icons_is_bytes():
-    """ICONS must be immutable ``bytes`` (not ``bytearray`` / list).
+def test_emojis_is_bytes():
+    """EMOJIS must be immutable ``bytes`` (not ``bytearray`` / list).
 
-    - Covers: accidental mutable backing that ``Image`` slices would share.
-    - Approach: ``isinstance(ICONS, bytes)``.
+    - Covers: accidental mutable backing that ``Icon`` slices would share.
+    - Approach: ``isinstance(EMOJIS, bytes)``.
     """
-    assert isinstance(ICONS, bytes)
+    assert isinstance(EMOJIS, bytes)
 
 
 def test_arrows_is_bytes():
     """ARROWS must be immutable ``bytes`` (not ``bytearray`` / list).
 
-    - Covers: same shared-mutation hazard as ICONS.
+    - Covers: same shared-mutation hazard as EMOJIS.
     - Approach: ``isinstance(ARROWS, bytes)``.
     """
     assert isinstance(ARROWS, bytes)
 
 
-def test_icon_names_length_matches_data():
-    """One ICON_NAMES entry per WIDTH-byte slot in ICONS.
+def test_emoji_names_length_matches_data():
+    """One EMOJI_NAMES entry per WIDTH-byte slot in EMOJIS.
 
     - Covers: name list vs bitmap table drifting (extra/missing names or slots).
-    - Approach: ``len(ICON_NAMES) == len(ICONS) // WIDTH == EXPECTED_ICON_COUNT``.
+    - Approach: ``len(EMOJI_NAMES) == len(EMOJIS) // WIDTH == EXPECTED_EMOJI_COUNT``.
     """
-    assert len(ICON_NAMES) == len(ICONS) // WIDTH == EXPECTED_ICON_COUNT
+    assert len(EMOJI_NAMES) == len(EMOJIS) // WIDTH == EXPECTED_EMOJI_COUNT
 
 
 def test_arrow_names_length_matches_data():
@@ -76,13 +76,13 @@ def test_arrow_names_length_matches_data():
     assert len(ARROW_NAMES) == len(ARROWS) // WIDTH == EXPECTED_ARROW_COUNT
 
 
-def test_icon_names_unique():
-    """ICON_NAMES has no duplicate slot labels.
+def test_emoji_names_unique():
+    """EMOJI_NAMES has no duplicate slot labels.
 
-    - Covers: two names pointing at the same conceptual icon (silent overwrite on the wrapper class).
+    - Covers: two names pointing at the same conceptual emoji (silent overwrite on the wrapper class).
     - Approach: ``set`` cardinality vs list length.
     """
-    assert len(set(ICON_NAMES)) == len(ICON_NAMES)
+    assert len(set(EMOJI_NAMES)) == len(EMOJI_NAMES)
 
 
 def test_arrow_names_unique():
@@ -94,13 +94,13 @@ def test_arrow_names_unique():
     assert len(set(ARROW_NAMES)) == len(ARROW_NAMES)
 
 
-def test_icon_names_are_identifiers():
-    """Each ICON_NAMES string is a legal Python identifier (``Icons.HEART`` etc.).
+def test_emoji_names_are_identifiers():
+    """Each EMOJI_NAMES string is a legal Python identifier (``Emojis.HEART`` etc.).
 
     - Covers: names that cannot become attributes (spaces, leading digits, hyphens).
     - Approach: ``str.isidentifier`` on every name.
     """
-    assert all(n.isidentifier() for n in ICON_NAMES)
+    assert all(n.isidentifier() for n in EMOJI_NAMES)
 
 
 def test_arrow_names_are_identifiers():
@@ -112,14 +112,14 @@ def test_arrow_names_are_identifiers():
     assert all(n.isidentifier() for n in ARROW_NAMES)
 
 
-def test_lighthouse_icon_names_present():
+def test_lighthouse_emoji_names_present():
     """LightTower student ops can name YES, NO, and DIAMOND.
 
     - Covers: 8×8-era names dropped or renamed during the 5×5 port.
-    - Approach: membership of ``LIGHTHOUSE_ICONS`` in ``ICON_NAMES`` (presence only, not pixels).
+    - Approach: membership of ``LIGHTHOUSE_EMOJIS`` in ``EMOJI_NAMES`` (presence only, not pixels).
     """
-    for name in LIGHTHOUSE_ICONS:
-        assert name in ICON_NAMES
+    for name in LIGHTHOUSE_EMOJIS:
+        assert name in EMOJI_NAMES
 
 
 def test_lighthouse_arrow_names_present():
@@ -144,8 +144,8 @@ def test_yes_no_diamond_bitmaps_are_nonzero():
     - Covers: name present but the slot is empty (wrong index, zeros pasted).
     - Approach: ``any(blob)`` on each LightTower icon slice. Does not check the picture.
     """
-    for name in LIGHTHOUSE_ICONS:
-        blob = _slice_named(ICON_NAMES, ICONS, name)
+    for name in LIGHTHOUSE_EMOJIS:
+        blob = _slice_named(EMOJI_NAMES, EMOJIS, name)
         assert any(blob), f"{name} bitmap is empty"
 
 
@@ -161,7 +161,7 @@ def test_compass_arrow_bitmaps_are_nonzero():
         assert len(blob) == WIDTH
 
 
-_ICONS_PY = Path(__file__).resolve().parents[1] / "lib" / "display" / "icons.py"
+_EMOJIS_PY = Path(__file__).resolve().parents[1] / "lib" / "display" / "icons.py"
 _NAME_LINE = re.compile(r"^    # \d+: ([A-Z0-9_]+)\s*$")
 _GRID_LINE = re.compile(r"^    #    ((?:[.#] ){4}[.#])\s*$")
 _BYTES_LINE = re.compile(r"^    (0x[0-9A-Fa-f]{2}(?:, 0x[0-9A-Fa-f]{2}){4}),?\s*$")
@@ -206,11 +206,11 @@ def test_ascii_comments_encode_to_following_bytes():
 
     - Covers: comment art drifting from the hex beside it (typo, missed row, bit-order slip).
     - Does not cover: both comment and hex copying a wrong upstream (see MakeCode fixtures).
-    - Approach: parse every named block in ``icons.py``; names must be ICON_NAMES then ARROW_NAMES;
+    - Approach: parse every named block in ``icons.py``; names must be EMOJI_NAMES then ARROW_NAMES;
       ``pattern_to_colmajor(comments)`` equals the hex line; ``colmajor_to_pattern(hex)`` equals comments.
     """
-    blocks = list(_parse_comment_blocks(_ICONS_PY.read_text()))
-    assert [name for name, _, _ in blocks] == list(ICON_NAMES) + list(ARROW_NAMES)
+    blocks = list(_parse_comment_blocks(_EMOJIS_PY.read_text()))
+    assert [name for name, _, _ in blocks] == list(EMOJI_NAMES) + list(ARROW_NAMES)
     for name, pattern, hex_blob in blocks:
         encoded = pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT)
         assert encoded == hex_blob, f"{name}: comments encode to {encoded.hex()}, hex line is {hex_blob.hex()}"
@@ -219,15 +219,15 @@ def test_ascii_comments_encode_to_following_bytes():
 
 
 def test_stored_bytes_match_comment_encoded_bytes():
-    """Imported ``ICONS`` / ``ARROWS`` slices must equal the hex line after each comment block.
+    """Imported ``EMOJIS`` / ``ARROWS`` slices must equal the hex line after each comment block.
 
     - Covers: table bytes edited without updating the comment hex (or vice versa).
     - Approach: parse comment-block hex; compare to ``_slice_named`` of the imported tables.
     """
-    blocks = list(_parse_comment_blocks(_ICONS_PY.read_text()))
+    blocks = list(_parse_comment_blocks(_EMOJIS_PY.read_text()))
     for name, _, hex_blob in blocks:
-        if name in ICON_NAMES:
-            stored = _slice_named(ICON_NAMES, ICONS, name)
+        if name in EMOJI_NAMES:
+            stored = _slice_named(EMOJI_NAMES, EMOJIS, name)
         else:
             stored = _slice_named(ARROW_NAMES, ARROWS, name)
         assert stored == hex_blob, f"{name}: table slice {stored.hex()} != comment hex {hex_blob.hex()}"
@@ -235,7 +235,7 @@ def test_stored_bytes_match_comment_encoded_bytes():
 
 # Independent of icons.py — MakeCode grids from the 2026-09-04 attached screenshots.
 # Catches the shared-derivation case where comments and bytes both copy a wrong Exp09 source.
-MAKECODE_ICON_PATTERNS = {
+MAKECODE_EMOJI_PATTERNS = {
     "GHOST": "\n".join(
         (
             ". # # # .",
@@ -257,14 +257,14 @@ MAKECODE_ICON_PATTERNS = {
 }
 
 
-def test_makecode_icon_fixtures_match_stored_bytes():
+def test_makecode_emoji_fixtures_match_stored_bytes():
     """GHOST and LEFT_TRIANGLE match MakeCode grids that do not live in ``icons.py``.
 
     - Covers: comments + hex both copied from a wrong Exp09 source (shared-derivation).
-    - Approach: encode each fixture with ``pattern_to_colmajor``; compare to the named ICONS slice;
+    - Approach: encode each fixture with ``pattern_to_colmajor``; compare to the named EMOJIS slice;
       decode the slice and compare to the fixture string.
     """
-    for name, pattern in MAKECODE_ICON_PATTERNS.items():
-        stored = _slice_named(ICON_NAMES, ICONS, name)
+    for name, pattern in MAKECODE_EMOJI_PATTERNS.items():
+        stored = _slice_named(EMOJI_NAMES, EMOJIS, name)
         assert stored == pattern_to_colmajor(pattern, width=WIDTH, height=HEIGHT)
         assert colmajor_to_pattern(stored, width=WIDTH, height=HEIGHT) == pattern

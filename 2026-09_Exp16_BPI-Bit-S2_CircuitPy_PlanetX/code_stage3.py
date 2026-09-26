@@ -5,10 +5,10 @@ events while a display loop scrolls an image, then a short status string.
 A press handler calls ``Display.render_arrow``, which cancels whichever
 Tier-2 animation is in flight.
 
-Stage 2 walked the five async ``show_*`` wrappers, ``Image.show_image`` /
+Stage 2 walked the five async ``show_*`` wrappers, ``Display.show_image`` /
 ``scroll_image``, and the timer-triggered cancellation check (steps 2-10).
-We assume that works, and use ``show_string`` / ``scroll_image`` here as the
-background animation.
+We assume that works, and use ``show_string`` / ``Display.scroll_image`` here
+as the background animation.
 
   (a) Each module owns its scanner. ``run()`` is the coroutine that keeps
       reading that scanner and calling the handler for the button that was
@@ -24,8 +24,9 @@ background animation.
       ``asyncio.gather``. A press handler runs inside that module's
       ``run()`` and writes the same ``display`` object the animation coroutine
       uses. CircuitPython asyncio is single-threaded and cooperative:
-      coroutines interleave only at ``await``, so ``Display._acquire`` /
-      ``_is_cancelled`` (see ``core.py``) is not updated from two places at once.
+      coroutines interleave only at ``await``, so ``Display._acquire`` / the
+      returned ``Token``'s ``is_expired`` (see ``core.py``) is not updated
+      from two places at once.
 
 What runs:
 
@@ -33,7 +34,7 @@ What runs:
   2. Each cycle, ``asyncio.sleep(0.5)`` while both ``run()`` coroutines
      are running. Serial prints elapsed time and ``[OK]`` when it is
      within +/-10 ms.
-  3. ``Image.scroll_image`` — the long animation a press can cut short.
+  3. ``Display.scroll_image`` — the long animation a press can cut short.
      Restarted every cycle, after rotation 0 and brightness 0.10.
   4. ``show_string`` of the press counts (``A0B0C0D0``). No spaces, so the
      scroll stays short.
@@ -63,11 +64,10 @@ ab = OnboardButtons()
 px = PlanetXButtonSensor(port=J3)
 print("Stage 3: OnboardButtons() + PlanetXButtonSensor(port=J3) constructed OK")
 
-# Background animation, built once. 10 columns x 5 rows (2 * WIDTH x HEIGHT,
-# the create_big_image contract), same shape family as Stage 2's so a human
-# comparing the two stages visually recognizes it as "the same kind of
-# thing," just now interruptible by a real button instead of a synthetic
-# timer.
+# Background animation, built once. 10 columns x 5 rows (2 * WIDTH x HEIGHT),
+# same shape family as Stage 2's so a human comparing the two stages
+# visually recognizes it as "the same kind of thing," just now
+# interruptible by a real button instead of a synthetic timer.
 _BIG_PATTERN = """
 # . . . . # . . . #
 . # # # . # # . . #
@@ -75,7 +75,7 @@ _BIG_PATTERN = """
 . # # # . # . . # #
 . . . . # # . . . #
 """
-_big_image = display.create_big_image(_BIG_PATTERN, display.CYAN)
+_big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
 
 # Per-letter feedback: a distinct color + arrow direction so a human
 # watching can tell at a glance which button just fired, purely by what
@@ -175,8 +175,8 @@ async def _display_loop() -> None:
         #    convention used throughout this test series.
         d.clear_screen()
         _big_image.recolor(display.CYAN)
-        await _big_image.scroll_image(step=1, interval_ms=300)
-        print("3/4: Image.scroll_image, background animation (press any button to interrupt it)")
+        await d.scroll_image(_big_image, step=1, interval_ms=300)
+        print("3/4: Display.scroll_image, background animation (press any button to interrupt it)")
 
         # 4) Status line: live per-letter press counts, confirming Tier 2
         #    keeps rendering fresh frames every cycle regardless of whether

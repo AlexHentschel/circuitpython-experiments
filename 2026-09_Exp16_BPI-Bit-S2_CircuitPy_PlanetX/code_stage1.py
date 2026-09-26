@@ -4,7 +4,7 @@ Sync rendering only. This script does not import ``asyncio`` and does not
 use the button modules.
 
 Stage 0 walked ``fill``, ``clear_screen``, ``set_pixel``, ``render_icon``
-(``Icons.HEART``), ``set_brightness``, ``set_rotation(90)``, and the
+(``Emojis.HEART``), ``set_brightness``, ``set_rotation(90)``, and the
 brightness-floor edge case. We assume that works, and use those calls here
 as setup. This script adds the calls Stage 0 did not walk.
 
@@ -15,9 +15,9 @@ What runs:
   2. ``render_arrow(Arrows.NORTH)``.
   3. ``set_pixel`` then ``get_pixel`` at (2, 2). Serial prints ``[OK]``
      when the read-back matches ``MAGENTA``.
-  4. ``render_icon(Icons.HAPPY)`` at rotations 0, 90, 180, and 270.
-  5. ``create_image`` of a ring, then ``render_icon`` of that image.
-     ``Image.from_pattern`` decoded it; step 1 writes the grid directly.
+  4. ``render_icon(Emojis.HAPPY)`` at rotations 0, 90, 180, and 270.
+  5. ``Icon.create`` of a ring, then ``render_icon`` of that icon.
+     ``Icon.create`` decoded it; step 1 writes the grid directly.
   6. ``fill(colorwheel(hue))`` at hues 0, 85, and 170.
 
 Each cycle starts at rotation 0 and brightness 0.20 (the library default).
@@ -27,16 +27,16 @@ The sequence repeats so the script does not fall through to the REPL.
 import time
 
 import display
-from display import Icons, Arrows
+from display import Emojis, Arrows
 
 d = display.display
 
 print("Stage 1: import display OK")
 
 # Constants for steps 1 and 5 -- built once, not per-cycle, matching the
-# module-level Icons/Arrows singletons' own allocate-once pattern. Multiline
+# module-level Emojis/Arrows singletons' own allocate-once pattern. Multiline
 # triple-quoted form, one row per line, columns aligned -- matches
-# bitmap_codec.py's own docstring convention; render_pattern/from_pattern
+# bitmap_codec.py's own docstring convention; render_pattern/Image.create
 # ignore all whitespace, so this is purely for human readability.
 _DIAMOND = """
 . . # . .
@@ -52,7 +52,7 @@ _RING_PATTERN = """
 # . . . #
 # # # # #
 """
-_ring_image = display.create_image(_RING_PATTERN, display.ORANGE)
+_ring_icon = display.Icon.create(_RING_PATTERN)
 
 cycle = 0
 while True:
@@ -83,21 +83,21 @@ while True:
     print(f"3/6: set_pixel(2,2,MAGENTA) -> get_pixel(2,2) = {_readback} [{_match}] -- center LED")
     time.sleep(2)
 
-    # 4) Icons.HAPPY at 0, 90, 180, and 270, then back to 0.
+    # 4) Emojis.HAPPY at 0, 90, 180, and 270, then back to 0.
     #    Stage 0 used HEART at 0 and 90; we assume that path works.
     d.clear_screen()
     for _deg in (0, 90, 180, 270):
         d.set_rotation(_deg)
-        d.render_icon(Icons.HAPPY, color=display.YELLOW)
-        print(f"4/6: render_icon(Icons.HAPPY) at rotation {_deg}deg")
+        d.render_icon(Emojis.HAPPY, color=display.YELLOW)
+        print(f"4/6: render_icon(Emojis.HAPPY) at rotation {_deg}deg")
         time.sleep(1.5)
     d.set_rotation(0)
 
-    # 5) The ring Image was built once above. render_icon draws it.
-    #    from_pattern decoded it; step 1's render_pattern does not.
+    # 5) The ring Icon was built once above. render_icon draws it.
+    #    Icon.create decoded it; step 1's render_pattern does not.
     d.clear_screen()
-    d.render_icon(_ring_image, color=display.ORANGE)
-    print("5/6: create_image(ring pattern) + render_icon -- Image.from_pattern decode path")
+    d.render_icon(_ring_icon, color=display.ORANGE)
+    print("5/6: Icon.create(ring pattern) + render_icon -- Icon decode path")
     time.sleep(2)
 
     # 6) colorwheel(hue) returns an RGB tuple; fill paints the matrix with it.

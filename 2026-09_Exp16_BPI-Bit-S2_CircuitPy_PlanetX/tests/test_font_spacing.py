@@ -12,7 +12,7 @@ from display.font_makecode_5.spaced_glyphs import (
     _RECORD_STRIDE,
     _SPACED_GLYPHS,
 )
-from display.icons import ICONS, ICON_NAMES
+from display.icons import EMOJIS, EMOJI_NAMES
 
 
 def _cols_from_rows(rows: list[str]) -> bytes:
@@ -143,9 +143,9 @@ def test_tofu_matches_stripped_small_square():
 
     - Covers: ``_TOFU_INK`` drifting from the named icon, or keeping the icon's
       lead/trail zeros.
-    - How: slice ``ICONS`` at ``ICON_NAMES.index("SMALL_SQUARE")``; drop leading
+    - How: slice ``EMOJIS`` at ``EMOJI_NAMES.index("SMALL_SQUARE")``; drop leading
       and trailing zero columns; compare to ``_TOFU_INK``.
     """
-    slot = ICON_NAMES.index("SMALL_SQUARE")
-    native = ICONS[slot * WIDTH : (slot + 1) * WIDTH]
+    slot = EMOJI_NAMES.index("SMALL_SQUARE")
+    native = EMOJIS[slot * WIDTH : (slot + 1) * WIDTH]
     assert _trim_ink(native) == _TOFU_INK

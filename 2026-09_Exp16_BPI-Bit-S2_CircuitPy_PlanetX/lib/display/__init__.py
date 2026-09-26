@@ -2,8 +2,9 @@
 MakeCode-style display library for a 5x5 WS2812 NeoPixel matrix.
 
 Covers hardware wiring, the two-tier sync+async API, cooperative
-multitasking via a cancellation-token counter, the column-major bitmap
-format, and the Display/Image coupling to module-level state.
+multitasking via a cancellation ``Token`` returned by every display-
+mutating method, the column-major bitmap format, and the Display/Image
+coupling to module-level state.
 
 See ``README.md`` in this package for architecture and design rationale.
 """
@@ -36,13 +37,13 @@ from ._constants import (
     DEEPPINK,
     OFF,
 )
-from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
+from .icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
 
 # core.py requires board/neopixel/rainbowio/adafruit_bitmap_font. On
 # CPython (e.g. pytest hosts) those are absent; skip the re-export so
 # pure sub-modules remain importable for host-side tests. On device the
 # import always succeeds.
-# ``Icons`` / ``Arrows`` are constructed inside core.py (they are Image
+# ``Emojis`` / ``Arrows`` are constructed inside core.py (they are Icon
 # instances), so they ship with the hardware import group too.
 try:
     import board  # noqa: F401 -- presence check for CircuitPython runtime
@@ -55,11 +56,11 @@ if _HAS_HARDWARE:
     from .core import (  # noqa: F401
         Display,
         Image,
-        Icons,
+        Icon,
+        Token,
+        Emojis,
         Arrows,
         display,
         color,
         colorwheel,
-        create_image,
-        create_big_image,
     )

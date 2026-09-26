@@ -4,13 +4,14 @@ Runtime display engine for the 5x5 WS2812 NeoPixel matrix (BPI-Bit-S2).
 Owns the live NeoPixel buffer, the coordinate Look-Up Table [LUT] (populated via
 ``geometry.build_lut``), the MakeCode-style 5×5 font (sibling
 ``font_makecode_5/`` spaced table, laid out by ``text_layout``), and the
-``Display`` + ``Image`` classes.
+``Display``, ``Image``, and ``Icon`` classes.
 
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, clear_screen,
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
-  Tier 2 (async): show_leds, show_icon, show_arrow, show_string, show_number,
-                   pause.  Require ``await`` from asyncio code.
+  Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
+                   show_string, show_number, pause.  Require ``await`` from
+                   asyncio code.
   Lifecycle:      deinit — releases the data pin / RMT peripheral; the module-level
                    ``display`` instance is unusable afterwards (no re-init path).
 
@@ -18,7 +19,11 @@ Cancellation policy: any display-mutating method cancels an in-progress
 Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
 one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
 ``set_rotation`` — deliberately non-cancelling so a running animation is
-not disturbed when the user dims the matrix or rotates the frame.
+not disturbed when the user dims the matrix or rotates the frame. Every
+Tier 2 method returns a ``Token``; check ``token.is_expired`` to see
+whether a later display operation has since superseded it. Tier 1
+methods (and ``deinit``) do not return a token — there is nothing to
+await after them, so there is nothing meaningful to have been cancelled.
 ``set_rotation`` not cancelling is safe by construction (in-place LUT
 mutation + every render primitive re-reading ``_LUT`` fresh each frame +
 single-threaded cooperative ``asyncio`` giving atomicity) — see
@@ -26,7 +31,7 @@ single-threaded cooperative ``asyncio`` giving atomicity) — see
 full argument.
 
 Bitmap encoding (used throughout this module): images are stored one column
-at a time (not one row at a time). Monochrome icons, arrows, glyphs, and
+at a time (not one row at a time). Monochrome icons/arrows (``Icon``), glyphs, and
 ``Image`` instances are stored as *column-major bytes* — one byte per column,
 with bit ``y`` of the byte encoding the pixel at display row ``y`` (bit 0 = top row). A *column byte* is therefore one such byte,
 covering one column of up to ``_MAX_HEIGHT_PER_COLUMN_BYTE`` (= 8)
@@ -57,7 +62,7 @@ from rainbowio import colorwheel  # noqa: F401 — re-export for user convenienc
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
 from .geometry import build_lut
 from .text_layout import SpacedGlyphColumnFeeder
-from .icons import ICONS, ARROWS, ICON_NAMES, ARROW_NAMES
+from .icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
 
 
 # ---------------------------------------------------------------------------
@@ -83,10 +88,10 @@ _LUT = build_lut(0)
 
 # ---------------------------------------------------------------------------
 # Runtime pattern parsers:
-#   - ``_iter_pattern_rows`` for cold path. Used by ``Image.from_pattern``,
-#     ``create_image``, ``create_big_image``. Lenient: collapses *all* Python
-#     whitespace via ``"".join(raw.split())`` (matches the design-time idiom
-#     in ``bitmap_codec.pattern_to_colmajor``). Allocations are not
+#   - ``_iter_pattern_rows`` for cold path. Used by ``Image.create``,
+#     ``Icon.create``. Lenient: collapses *all* Python whitespace via
+#     ``"".join(raw.split())`` (matches the design-time idiom in
+#     ``bitmap_codec.pattern_to_colmajor``). Allocations are not
 #     performance-critical here.
 #   - ``_write_pattern_on_the_fly`` for hot path. Used by ``Display.render_pattern``.
 #     One scan of the source string; skips space / tab / CR; writes cells
@@ -105,8 +110,8 @@ def _iter_pattern_rows(pattern_str: str):
     idiom in ``bitmap_codec.pattern_to_colmajor``. Blank lines (any amount
     of whitespace) are skipped.
 
-    Cold-path callers: ``Image.from_pattern``, ``create_image``,
-    ``create_big_image``. Per-frame render uses ``_write_pattern_on_the_fly``.
+    Cold-path callers: ``Image.create``, ``Icon.create``.
+    Per-frame render uses ``_write_pattern_on_the_fly``.
     """
     for raw in pattern_str.split("\n"):
         row = "".join(raw.split())
@@ -289,17 +294,19 @@ def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, in
 class Image:
     """Bitmap image for the LED matrix.
 
-    An image is always ``HEIGHT`` rows tall. Its width is independent of the
-    display and may be smaller, equal to, or **larger** than the ``WIDTH``
-    physical columns of the LED matrix:
-      - ``create_image`` builds an exactly-``WIDTH`` image.
-      - ``create_big_image`` builds a ``2 * WIDTH`` image.
-      - ``from_pattern`` accepts any width (the widest kept row).
+    An image is always ``HEIGHT`` rows tall (see ``height``). Its width (see
+    ``width``) is independent of the display and may be smaller, equal to,
+    or **larger** than the ``WIDTH`` physical columns of the LED matrix —
+    ``create`` accepts any width (the widest kept row). There is no
+    dedicated strict-shape constructor; check properties ``.width``/``.height``
+    yourself (e.g. ``if img.width != WIDTH: raise ...``) in the rare cases
+    where you need to enforce an exact size.
     An image can be monochrome (one shared color, recolorable via ``recolor``)
     or multi-color (a fixed color per pixel).
     An image wider than the display is shown a ``WIDTH``-column window at a
-    time: ``show_image(offset)`` picks the window and ``scroll_image`` animates
-    it across the full width — image columns outside that window are trimmed.
+    time: ``Display.show_image(offset)`` picks the window and
+    ``Display.scroll_image`` scrolls it across the full width — image
+    columns outside that window are trimmed.
     Where the display window overhangs the image (a narrower image, or an ``offset``
     past an edge), the uncovered display columns render as ``OFF``.
 
@@ -318,10 +325,11 @@ class Image:
     ) -> None:
         """Build an image from already-encoded pixels.
 
-        Prefer ``from_pattern``, ``create_image``, or ``create_big_image``.
-        ``width`` is this image's column count (independent of the LED
-        matrix). ``multi`` is True for a fixed color per pixel, False for
-        one shared mono color (``color``).
+        Usage outside of this module is discouraged, because this method applies no checks!
+        Please call ``Image.create(…)`` to instantiate an ``Image``.
+        Input ``width`` is this image's column count (independent of the LED
+        matrix). Input ``multi`` is True for an individual color per pixel, False for
+        one shared mono color for all pixels (``color``).
         """
         self._data = data
         self._width = width
@@ -329,21 +337,21 @@ class Image:
         self._color = color
 
     @staticmethod
-    def from_pattern(
+    def create(
         pattern_str: str,
         color: dict[str, tuple[int, int, int]] | tuple[int, int, int] = WHITE,
     ) -> Image:
         """Parse a pattern string into an Image.
 
         color: RGB tuple (mono) or dict {char: RGB} (multi-color).
-        The returned Image is reusable across multiple ``show_image`` /
-        ``scroll_image`` calls.
+        The returned Image is reusable across multiple ``Display.show_image``
+        / ``Display.scroll_image`` calls.
 
         Rows past ``HEIGHT`` are dropped; short rows are padded with OFF.
         Image width is the widest of the kept rows. Unknown chars in mono
         mode render as OFF. Whitespace (spaces, tabs, CRs) in the pattern
-        is ignored. For strict size validation, use ``create_image`` or
-        ``create_big_image``.
+        is ignored. For strict size validation, check the returned
+        ``.width``/``.height`` yourself.
         """
         # Internal encoding: mono images store column-major bytes (one byte
         # per column, bit y = row y counted from top); multi-color stores a flat
@@ -374,11 +382,22 @@ class Image:
     def width(self) -> int:
         """Column count of this image, not the physical display width.
 
-        May be smaller, equal to, or larger than ``WIDTH``. ``create_image``
-        is exactly ``WIDTH``; ``create_big_image`` is ``2 * WIDTH``;
-        ``from_pattern`` uses the widest kept row. Read-only.
+        May be smaller, equal to, or larger than ``WIDTH``. Factory method ``create``
+        sets the Image width to the widest row on the LED matrix (ignoring rows overflowing ``HEIGHT``). Read-only.
         """
         return self._width
+
+    @property
+    def height(self) -> int:
+        """Row count of this image — always ``HEIGHT``. Read-only.
+
+        Not stored per-instance (every ``Image`` is exactly ``HEIGHT`` rows
+        tall by construction); exists alongside ``width`` so callers can
+        validate an image's exact shape themselves — e.g.
+        ``if img.width != WIDTH or img.height != HEIGHT: raise ValueError(...)``
+        — without a dedicated strict-shape constructor.
+        """
+        return HEIGHT
 
     @property
     def columns(self) -> bytes | tuple:
@@ -386,40 +405,69 @@ class Image:
 
         Intended for composability (e.g. combining two same-width mono
         ``Image``s column-by-column). Read-only: mutate via ``recolor`` (mono
-        color only) or by constructing a new ``Image``.
+        color only), or get an independent copy via ``clone()``.
         """
         return self._data
 
     def recolor(self, new_color: tuple[int, int, int]) -> None:
         """Change a mono Image's display color in place. No-op for multi-color.
 
-        In-place mutation: recoloring a shared ``Icons.*`` / ``Arrows.*``
-        instance changes it for every caller (and across coroutines). Build a
-        private copy via ``create_image`` if you need an independent color.
+        In-place mutation: recoloring a shared ``Image`` (e.g. one built once
+        at module scope and reused across calls, like a scrollable
+        big image built via ``create``) changes it for every caller
+        (and across coroutines). Call ``clone()`` first if you need an Image
+        instance whose color can be changed independently without affecting the original.
+
+        ``Icon`` (``Emojis.*`` / ``Arrows.*``) has no color field at all and
+        no ``recolor`` — pass ``color`` to ``render_icon``/``show_icon``
+        instead. This method only exists on ``Image``.
         """
         if not self._multi:
             self._color = new_color
 
-    async def show_image(self, offset: int = 0, interval_ms: int = 0) -> None:
-        """Show a ``WIDTH``-column window of this image, then wait before returning.
+    def clone(self) -> Image:
+        """Return an independent copy of this Image.
 
+        Safe to share the backing data as-is rather than deep-copying it:
+        ``_data`` is either ``bytes`` (mono) or a ``tuple`` of RGB tuples
+        (multi-color) — both immutable, and nothing in this class ever
+        mutates them in place (only ``recolor`` mutates state, and it only
+        touches ``_color``, a separate field). So the clone is a new
+        instance with its own ``_color``, sharing the same ``_data``.
+
+        Calling ``recolor()`` on the clone (or on the original) afterward
+        affects only that instance — this is the direct way to get an
+        independent color for an ``Image`` you already have (e.g. one built
+        once at module scope and reused, like a scrollable big image)
+        without re-parsing its original pattern string through
+        ``create`` again.
+        """
+        return Image(self._data, self._width, self._multi, self._color)
+
+    async def _show_image(self, offset: int = 0, interval_ms: int = 0) -> Token:
+        """Internal implementation backing ``Display.show_image``.
+
+        Show a ``WIDTH``-column window of this image, then wait before returning.
         ``offset`` is the image column placed at display column 0. It may
         be negative or past the right edge; uncovered display columns are
         ``OFF``. Waits ``interval_ms`` milliseconds before returning
         (0 = return after render). Cancels any prior Tier 2 animation.
         """
-        display._acquire()
+        token = display._acquire()
         self._render_window(offset)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
+        return token
 
-    async def scroll_image(self, step: int = 1, interval_ms: int = 200) -> None:
-        """Scroll through the image, advancing `step` columns per frame, with `interval_ms` milliseconds between frames.
+    async def _scroll_image(self, step: int = 1, interval_ms: int = 200) -> Token:
+        """Internal implementation backing ``Display.scroll_image``.
+
+        Scroll through the image, advancing `step` columns per frame, with `interval_ms` milliseconds between frames.
 
         `step` is a per-frame *incremental* movement of the columns.
         The scroll always starts at position 0; there is no parameter to
-        change the starting position (unlike `show_image`, which can start
-        anywhere, including negative or past the image's right edge).
+        change the starting position (unlike ``Display.show_image``, which
+        can start anywhere, including negative or past the image's right edge).
 
         Cancellable: any newer display operation causes this coroutine to
         return early (see module docstring's cancellation policy).
@@ -436,8 +484,8 @@ class Image:
         pos = 0
         interval_seconds = interval_ms / 1000
         while pos <= max_start:
-            if display._is_cancelled(token):
-                return
+            if token.is_expired:
+                return token
             self._render_window(pos)
             await asyncio.sleep(interval_seconds)
             pos += step
@@ -449,12 +497,13 @@ class Image:
         if pos != max_start + step:  # The following happens if `max_start` is *not* an integer multiple of `step`
             # Note: doing this check after the loop avoids computing `max_start % step` up front
             self._render_window(pos)
+        return token
 
     def _render_window(self, offset: int) -> None:
         """Render a WIDTH-column window of this image at ``offset`` into ``_pixels`` and show().
 
         ``offset`` is the image column shown at display column 0. The image width is independent of the display: it may exceed ``WIDTH``
-        (e.g. a 16-pixel-wide ``create_big_image``, scrolled via ``scroll_image``) or be narrower. Only the window columns
+        (e.g. a 16-pixel-wide image, scrolled via ``Display.scroll_image``) or be narrower. Only the window columns
         ``[offset, offset + WIDTH)`` from ``self._data`` are transferred to the display; any display column not covered by the image
         renders ``OFF`` (e.g. if the picture is narrower than the display, or if offset leaves display columns uncovered).
 
@@ -521,8 +570,8 @@ class Image:
         """
 
         pixels = _pixels
-        # `_LUT` is read fresh on every call (not cached once per animation) --
-        # this is what lets `set_rotation` change a `scroll_image`/`show_image`
+        # `_LUT` is read fresh on every call (not cached once per animation) -- this is
+        # what lets `set_rotation` change a `Display.scroll_image` and `Display.show_image`
         # animation's orientation mid-flight without corrupting it. See
         # README.md § "Rotation during an in-flight Tier 2 animation".
         lut = _LUT
@@ -581,66 +630,122 @@ class Image:
 
 
 # ---------------------------------------------------------------------------
-# Icons / Arrows — Image instances constructed once at import from the bulk
-# ``ICONS`` / ``ARROWS`` bytes; names/ordering come from ``ICON_NAMES`` /
-# ``ARROW_NAMES`` in ``icons.py`` (single source of truth). ``bytes``
-# slicing copies, so each Image owns its own WIDTH-byte backing block;
-# the bulk arrays exist for deterministic ordering, not byte-sharing.
-# Each Image's stored color is WHITE; ``render_icon`` / ``render_arrow``
-# accept a ``color`` kwarg that overrides it at render time.
+# Icon class
 #
-# Sharing hazard: ``Icons.HEART`` / ``Arrows.NORTH`` are module-global
-# singletons. Calling ``.recolor(...)`` on one mutates the shared instance
-# for all callers (and persists across coroutine boundaries). Primary
-# callers (``render_icon`` / ``show_icon`` / ``render_arrow`` / ``show_arrow``)
-# already pass ``color`` as a render-time override, so staying on those is
-# the safe path. If you want a private, mutable copy of an icon bitmap,
-# build one via ``create_image`` from a pattern.
+# A WIDTH x HEIGHT monochrome bitmap shape; by convention always the same dimension as LED
+# matrix. Icon doesn't carry a color value; instead the color is provided as a render-time
+# argument.
+#
+# Deliberately not an ``Image`` subclass: ``Image`` carries ``_width`` /
+# ``_multi`` / ``_color`` slots and a ``recolor`` method that would all be
+# either dead weight or actively misleading on a type whose entire point is
+# "no color, fixed size."
 # ---------------------------------------------------------------------------
-def _build_image_namespace(names: tuple[str, ...], data: bytes) -> type:
-    """Populate a bare class with Image instances indexed by name order."""
-    cls = type("_ImageNamespace", (), {})
+class Icon:
+    """A WIDTH x HEIGHT monochrome bitmap shape (e.g. ``Emojis.HEART``, ``Arrows.NORTH``).
+
+    Carries no color of its own — always rendered with a caller-supplied
+    ``color`` (see methods ``render_icon`` / ``show_icon`` / ``render_arrow`` / ``show_arrow``).
+    Build one from a pattern via ``Icon.create``.
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, data: bytes) -> None:
+        """Build an Icon from already-encoded column-major bytes.
+
+        Usage outside of this module is discouraged, because this method applies no checks!
+        Please call ``Icon.create(…)`` to instantiate an ``Icon``.
+        """
+        self._data = data
+
+    @property
+    def columns(self) -> bytes:
+        """Raw backing data: WIDTH column-major bytes. Read-only."""
+        return self._data
+
+    @staticmethod
+    def create(pattern_str: str) -> Icon:
+        """Create an ``Icon``, up to ``WIDTH`` columns by ``HEIGHT`` rows, from a ``#``/``.`` pattern string.
+
+        Mono only, and no ``color`` parameter — an ``Icon`` carries no color;
+        pass ``color`` at render time (``render_icon`` / ``show_icon``).
+
+        Smaller patterns are accepted: missing rows/columns pad as ``OFF``
+        (bottom/right, since row 0 = top and column 0 = left). Raises
+        ``ValueError`` if the pattern *exceeds* ``WIDTH`` columns or
+        ``HEIGHT`` rows (whitespace and blank lines ignored). For a
+        multi-color bitmap, or one wider than ``WIDTH`` (e.g. a scrollable
+        image), use ``Image.create`` instead.
+        """
+        # Dedicated mono-only parse: an Icon has no color and a fixed WIDTH,
+        # so (unlike Image.create) there is no color-shape branch and
+        # no variable-width bookkeeping. It is verified on the fly, that ``len(row)``
+        # does not exceed ``WIDTH``. We error immediately on the first over-wide
+        # row rather than pre-validating every row's length up front.
+        rows = list(_iter_pattern_rows(pattern_str))
+        row_count = len(rows)
+        if row_count > HEIGHT:
+            raise ValueError(f"Icon.create requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows")
+
+        cols = bytearray(WIDTH)
+        for y in range(row_count):
+            row = rows[y]
+            row_len = len(row)
+            if row_len > WIDTH:
+                raise ValueError(f"Icon.create requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows x {len(row)} columns")
+            for x in range(row_len):
+                if row[x] == "#":
+                    cols[x] |= 1 << y
+        return Icon(bytes(cols))
+
+
+# ---------------------------------------------------------------------------
+# Emojis / Arrows — Icon instances constructed once at import from the bulk
+# ``EMOJIS`` / ``ARROWS`` bytes; names/ordering come from ``EMOJI_NAMES`` /
+# ``ARROW_NAMES`` in ``icons.py`` (single source of truth). ``bytes``
+# slicing copies, so each Icon owns its own WIDTH-byte backing block;
+# the bulk arrays exist for deterministic ordering, not byte-sharing.
+# ---------------------------------------------------------------------------
+def _build_icon_namespace(names: tuple[str, ...], data: bytes) -> type:
+    """Populate a bare class with Icon instances indexed by name order."""
+    cls = type("_IconNamespace", (), {})
     for i, name in enumerate(names):
         start = i * WIDTH
-        setattr(cls, name, Image(data[start : start + WIDTH], WIDTH, False, WHITE))
+        setattr(cls, name, Icon(data[start : start + WIDTH]))
     return cls
 
 
-Icons = _build_image_namespace(ICON_NAMES, ICONS)
-Arrows = _build_image_namespace(ARROW_NAMES, ARROWS)
+Emojis = _build_icon_namespace(EMOJI_NAMES, EMOJIS)
+Arrows = _build_icon_namespace(ARROW_NAMES, ARROWS)
 
 
-def create_image(
-    pattern_str: str,
-    color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
-) -> Image:
-    """Create a WIDTH×HEIGHT Image.
+# ---------------------------------------------------------------------------
+# Cancellation token
+# ---------------------------------------------------------------------------
+class Token:
+    """A display-operation generation marker, returned by every mutating call.
 
-    Raises ``ValueError`` if the pattern is not exactly ``WIDTH`` columns
-    by ``HEIGHT`` rows (whitespace and blank lines ignored).
+    ``is_expired`` starts False and is set True exactly once — by a later
+    ``Display._acquire()`` call — at the moment this generation is
+    superseded. Self-contained: no back-reference to ``Display``, no
+    sequence-number comparison to recompute; check the flag directly.
     """
-    img = Image.from_pattern(pattern_str, color)
-    row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
-    if img.width != WIDTH or row_count != HEIGHT:
-        raise ValueError(f"create_image requires {HEIGHT} rows x {WIDTH} columns; got {row_count} rows x {img.width} columns")
-    return img
 
+    __slots__ = ("_is_expired",)
 
-def create_big_image(
-    pattern_str: str,
-    color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
-) -> Image:
-    """Create a ``2 * WIDTH``-wide Image (scrollable).
+    def __init__(self) -> None:
+        # Read-only from outside this module: ``is_expired`` is a property
+        # backed by ``_is_expired``, so external code can check it but not set
+        # it. ``Display._acquire()`` — the only code allowed to expire a token —
+        # writes ``_is_expired`` directly (module-internal access, not the
+        # public property).
+        self._is_expired = False
 
-    Raises ``ValueError`` if the pattern is not exactly ``2 * WIDTH``
-    columns by ``HEIGHT`` rows.
-    """
-    img = Image.from_pattern(pattern_str, color)
-    row_count = sum(1 for _ in _iter_pattern_rows(pattern_str))
-    expected_w = 2 * WIDTH
-    if img.width != expected_w or row_count != HEIGHT:
-        raise ValueError(f"create_big_image requires {HEIGHT} rows x {expected_w} columns; got {row_count} rows x {img.width} columns")
-    return img
+    @property
+    def is_expired(self) -> bool:
+        """True once a later ``Display._acquire()`` call has superseded this token."""
+        return self._is_expired
 
 
 # ---------------------------------------------------------------------------
@@ -661,29 +766,22 @@ class Display:
         Use the module-level ``display`` instance; do not construct another.
         A second instance would still drive the same LEDs.
         """
-        self._seq = 0
+        self._token = Token()
 
     # — Cancellation token --------------------------------------------------
 
-    def _acquire(self) -> int:
+    def _acquire(self) -> Token:
         """Start a new display-operation generation.
 
-        Increments the sequence counter and returns the new value as a
-        cancellation token. Any Tier 2 animation that captured an earlier
-        token before this call will see ``_is_cancelled(its_token)`` become
-        True on its next check, and should return early. Called internally
-        by every display-mutating method.
+        Expires the previous token (its ``is_expired`` becomes True) and
+        creates a new one which is then returned. Any Tier 2 animation
+        holding the previous token will see its ``is_expired`` become True
+        on its next check, and should return early. Called internally by
+        every display-mutating method.
         """
-        self._seq += 1
-        return self._seq
-
-    def _is_cancelled(self, token: int) -> bool:
-        """True if a display operation newer than ``token`` has started.
-
-        Tier 2 animations check this between frames — on both sides of an
-        ``await`` — and return early when it becomes True.
-        """
-        return self._seq != token
+        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token = Token()
+        return self._token
 
     # — Tier 1: Synchronous rendering primitives ----------------------------
 
@@ -694,8 +792,9 @@ class Display:
     ) -> None:
         """Parse and render a pattern string directly to LEDs.
 
-        Faster than ``create_image`` for one-shot display since it avoids
-        building a persistent bitmap (one parse pass, immediate pixel writes).
+        Faster than building an ``Image`` (e.g. via ``Image.create``)
+        for one-shot display since it avoids building a persistent bitmap
+        (one parse pass, immediate pixel writes).
 
         color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
         Short rows are padded with OFF; rows past HEIGHT are ignored.
@@ -710,30 +809,21 @@ class Display:
         _write_pattern_on_the_fly(pattern, color, pixels, lut, off, WIDTH, HEIGHT)
         pixels.show()
 
-    def render_icon(self, icon: Image, offset: int = 0, color: tuple[int, int, int] = WHITE) -> None:
-        """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
+    def render_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE) -> None:
+        """Render an ``Icon`` (e.g. ``Emojis.HEART``) to the LEDs.
 
-        ``offset`` is the source column placed at display column 0. The draw
-        reads ``WIDTH`` columns from there (``icon.columns[offset + x]`` for
-        ``x`` in ``0 .. WIDTH-1``). Catalog icons are exactly ``WIDTH`` columns,
-        so only ``offset == 0`` is in range. A wider mono image can use a
-        positive offset that still leaves ``WIDTH`` columns. Anything else
-        raises ``IndexError``.
-
-        ``color`` is the mono render color and always overrides the icon's
-        stored color — the icon is effectively a reusable bitmap shape.
+        ``color`` is the render color — an ``Icon`` carries no color of its
+        own, so ``color`` is not an override of anything, just the color.
         """
         self._acquire()
-        _render_colmajor(icon.columns, offset, color)
+        _render_colmajor(icon.columns, 0, color)
 
-    def render_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE) -> None:
-        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``) to the LEDs.
+    def render_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE) -> None:
+        """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs.
 
-        ``color`` is the mono render color and always overrides the arrow's
-        stored color.
+        Alias of ``render_icon``, kept as a separate public method name.
         """
-        self._acquire()
-        _render_colmajor(arrow.columns, 0, color)
+        self.render_icon(arrow, color)
 
     def clear_screen(self) -> None:
         """Turn off all pixels. Cancels any ongoing animation."""
@@ -808,48 +898,75 @@ class Display:
 
     # — Tier 2: Async MakeCode-compatible methods ---------------------------
 
-    async def show_leds(
+    async def show_pattern(
         self,
         pattern: str,
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
         interval_ms: int = 0,
-    ) -> None:
+    ) -> Token:
         """Render a pattern, then wait ``interval_ms`` milliseconds before returning (0 = return after render).
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
 
         Raises ``ValueError`` if ``interval_ms < 0``.
+        Returns the cancellation ``Token`` (check ``token.is_expired`` to see
+        whether a later display operation preempted the wait).
         """
         if interval_ms < 0:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_pattern(pattern, color)
+        token = self._token  # render_pattern's internal _acquire() just minted this
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
+        return token
 
-    async def show_icon(self, icon: Image, offset: int = 0, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an icon ``Image`` (e.g. ``Icons.HEART``), then wait ``interval_ms`` milliseconds before returning.
-
-        ``offset`` is passed to ``render_icon``: the source column placed at
-        display column 0. Same range rule as that method.
+    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
+        """Render an ``Icon`` (e.g. ``Emojis.HEART``), then wait ``interval_ms`` milliseconds before returning.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
+        Returns the cancellation ``Token`` (check ``token.is_expired`` to see
+        whether a later display operation preempted the wait).
         """
         if interval_ms < 0:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
-        self.render_icon(icon, offset, color)
+        self.render_icon(icon, color)
+        token = self._token  # render_icon's internal _acquire() just minted this
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
+        return token
 
-    async def show_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
-        """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``), then wait ``interval_ms`` milliseconds before returning.
-
+    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
+        """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``), then wait ``interval_ms`` milliseconds before returning.
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
-        if interval_ms < 0:
-            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
-        self.render_arrow(arrow, color)
-        if interval_ms > 0:
-            await asyncio.sleep(interval_ms / 1000)
+        # functionally this method is alias of ``show_icon``, kept as a separate public method name.
+        return await self.show_icon(arrow, color=color, interval_ms=interval_ms)
+
+    async def show_image(self, img: Image, offset: int = 0, interval_ms: int = 0) -> Token:
+        """Show a ``WIDTH``-column window of ``img``, then wait before returning.
+
+        ``offset`` is the image column placed at display column 0. It may be negative
+        or positive and may push the image partially or fully out of the display area.
+        Display columns ouside the Image are ``OFF``. Waits ``interval_ms`` milliseconds
+        before returning (0 = return after render). Cancels any prior Tier 2 animation.
+        """
+        return await img._show_image(offset, interval_ms)
+
+    async def scroll_image(self, img: Image, step: int = 1, interval_ms: int = 200) -> Token:
+        """Scroll through ``img``, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
+
+        ``step`` is a per-frame *incremental* movement of the columns. The
+        scroll always starts at position 0; there is no parameter to change
+        the starting position (unlike ``show_image``, which can start
+        anywhere, including negative or past the image's right edge).
+
+        Cancellable: any newer display operation causes this coroutine to
+        return early (see module docstring's cancellation policy).
+
+        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative
+        ``step``) is not yet supported.
+        """
+        return await img._scroll_image(step, interval_ms)
 
     async def show_string(
         self,
@@ -857,7 +974,7 @@ class Display:
         color: tuple[int, int, int] = WHITE,
         interval_ms: int = 150,
         loop: bool = False,
-    ) -> None:
+    ) -> Token:
         """Scroll text across the display.
 
         The typical case where text is wider than ``WIDTH`` glyph-columns:
@@ -876,7 +993,7 @@ class Display:
         long an equivalent scroll would take) when ``interval_ms > 0``,
         indefinite when ``loop=True``, or immediate (render-and-return)
         when ``interval_ms == 0`` and ``loop=False`` (the short-text
-        counterpart to ``show_leds(pattern, interval_ms=0)``). The ``5``
+        counterpart to ``show_pattern(pattern, interval_ms=0)``). The ``5``
         is an arbitrary "long enough to read" choice, unchanged since
         this method's first draft; it is not a tuned or derived constant.
 
@@ -888,13 +1005,15 @@ class Display:
         Raises ``ValueError`` if ``interval_ms < 0``: a negative delay has
         no sensible meaning here (see the class discussion of cold-call-
         site validation in ``CODING_PRINCIPLES.md``).
+        Returns the cancellation ``Token`` (check ``token.is_expired`` to see
+        whether a later display operation preempted this call).
         """
         if interval_ms < 0:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         token = self._acquire()
         text = str(text)
         if not text:
-            return
+            return token
         sleep_s = interval_ms / 1000
 
         # Probe with the same feeder the scroll path uses, so spacer / tofu /
@@ -920,18 +1039,18 @@ class Display:
             padded = bytearray(WIDTH)
             for i in range(len(fit_buf)):
                 padded[pad + i] = fit_buf[i]
-            if self._is_cancelled(token):
-                return
+            if token.is_expired:
+                return token
             _render_colmajor(padded, 0, color)
             if loop:
                 poll_s = sleep_s if interval_ms > 0 else 0.05
                 while True:
-                    if self._is_cancelled(token):
-                        return
+                    if token.is_expired:
+                        return token
                     await asyncio.sleep(poll_s)
             if interval_ms > 0:
                 await asyncio.sleep(interval_ms * 5 / 1000)
-            return
+            return token
 
         while True:
             # Scroll loop memory: rather than materialising the whole scrolled
@@ -948,12 +1067,12 @@ class Display:
             read_head = 0
             trailing_blanks = 0
             while True:
-                if self._is_cancelled(token):
-                    return
+                if token.is_expired:
+                    return token
                 _render_ring_window(ring, read_head, color)
                 await asyncio.sleep(sleep_s)
-                if self._is_cancelled(token):
-                    return
+                if token.is_expired:
+                    return token
                 col = feeder.next_column()
                 if col is None:
                     col = 0  # empty column
@@ -971,7 +1090,7 @@ class Display:
                 if trailing_blanks > WIDTH:
                     break
             if not loop:
-                return
+                return token
 
     async def show_number(
         self,
@@ -979,7 +1098,7 @@ class Display:
         color: tuple[int, int, int] = WHITE,
         interval_ms: int = 150,
         loop: bool = False,
-    ) -> None:
+    ) -> Token:
         """Display a number via ``show_string(str(n))``.
 
         Fit-on-screen numbers (total glyph width <= WIDTH — typically
@@ -987,17 +1106,20 @@ class Display:
         longer numbers scroll. See ``show_string`` for the full behavior
         including ``loop=True``.
         """
-        await self.show_string(str(n), color, interval_ms, loop)
+        return await self.show_string(str(n), color, interval_ms, loop)
 
-    async def pause(self, ms: int) -> None:
+    async def pause(self, ms: int) -> Token:
         """Cancellable async sleep for ms milliseconds.
 
         Raises ``ValueError`` if ``ms < 0``.
+        Returns the cancellation ``Token`` (check ``token.is_expired`` to see
+        whether a later display operation preempted this wait).
         """
         if ms < 0:
             raise ValueError(f"ms must be >= 0, got {ms}")
-        self._acquire()
+        token = self._acquire()
         await asyncio.sleep(ms / 1000)
+        return token
 
     @staticmethod
     def forever(callback: Callable[[], object]) -> None:
