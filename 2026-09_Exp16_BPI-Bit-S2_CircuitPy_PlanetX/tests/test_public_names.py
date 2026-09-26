@@ -146,10 +146,10 @@ def test_font_path_is_makecode_5_not_freemono():
 
 
 def test_fused_scan_is_wired_in_render_pattern():
-    """``Display.render_pattern`` calls ``_write_pattern_on_the_fly`` (not only defines it).
+    """``Display.render_pattern`` calls ``self._write_pattern_on_the_fly`` (not only defines it).
 
-    - Covers: helper present in the module but unused (Exp14 sketch state).
-    - How: AST walk of ``render_pattern``; a ``Name`` call to ``_write_pattern_on_the_fly``.
+    - Covers: helper present in the class but unused (Exp14 sketch state).
+    - How: AST walk of ``render_pattern``; an ``Attribute`` call ``self._write_pattern_on_the_fly``.
     """
     src = CORE.read_text()
     assert "_write_pattern_on_the_fly" in src
@@ -163,5 +163,11 @@ def test_fused_scan_is_wired_in_render_pattern():
         n for n in display_methods.body
         if isinstance(n, ast.FunctionDef) and n.name == "render_pattern"
     ][0]
-    calls = [n.func.id for n in ast.walk(render) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    calls = [
+        n.func.attr for n in ast.walk(render)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and isinstance(n.func.value, ast.Name)
+        and n.func.value.id == "self"
+    ]
     assert "_write_pattern_on_the_fly" in calls

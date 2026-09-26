@@ -2,9 +2,10 @@
 MakeCode-style display library for a 5x5 WS2812 NeoPixel matrix.
 
 Covers hardware wiring, the two-tier sync+async API, cooperative
-multitasking via a cancellation ``Token`` returned by every display-
-mutating method, the column-major bitmap format, and the Display/Image
-coupling to module-level state.
+multitasking via a cancellation ``Token`` returned by every Tier 2
+method, the column-major bitmap format, and how ``Display``/``Image``
+share state (each ``Display`` owns its own NeoPixel buffer and LUT; an
+``Image`` renders to whichever ``Display`` instance calls it).
 
 See ``README.md`` in this package for architecture and design rationale.
 """
