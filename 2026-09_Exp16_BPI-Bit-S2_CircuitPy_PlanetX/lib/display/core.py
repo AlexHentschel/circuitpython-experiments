@@ -276,7 +276,7 @@ def _render_ring_window(ring: bytearray, read_head: int, color_on: tuple[int, in
         for y in range(HEIGHT):
             pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
         x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
-        pixels.show()
+    pixels.show()
 
 
 # ---------------------------------------------------------------------------
@@ -432,15 +432,23 @@ class Image:
             raise ValueError(f"step must be > 0, got {step}")
         token = display._acquire()
         max_start = self._width - WIDTH
-        if max_start < 0:
-            max_start = 0
+        max_start = max(max_start, 0)
         pos = 0
+        interval_seconds = interval_ms / 1000
         while pos <= max_start:
             if display._is_cancelled(token):
                 return
             self._render_window(pos)
-            await asyncio.sleep(interval_ms / 1000)
+            await asyncio.sleep(interval_seconds)
             pos += step
+        # pos increased until it *overshoots* max_start. There are two cases:
+        #  (i)  `max_start` *is* an integer multiple of `step`. In this case, the last loop iteration runs with `pos == max_start`.
+        #       Then, the while loop exits with `pos == max_start + step`.
+        #  (ii) `max_start` is *not* an integer multiple of `step`. In this case, the last full loop iteration will have `pos < max_start`.
+        #       Then, the while loop exits with `pos < max_start + step`.
+        if pos != max_start + step:  # The following happens if `max_start` is *not* an integer multiple of `step`
+            # Note: doing this check after the loop avoids computing `max_start % step` up front
+            self._render_window(pos)
 
     def _render_window(self, offset: int) -> None:
         """Render a WIDTH-column window of this image at ``offset`` into ``_pixels`` and show().
@@ -702,14 +710,21 @@ class Display:
         _write_pattern_on_the_fly(pattern, color, pixels, lut, off, WIDTH, HEIGHT)
         pixels.show()
 
-    def render_icon(self, icon: Image, color: tuple[int, int, int] = WHITE) -> None:
+    def render_icon(self, icon: Image, offset: int = 0, color: tuple[int, int, int] = WHITE) -> None:
         """Render an icon ``Image`` (e.g. ``Icons.HEART``) to the LEDs.
+
+        ``offset`` is the source column placed at display column 0. The draw
+        reads ``WIDTH`` columns from there (``icon.columns[offset + x]`` for
+        ``x`` in ``0 .. WIDTH-1``). Catalog icons are exactly ``WIDTH`` columns,
+        so only ``offset == 0`` is in range. A wider mono image can use a
+        positive offset that still leaves ``WIDTH`` columns. Anything else
+        raises ``IndexError``.
 
         ``color`` is the mono render color and always overrides the icon's
         stored color — the icon is effectively a reusable bitmap shape.
         """
         self._acquire()
-        _render_colmajor(icon.columns, 0, color)
+        _render_colmajor(icon.columns, offset, color)
 
     def render_arrow(self, arrow: Image, color: tuple[int, int, int] = WHITE) -> None:
         """Render an arrow ``Image`` (e.g. ``Arrows.NORTH``) to the LEDs.
@@ -811,14 +826,17 @@ class Display:
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 
-    async def show_icon(self, icon: Image, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
+    async def show_icon(self, icon: Image, offset: int = 0, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> None:
         """Render an icon ``Image`` (e.g. ``Icons.HEART``), then wait ``interval_ms`` milliseconds before returning.
+
+        ``offset`` is passed to ``render_icon``: the source column placed at
+        display column 0. Same range rule as that method.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
         if interval_ms < 0:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
-        self.render_icon(icon, color)
+        self.render_icon(icon, offset, color)
         if interval_ms > 0:
             await asyncio.sleep(interval_ms / 1000)
 

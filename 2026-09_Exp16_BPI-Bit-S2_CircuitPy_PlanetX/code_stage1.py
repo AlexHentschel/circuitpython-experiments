@@ -88,7 +88,7 @@ while True:
     d.clear_screen()
     for _deg in (0, 90, 180, 270):
         d.set_rotation(_deg)
-        d.render_icon(Icons.HAPPY, display.YELLOW)
+        d.render_icon(Icons.HAPPY, color=display.YELLOW)
         print(f"4/6: render_icon(Icons.HAPPY) at rotation {_deg}deg")
         time.sleep(1.5)
     d.set_rotation(0)
@@ -96,7 +96,7 @@ while True:
     # 5) The ring Image was built once above. render_icon draws it.
     #    from_pattern decoded it; step 1's render_pattern does not.
     d.clear_screen()
-    d.render_icon(_ring_image, display.ORANGE)
+    d.render_icon(_ring_image, color=display.ORANGE)
     print("5/6: create_image(ring pattern) + render_icon -- Image.from_pattern decode path")
     time.sleep(2)
 

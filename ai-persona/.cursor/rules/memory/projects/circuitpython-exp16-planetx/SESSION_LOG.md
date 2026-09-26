@@ -14,6 +14,34 @@ Code at `4a337f4` (2026-09-20, "library cleanup"), plus 2026-09-21 docstring edi
 | Rotation during scroll | Steps 11/12 drafted in `code_stage2.py`. | Not run on-device. |
 | LightTower extras | Nezha V2 I2C decoded (`concepts/nezha.md`). J1–J4 + shared I2C in `planetx.ports`. | No light-sensor driver, no motor driver. |
 
+## 2026-09-25 — `render_icon` / `show_icon` gained `offset` before `color`
+
+`offset` is the source column passed to `_render_colmajor`, which indexes `data[offset + x]` for `x` in `0..WIDTH-1` with no clip. Catalog icons are `WIDTH` bytes, so only `0` is in range; a wider mono image can start later. Callers that passed a color as the second positional (`code.py`, `code_stage0.py`, `code_stage1.py`, `code_stage2.py` `show_icon`) now pass `color=`. `render_arrow` / `show_arrow` stay at source column 0. README signatures updated.
+
+## 2026-09-25 — `scroll_image` tail frame renders the overshot `pos`
+
+The post-loop `if pos != max_start + step` matches case (ii) (exit `pos` is `max_start + step - (max_start % step)`). It renders that `pos`, not `max_start`. For `1 <= step <= WIDTH` the last column does appear, with `step - (max_start % step)` blank columns on the right. For `step > WIDTH` the extra frame can start at `offset >= width` (all OFF) and the tail can stay unseen. No cancel check before that render, so a cancel during the preceding sleep still paints it. Flush end would be `_render_window(max_start)`.
+
+## 2026-09-25 — `scroll_image` end bound
+
+`while pos <= max(width - WIDTH, 0)` with `pos += step` is the right end for `step=1`: the last start is `width - WIDTH`, so the last column is in that window. Stage 2's frame count `(max_start // step) + 1` matches, including one `interval_ms` hold after the last paint. When `step` does not divide `width - WIDTH`, starts stay on multiples of `step` and the rightmost columns never enter a window. No host test calls `scroll_image`.
+
+## 2026-09-25 — no test for `from_pattern` empty string
+
+`Image.from_pattern` line `max(..., default=WIDTH)` is the zero-kept-rows path (`""` and whitespace-only). No test calls `from_pattern`. Host suite must not import `display.core` (`tests/test_no_board_core.py`). `glyph_columns("")` / `glyph_ink("")` are the font, not this line.
+
+## 2026-09-25 — deinit acquire cancels the old `Display`'s coroutines
+
+Correction to the re-init note below. `Display.show_*` checks `self._is_cancelled` on the instance that started them. `deinit`'s `self._acquire()` bumps that same `_seq`, and the check sits before the next render after each `await` (`show_string` at the `sleep` resume). A later `Display()` is a different object; the old coroutines do not need its `_seq`. A missed check that then touches `self._pixels is None` raising is acceptable. `Image.scroll_image` looks up the global name `display` on each check. Rebinding that name during its `await asyncio.sleep` points the check at the new object. `_is_cancelled` is `_seq != token`, so the old scroll resumes iff the new object's `_seq` equals the old token (exactly N `_acquire` calls, not ≥ N). Both coroutines then share one generation. `show_image` does not render again after its sleep. `Display.show_*` stays on `self` and is immune. The "first wake sees `_seq == 0`" claim is invalidated.
+
+## 2026-09-25 — `_pixels` as a `Display` field vs re-init
+
+Chat only (code unchanged). Re-init does not require an instance field: `NeoPixel.deinit()` releases the pin, and a later `NeoPixel(...)` can claim it again, if every render reads the current buffer at entry (they already alias `_pixels` per call). A field's cost is one attribute load per frame once cached into a local, plus a guard so a second `Display()` does not double-claim the pin. Multi-display (Image holding its own buffer, `__slots__` growth) is a larger change than same-instance `init()` after `deinit()`. README § Singleton design bundles those two. A new `NeoPixel` starts at `BRIGHTNESS` 0.20.
+
+## 2026-09-25 — `@staticmethod` on `Display.set_brightness` / `set_rotation`
+
+Explained in chat (code unchanged). `Display`'s only instance field is `_seq`. Those two methods write module globals (`_pixels.brightness`, in-place `_LUT`) and skip `_acquire()`, so they do not cancel a Tier 2 animation. The decorator is that fact, not a hot-path optimization — `show()` dominates, and direct `display.method()` calls do not allocate a bound method on CircuitPython's `LOAD_METHOD` path. `get_pixel` also ignores `self` and is left as a normal method. Same pattern in Exp14 `lib/display/core.py`.
+
 ## 2026-09-21 — Icons catalog: generate the class body
 
 Follow-up on the completion research the same day. Preferred fix, not coded: a host generator writes `class Icons` / `class Arrows` assignments into `core.py` (slices of `ICONS` / `ARROWS`), replacing `_build_image_namespace`. Checker and board then share one class. A `TYPE_CHECKING`-only twin is the fallback if generation is rejected; generating that twin is not. AST test against `ICON_NAMES` / `ARROW_NAMES`; do not import `core.py` on the host. Detail: `ai-persona/ai-notes/circuitpython-syntax-completion/04-experimental-guidelines.md` § Recommended shape.
@@ -84,8 +112,38 @@ Procedural session notes for finished items are collapsed to start, end, result,
 - **Phase 5:** on-device re-confirm of spaced text (`"STAGE2"` / `"42"` / `"!!"`). Step 11's elapsed-time check is stale against the new column counts.
 - **Re-run `code_stage3.py`** on the `button_a` / `button_c` API. K3's 2026-09-13 confirm does not cover this call shape.
 - **`code_stage2.py` steps 11/12** (rotate while a Tier-2 animation is in flight) — drafted, not run.
+- **Tier 2 cancellation redesign (Q1–Q5, opened 2026-09-25):** should `Display` Tier 1/Tier 2 methods return status (token / completed-vs-superseded bool) so calling code can chain display operations that cancel together? Detail + decision table: `ai-notes/design/tier2-cancellation-semantics.md`. Trigger to resolve: next session touching `core.py` cancellation, or Alex answering Q1–Q5 directly.
+
+## 2026-09-25 — Cancellation semantics re-opened (design only, no code changed)
+
+- Alex reviewed the 2026-09-25 cancellation-fix recommendation (`ai-notes/code-review-2026-09-21/02-cancellation-and-validation.md`) and asked to revisit before implementing, with two specific questions: why does `interval_ms` exist on Tier 2 holds at all, and why would early-return polling need shorter-than-`interval_ms` checks.
+- **Resolution, worked through in `ai-notes/design/tier2-cancellation-semantics.md`:** Tier 2 methods split into "hold" (single render then wait — no pixel-correctness need to poll) and "animate" (repeated render — polling is load-bearing, already correct). `interval_ms` on holds is pixel-identical to Tier 1 + a bare `await asyncio.sleep(...)` today (Tier 1 already calls `_acquire()`); its value is API convenience + MakeCode parity, not cancellation. The actual gap is that nothing returns status, so chained Tier 2 calls can't cancel together regardless of polling speed.
+- **Self-correction:** the earlier same-day polling recommendation, applied alone, would make the Stage 3 arrow-wipe finding worse (a chained hold would hand off to the next draw sooner, with no way for that next draw to know to skip itself). That section is now marked superseded, pointing to the new design note.
+- **Also corrected:** the Stage 3 arrow's visible window was overstated as "one scheduler turn" in `ai-notes/code-review-2026-09-21/04-buttons-and-stage-scripts.md`; `asyncio.sleep` doesn't watch the cancellation token, so the real window is up to one animation frame period (~300 ms in that script). Fixed in that file.
+- **Decisions pending (Q1–Q5, not yet answered):** Tier 2 returns bool; Tier 1 returns token; poll-based early return on holds (only after the bool convention lands); fix `code_stage3.py`'s `_display_loop` to use it; naming for a public cancellation-check accessor. No code changed. README gets a brief note only once these are settled (Alex's explicit instruction — ephemeral notes only for now).
 - LightTower extras (servo, light sensor) — out of first milestone. Next hardware: analog light on J1/J2, then Nezha V2 motor (`concepts/nezha.md`; no driver).
 - **Color constants** in `lib/display/_constants.py`: `YELLOW` has an orange tinge; `ORANGE` renders as red. Iterative visual pass, not blocking.
 - `show_number` formatting (`decimals` / `scientific`; reject `bool`) — decided 2026-09-12, not implemented. `ai-notes/design/show-number-numeric-types.md`.
 - Pitchfork-5x5 into `lib/` — not used (DAL MIT taken). Written GPLv3 combination case only if that path is chosen later.
 - ~~Flash to CircuitPython 10.3.0; P7 `.vscode/`; P8 on-device; K2 cable; unified end-to-end script; PlanetX vendor inventory.~~ **Done** 2026-09-11…14. See the completed-work blocks and `CONCLUSIONS.md`.
+
+## 2026-09-21 — Code review (lib/ + stage scripts; no code changes)
+
+- **Task:** exhaustive bug / edge / performance pass over Exp16 `lib/` and stage scripts. No code changes.
+- **Notes** (gitignored, may vanish): experiment `ai-notes/code-review-2026-09-21/NOTES.md`.
+- **Highest finding** (cold session can act without the notes): `lib/display/core.py` `_render_ring_window` calls `pixels.show()` inside the column loop (read at line 279 on tree `4a337f4`). Scroll steps latch the strip `WIDTH` times and tear left-to-right. Fit-on-screen text uses `_render_colmajor` and is unaffected.
+- **Other claims worth not losing:** ragged `create_image` (max row length, short rows pad); `scroll_image` skips the final window when `step` does not land on `max_start`; `pause` is not token-cancellable; `set_pixel` out of range and `show_string("")` cancel then draw nothing; async button handlers are dropped; Stage 2 step 11's `ROTATE` estimate is 7.2 s vs feeder 7.6 s and still passes the 0.5 s slack; Stage 3 arrow is wiped if the press hits `scroll_image`.
+- **How to check:** `git rev-parse HEAD` versus `4a337f4`; re-read line 279 before editing.
+
+## 2026-09-25 — Dedent `_render_ring_window` `show()`
+
+- **Change:** `lib/display/core.py` `_render_ring_window`: `pixels.show()` moved from inside the column loop to after it, same shape as `_render_colmajor`. Alex asked to un-indent that line.
+- **Effect:** one scroll step latches the 25-LED strip once, after all five columns are in the RAM buffer. Pre-fix behavior and the 4 ms estimate stay in `CONCLUSIONS.md` § 2026-09-21 and in experiment `ai-notes/code-review-2026-09-21/01-display-hot-path.md`.
+- **Not done:** on-device look at `show_string("STAGE2")`. Other 2026-09-21 findings are unchanged.
+- **Re-read later 2026-09-25** (question: is the per-column flush addressed?): yes in source. Line 279 `pixels.show()` is at function-body indent, after `for x`. `show_string` calls `_render_ring_window` once per step (line 935) and then sleeps. `interval_ms=0` still sleeps 0 once per column; each step is one latch of a finished frame.
+
+## 2026-09-25 — Cancellation-fix recommendation (not applied)
+
+- Alex asked to see the half-implemented cancellation rule and a recommended fix. No code change.
+- **Fix, two parts:** (1) `Display._sleep_unless_cancelled(token, total_s, poll_s=0.05)` because `asyncio.sleep` does not watch `_seq`; use it for `pause`, `show_leds` / `show_icon` / `show_arrow` / `show_image` holds, and the non-loop centered `show_string` hold. Capture the token after `render_*`, which already `_acquire()`. (2) `set_pixel` returns before `_acquire` when `(x, y)` is off-matrix; `show_string` does `str(text)` and the empty return before `_acquire`.
+- Detail: experiment `ai-notes/code-review-2026-09-21/02-cancellation-and-validation.md` § Recommended fix.

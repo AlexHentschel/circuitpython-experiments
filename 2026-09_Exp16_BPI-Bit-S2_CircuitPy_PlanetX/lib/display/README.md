@@ -29,7 +29,7 @@ NeoPixel buffer; no ``await``):
 
 - `render_pattern(pattern, color=WHITE)` — parse-and-render a
   `#`/`.` grid string or palette dict.
-- `render_icon(icon, color=WHITE)` — render an icon `Image` (e.g. `Icons.HEART`).
+- `render_icon(icon, offset=0, color=WHITE)` — render an icon `Image` (e.g. `Icons.HEART`). `offset` is the source column at display column 0; the draw reads `WIDTH` columns from there. Catalog icons are `WIDTH` wide, so only `0` is in range.
 - `render_arrow(arrow, color=WHITE)` — render an arrow `Image` (e.g. `Arrows.NORTH`).
 - `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
   `clear()` / `get_pixel(x, y)`.
@@ -45,7 +45,7 @@ NeoPixel buffer; no ``await``):
 **Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_leds` / `show_icon` / `show_arrow` — render, then wait ``interval_ms`` before returning.
+- `show_leds` / `show_icon(icon, offset=0, color=WHITE, interval_ms=0)` / `show_arrow` — render, then wait ``interval_ms`` before returning. `show_icon`'s `offset` is the same source-column start as `render_icon`.
 - `show_string(text, color=WHITE, interval_ms=150, loop=False)` — scroll
   text (single character displays centered). With `loop=True`, keeps
   scrolling (or holding, for short text) until cancelled by another

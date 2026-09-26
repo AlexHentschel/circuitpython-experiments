@@ -156,7 +156,7 @@ async def main() -> None:
         # 3) show_icon(Icons.DUCK). Stage 0 used HEART and Stage 1 used HAPPY;
         #    we assume those icon paths work.
         d.clear_screen()
-        await d.show_icon(Icons.DUCK, display.YELLOW, interval_ms=1500)
+        await d.show_icon(Icons.DUCK, color=display.YELLOW, interval_ms=1500)
         print("3/12: show_icon(Icons.DUCK), async icon render + interval_ms hold")
 
         # 4) show_arrow(Arrows.SOUTH). Stage 1 used NORTH; we assume that

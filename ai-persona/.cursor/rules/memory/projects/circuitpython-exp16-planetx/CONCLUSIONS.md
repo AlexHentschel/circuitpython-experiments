@@ -67,3 +67,16 @@ Status tiers: `unverified` · `evidence-supported` · `disputed` · `invalidated
 |---------|-------|------------|------|
 | `board.IO13` / `IO14` on BPI-Bit-S2 CircuitPython mean ESP32 GPIO13/14 (photoresistors). | `[exp16]` | `pins.c` 10.3.0 maps `IO13`→GPIO36, `IO14`→GPIO37. GPIO13 is `LUM2`. | 2026-09-04 |
 | The `0.05` figure used throughout early `code.py` test-script comments (as "the project's working floor/default") was a load-bearing constant or documented default. | `[exp16]` | It was an unverified conjecture that leaked into comments; `core.py`'s actual `BRIGHTNESS` constant is `0.20` (confirmed by direct read, Session 19), and the true measured visible floor is 0.01 off / 0.02 lit (Evidence-Supported row above) — neither of which is `0.05`. Alex's authoritative 2026-09-11 statement closed this out; comments fixed in `code.py` and `code_stage0.py`. | 2026-09-11 |
+
+## 2026-09-21 code review (source inspection; not fixed; not re-run on UID `0740D10F1BE9`)
+
+Status for each bullet: `evidence-supported` (source inspection 2026-09-21, anchor `4a337f4`). Optional detail: experiment `ai-notes/code-review-2026-09-21/` (not the only copy of these claims).
+
+- **`_render_ring_window` flushes per column.** **Fixed 2026-09-25:** `pixels.show()` was inside the `for x` loop (line 279 on `4a337f4`) and is now dedented to after that loop, matching `_render_colmajor`. Pre-fix, each scroll step latched the strip `WIDTH` times and tore left-to-right. Not re-run on the board.
+- **`create_image` accepts ragged rows.** Width is the longest kept row from `Image.from_pattern`; shorter rows pad with OFF, so a short middle row still passes the `width == WIDTH` / `row_count == HEIGHT` check. Same hole in `create_big_image`.
+- **`scroll_image` can skip the last window.** The loop advances by `step` and stops when `pos > max_start`, so a step that never lands on `max_start` never shows the final aligned window.
+- **`pause` is not token-cancellable.** It `_acquire()`s then sleeps the full delay with no `_seq` poll (`core.py` ~974–982), despite docstring/README calling it cancellable.
+- **Cancel-then-noop side effects.** `set_pixel` acquires before the bounds test; out-of-range cancels an in-flight scroll and draws nothing. `show_string("")` acquires then returns without clearing.
+- **Async button handlers are dropped.** `PushButtonBase._handle` in `lib/buttons.py` calls `handler()` and ignores a returned coroutine, so `async def` handlers never run.
+- **Stage 2 step 11 timing slack.** `code_stage2.py` estimates `ROTATE` at 7.2 s (`WIDTH * len` formula) vs feeder 7.6 s; the `elapsed >= estimate - 0.5` check still passes a healthy run today.
+- **Stage 3 arrow wiped mid-scroll.** In `code_stage3.py`, a press during `scroll_image` cancels via `render_arrow`, then the next `show_string(status)` immediately overwrites the arrow, so the flash is shorter than a human frame for that part of the cycle.
