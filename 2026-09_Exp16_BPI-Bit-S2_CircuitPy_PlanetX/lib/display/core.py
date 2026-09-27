@@ -183,17 +183,19 @@ class Image:
         pattern_str: str,
         color: dict[str, tuple[int, int, int]] | tuple[int, int, int] = WHITE,
     ) -> Image:
-        """Parse a pattern string into an Image.
+        """Factory Method: Parse a pattern string into an Image.
 
-        color: RGB tuple (mono) or dict {char: RGB} (multi-color).
-        The returned Image is reusable across multiple ``Display.show_image``
-        / ``Display.scroll_image`` calls.
+        If ``color`` is a single RGB tuple ``(red, green, blue)``:
+        the entire image is drawn in that color, with illuminated pixels marked by ``#``.
+        If a dictionary ``{character: RGB tuple}`` is given for the input ``color``,
+        then characters such as ``G`` or ``c`` in the pattern stand for colors.
+        You set each character's RGB tuple in ``color``, for example ``color["G"] = (0, 255, 0)``.
+        Keep the Image and pass it to ``show_image`` or ``scroll_image`` again.
 
         Rows past ``HEIGHT`` are dropped; short rows or columns are padded with OFF.
         Image width is the widest of the rows (ignoring rows beyond``HEIGHT``).
-        Unknown chars in mono
-        mode render as OFF. Spaces and other invisible characters are skipped,
-        so ``#`` marks close up around them. ``render_pattern`` skips only space,
+        Unknown chars in mono mode render as OFF. Spaces and other invisible characters are
+        skipped, so ``#`` marks close up around them. ``render_pattern`` skips only space,
         tab, and carriage return; anything else stays a pixel, off when it is not ``#``.
         """
         # Internal encoding: mono images store column-major bytes (one byte
@@ -508,16 +510,17 @@ class Icon:
 
     @staticmethod
     def create(pattern_str: str) -> Icon:
-        """Create an ``Icon``, up to ``WIDTH`` columns by ``HEIGHT`` rows, from a ``#``/``.`` pattern string.
+        """Factory Method: Create an ``Icon`` of ``WIDTH`` columns by ``HEIGHT`` rows, from a pattern string.
+        ``#`` is a lit pixel and ``.`` is off. So the row ``#.#`` reads on, off, on.
 
-        Mono only, and no ``color`` parameter — an ``Icon`` carries no color;
-        pass ``color`` at render time (``render_icon`` / ``show_icon``).
+        The Icon stores no color of its own. Pass the color when you draw it,
+        with ``Display.render_icon`` or ``Display.show_icon``.
 
         Smaller patterns are accepted: missing rows/columns pad as ``OFF``
-        (bottom/right, since row 0 = top and column 0 = left). Raises
-        ``ValueError`` if the pattern *exceeds* ``WIDTH`` columns or
-        ``HEIGHT`` rows (every whitespace character and blank lines ignored). For a
-        multi-color bitmap, or one wider than ``WIDTH`` (e.g. a scrollable
+        (bottom/right, since row 0 = top and column 0 = left).
+        Raises ``ValueError`` if the pattern *exceeds* ``WIDTH`` columns or
+        ``HEIGHT`` rows (every whitespace character and blank lines ignored).
+        For a multi-color bitmap, or one wider than ``WIDTH`` (e.g. a scrollable
         image), use ``Image.create`` instead.
         """
         # Dedicated mono-only parse: an Icon has no color and a fixed WIDTH,
@@ -849,16 +852,21 @@ class Display:
         pattern: str,
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
     ) -> None:
-        """Parse and render a pattern string directly to LEDs.
+        """Draw a pattern string straight onto the LEDs.
+        Best for a picture you show once, because this method needs to go over the input string
+        and decode every character into a pixel (this is called "parsing" the pattern).
+        For pictures you want to show repeatedly, it is best to only parse the pattern once,
+        which is done by the factory methods ``Image.create`` or ``Icon.create``. They return
+        a parsed Image / Icon, whose reference you can keep and show repeatedly.
 
-        Faster than building an ``Image`` (e.g. via ``Image.create``)
-        for one-shot display since it avoids building a persistent bitmap
-        (one parse pass, immediate pixel writes).
-
-        color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
-        Short rows are padded with OFF; rows past HEIGHT are ignored.
-        Space, tab, and carriage return are gaps. Any other character is a cell.
-        In mono mode a cell other than ``#`` is off and still takes a column.
+        An RGB tuple ``(red, green, blue)`` lights every ``#``, and ``.`` is off,
+        so ``#.#`` is on, off, on. A short row is filled with off pixels on the
+        right. Rows past the bottom of the screen are left out.
+        A dict ``{character: RGB tuple}`` gives each character its own color,
+        as in ``color["G"] = (0, 255, 0)``.
+        Space, tab, and carriage return are skipped. Any other character is a
+        pixel. With one RGB tuple, a character other than ``#`` is off and still
+        takes a column.
         """
         self._acquire()
         # Direct render via LUT — no intermediate column-major buffer. Fused one-pass scan.
@@ -1159,7 +1167,7 @@ class Display:
         interval_ms: int = 150,
         loop: bool = False,
     ) -> Token:
-        """Display a number via ``show_string(str(n))``. ``True`` and ``False`` show as those words.
+        """Display a number via ``show_string(str(n))``.
 
         Fit-on-screen numbers (total glyph width <= WIDTH — typically
         one digit in the bundled font) are centered and held;

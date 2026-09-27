@@ -163,6 +163,34 @@ Procedural session notes for finished items are collapsed to start, end, result,
 - **`set_pixel`:** already acquired first. On-matrix: change that pixel of the current frame and flush. Off-matrix: no write; the most recent frame stays. Tier 2 has stopped in both cases. Docstring and module policy now say that.
 - **`show_string("")`:** the early return after `_acquire()` is gone. Zero columns take the fit-on-screen path, so the matrix is replaced by a blank frame and held like any other short string (`interval_ms * WIDTH`, or until cancel when `loop=True`).
 
+## 2026-09-27 — `_scroll_sleep_s` includes the fit-on-screen hold
+
+- `code_stage2.py`: when the feeder yields `c <= WIDTH` columns, the wait is `interval_ms * WIDTH` (centered hold, `loop=False`). Wider text stays `(1 + c + WIDTH) * interval_ms`. Step 11 still passes `"ROTATE"`, which is wider than the screen.
+
+## 2026-09-26 — `render_pattern` docstring for a student
+
+- Draw straight onto the LEDs for a picture shown once; `Image.create` keeps one to show again. RGB tuple lights every `#`, `.` is off, `#.#` is on, off, on. Short row fills with off on the right; rows past the screen are left out. Dict example `color["G"] = (0, 255, 0)`. Space, tab, and carriage return are skipped; any other character is a pixel, off when it is not `#` and it still takes a column.
+
+## 2026-09-26 — `Icon.create` opening for a student
+
+- `#` is a lit pixel, `.` is off, so `#.#` is on, off, on. The Icon stores no color; pass it to `render_icon` or `show_icon`. Rest of that docstring left as it was.
+
+## 2026-09-26 — `Image.create` dictionary sentence in Alex's words
+
+- His draft: characters such as `G` or `c` in the pattern, RGB tuple set in the `color` dict, example `color_dict["g"]`. Wording applied: those characters stand for colors; `color["G"] = (0, 255, 0)` makes `G` green. Case of the example key matches `G`.
+
+## 2026-09-26 — completed Alex's `Image.create` color stubs
+
+- His draft: RGB tuple draws the image in that color with `#` lit; dictionary branch was `then ...` / `for example ...`. Completed: each character is drawn in its own RGB tuple; example `{"R": (255, 0, 0), "B": (0, 0, 255)}` draws `R` red and `B` blue. Typos in that passage: `is is` → `is`, `dicttionary` → `dictionary`.
+
+## 2026-09-26 — `Image.create` color lines keep the name RGB tuple
+
+- Alex: "RGB tuple" stays because it is specific; explain it. Lines now: an RGB tuple `(red, green, blue)` is one color and lights every `#`; a dict `{character: RGB tuple}` gives each character its own color.
+
+## 2026-09-26 — `Image.create` color and reuse lines for a student
+
+- Replaced the `color:` / "reusable" lines: one `(red, green, blue)` lights every `#`; a `{character: color}` dict gives each character its own color; keep the Image and pass it to `show_image` or `scroll_image` again. Lines below left as they were.
+
 ## 2026-09-26 — `Image.create` whitespace sentence for a student
 
 - Replaced "a string that `render_pattern` treats as a cell can be a gap here" with: spaces and other invisible characters are skipped, so `#` marks close up; `render_pattern` skips only space, tab, and carriage return, and anything else stays a pixel, off when it is not `#`. Surrounding lines left as Alex had them.

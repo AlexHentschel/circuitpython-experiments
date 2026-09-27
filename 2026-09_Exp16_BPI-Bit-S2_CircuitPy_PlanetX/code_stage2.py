@@ -31,7 +31,7 @@ What runs:
       time should fall short of the uninterrupted length. Serial prints
       ``[OK]`` when it does.
   11. ``show_string("ROTATE")`` gathered with ``set_rotation(270)`` after
-      2.5 s. Rotation does not cancel, so the scroll should run out, and
+      2.5s. Rotation does not cancel, so the scroll should run out, and
       the motion should turn from horizontal to vertical. The ``[OK]``
       check compares elapsed time with ``_scroll_sleep_s``: one empty
       frame, then one frame per text column, then ``WIDTH`` empty columns,
@@ -89,14 +89,16 @@ def _scroll_sleep_s(text: str, interval_ms: int) -> float:
       the last text column has left the screen.
 
     The wait is therefore ``(1 + c + WIDTH) × interval_ms`` milliseconds.
-    This text has to be wider than the display. Text that fits is centered
-    and held for ``interval_ms × WIDTH`` instead, and this function does
-    not describe that hold.
+    Text that fits (``c <= WIDTH``, including an empty string) is centered
+    and held for ``interval_ms × WIDTH`` instead. Both formulas are for
+    ``loop=False``. With ``loop=True``, text that fits is held until cancelled.
     """
     feeder = SpacedGlyphColumnFeeder(str(text))
     columns = 0
     while feeder.next_column() is not None:
         columns += 1
+    if columns <= display.WIDTH:
+        return interval_ms * display.WIDTH / 1000
     return (1 + columns + display.WIDTH) * interval_ms / 1000
 
 
