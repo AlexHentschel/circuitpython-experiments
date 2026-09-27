@@ -163,10 +163,58 @@ Procedural session notes for finished items are collapsed to start, end, result,
 - **`set_pixel`:** already acquired first. On-matrix: change that pixel of the current frame and flush. Off-matrix: no write; the most recent frame stays. Tier 2 has stopped in both cases. Docstring and module policy now say that.
 - **`show_string("")`:** the early return after `_acquire()` is gone. Zero columns take the fit-on-screen path, so the matrix is replaced by a blank frame and held like any other short string (`interval_ms * WIDTH`, or until cancel when `loop=True`).
 
+## 2026-09-26 — `Image.create` whitespace sentence for a student
+
+- Replaced "a string that `render_pattern` treats as a cell can be a gap here" with: spaces and other invisible characters are skipped, so `#` marks close up; `render_pattern` skips only space, tab, and carriage return, and anything else stays a pixel, off when it is not `#`. Surrounding lines left as Alex had them.
+
+## 2026-09-26 — pattern and `show_number` docs applied
+
+- `Image` class, `Image.create`, and `height`: dropped the `.height != HEIGHT` check. Pad is the contract. `Image.create` / `Icon.create`: every whitespace character is ignored; `Image.create` notes a `render_pattern` cell can be a gap here. `render_pattern`: space, tab, and CR are gaps; other characters are cells. `show_pattern`: same rules as `render_pattern`. `show_number`: `True` and `False` show as those words.
+
+## 2026-09-26 — document parser and `show_number` conventions (recommended, not applied)
+
+- Alex accepts different rendering conventions when the public docstrings say so. Recommend: leave `Image.create` pad-short-rows and the `scroll_image` student text; drop the `.height != HEIGHT` example (height is always `HEIGHT`). Add one sentence on `render_pattern` / `show_pattern` (gaps are space, tab, CR; other characters are cells) and on `Image.create` (every whitespace character is ignored). `show_number` already says `str(n)`; add that `True`/`False` show as those words.
+
+## 2026-09-26 — public `scroll_image` docstring fixed on Alex's edit
+
+- On `Display.scroll_image`: ``img`` → ``image``; ``disp`` paragraph removed (that parameter is only on `Image._scroll_image`); "returns immediately" → returns after the current frame's `interval_ms` sleep. Same sleep sentence on `Image._scroll_image`. Step sentences and the one-line `Raises` left as Alex had them.
+
+## 2026-09-26 — public `scroll_image` docstring: `disp` and "immediately"
+
+- Alex's editor selection of `Display.scroll_image` (~1026) included `Image._scroll_image`'s ``disp`` paragraph and "returns immediately". Not edited this turn. ``disp`` is not a parameter of the public method. A cancel is noticed when the current frame's `asyncio.sleep(interval_ms)` ends. Saved file still has the older "Cancellable:" paragraph at that spot.
+
+## 2026-09-26 — rename `end` in `_scroll_image` (recommended, not applied)
+
+- Alex proposed `image_columns_scrolling_in` for `end = max(0, width - WIDTH)`. Applied `image_columns_to_scroll_in`: the count of image columns that start off the right edge. Comment above the binding says that. The two comment lines below it were left as they were. Same loop: `pos` renamed `columns_scrolled`. Stop when `columns_scrolled >= image_columns_to_scroll_in`.
+
+## 2026-09-26 — keep Alex's "pad with empty columns" sentence
+
+- Alex revised `Image._scroll_image` to "might need to padd with empthy columns after the last image column." A later edit had put the public docstring back to "scroll empty columns in." Spelling fixed in place (`pad`, `empty`). That sentence is now also on `Display.scroll_image` and the last line of the `end` comment. The two sentences above it were left as he had them.
+
+## 2026-09-26 — scroll wording is "image columns scroll in"
+
+- Applied on `Display.scroll_image`, `Image._scroll_image`, and the `end` comment in `lib/display/core.py`. Each frame, `step` image columns scroll in from the right, until the last image column has appeared. A `step` above 1 might also scroll empty columns in after that last column. The lattice formula is off the public docstring.
+
+## 2026-09-26 — `scroll_image` public docstring is for a teenage learner
+
+- Alex rejected the lattice formula in `Display.scroll_image` (lines ~1034–1041) as too intricate. Preferred shape: start at 0; every `interval_ms`, move `step` columns left until every column has been shown; negative `step` unsupported. One extra sentence allowed: `step` above 1 might scroll empty columns in from the right so the last image column still appears.
+- That "every column" sentence matches the code when `step` is at most `WIDTH`. A larger `step` skips columns between windows. Proposed text not yet applied. The same lattice paragraph is still on `Image._scroll_image`.
+
+## 2026-09-26 — `scroll_image` stays on the step lattice
+
+- **Change:** `Image._scroll_image` in `lib/display/core.py`. The flush snap (draw `max_start` when `step` missed it) is gone. Offsets are `0, step, 2*step, …` through the first multiple of `step` that is `>= max(0, width - WIDTH)`. Past the image, `_render_window` pads OFF. Token is checked before each paint, including the last.
+- **Why:** Alex rejected offsets 0, 2, 4, then 5 as an edge that is not in the common sequence. Width 10, `step` 2 is now 0, 2, 4, 6. `step > WIDTH` still leaves gaps, the same gap a large step leaves mid-image. Directive: `CODING_PRINCIPLES.md` *An edge follows the same formula as the common case*.
+- **Also this read:** strict `create_image` is gone. `Image.create` documents the pad. `Image.height` is always `HEIGHT`.
+
 ## 2026-09-26 — `scroll_image` snaps to the flush end
 
 - **Change:** `Image._scroll_image` in `lib/display/core.py`. The per-frame loop is untouched. After it, if `pos != max_start + step`, and the token is still current, draw `max_start` (not the stepped-past `pos`) and hold one interval.
 - **Effect:** a step that misses the last aligned window still ends with the image's last column on the right edge. A cancel during the previous sleep is not painted over. `step` that already lands on `max_start` pays one compare and no extra frame.
+
+## 2026-09-26 — Re-read of the original half-implemented cancellation claim
+
+- **Verdict:** addressed in current `lib/display/core.py`. Holds (`pause`, `show_pattern` / `show_icon` / `show_arrow` / `show_image`, centered `show_string`) use `_sleep_pollable` or `_sleep_until_cancelled` and return within ~50 ms of a later `_acquire()`. `show_string("")` draws a blank fit-on-screen frame. `set_pixel` off the matrix cancels and leaves the last frame, which is the stated policy, not an accidental freeze.
+- **Still true:** a scroll frame uses one `asyncio.sleep(interval_ms)` and notices a cancel at the end of that sleep, not mid-sleep.
 
 ## 2026-09-25 — `Icon` class replaces `Image` for the catalog; `ICONS`→`EMOJIS` clean rename (implemented)
 
@@ -209,6 +257,13 @@ Resolves the Q1–Q5 cancellation-chaining design thread opened 2026-09-25 above
 **Follow-up same session — redundant `interval_ms > 0` guards removed:** Alex asked to check for redundant range checks on `interval_ms`. Found: `_sleep_pollable(token, total_s)` already no-ops for `total_s <= 0` (returns before any `await asyncio.sleep(...)`, so no event-loop-yield difference either), yet 4 call sites (`_show_image`, `show_pattern`, `show_icon`, `show_string`'s fit-hold branch) wrapped the call in `if interval_ms > 0:` anyway — duplicating a boundary check the callee already made safe. `pause` already had the minimal, non-redundant form (validate sign once, call `_sleep_pollable` unconditionally). Removed the 4 redundant guards to match `pause`'s pattern; also rewrote a stale comment in `show_string` that had justified its guard via "`asyncio.sleep(0)` yields once" — true of a *direct* `asyncio.sleep()` call, no longer true once the call goes through `_sleep_pollable`. No double-`raise ValueError` existed anywhere (each Tier 2 entry point validates the sign exactly once; `show_arrow`/`show_number` delegate to `show_icon`/`show_string` without re-validating, correctly). Verified: `py_compile` + `tests/` 178 passed + no lints.
 
 **Flagged, not fixed (separate concern — a validation *gap*, not a redundancy)**: `show_image`/`Image._show_image` never raise on `interval_ms < 0` (silently treated as "no wait", unlike `show_pattern`/`show_icon`/`show_string`/`pause`, which all raise `ValueError`). `scroll_image`/`Image._scroll_image` never validate `interval_ms` either, and call `asyncio.sleep(interval_seconds)` directly per scroll frame rather than through `_sleep_pollable` — so a negative `interval_ms` there hits raw `asyncio.sleep()` unguarded. Left as-is; only raised because it surfaced during the redundant-check analysis. Open question for Alex: should `show_image`/`scroll_image` validate `interval_ms < 0` the same way the other Tier 2 methods do?
+
+## 2026-09-26 — Stage 2 step 11 estimate and Stage 3 arrow hold (recommended, not applied)
+
+Alex asked whether to fix two script findings from the 2026-09-21 review. Recommendation presented in chat, no file edit.
+
+- **Stage 2 step 11 — applied** in `code_stage2.py` as `_scroll_sleep_s`. Alex's three frame groups (1 empty screen, then `c` text columns, then `WIDTH` empty columns) sum to `(1 + c + WIDTH) × interval_ms`. The message wrote that product as `(1 + c × WIDTH)`; the function uses the sum, which is the sleep count in `show_string`. `"ROTATE"` is 32 feeder columns → 38 frames → 7.6 s at 200 ms. The 0.5 s slack is unchanged. The helper describes the scroll path only; fit-on-screen text holds `interval_ms * WIDTH`.
+- **Stage 3:** `scroll_image` now returns a `Token`. When `is_expired`, `await asyncio.sleep(0.8)` on the display task before `show_string`. The handler has already drawn the arrow; `show_string`'s first frame replaces it. A press during `show_string` already lands in the existing 1 s sleep. A second press during the 0.8 s hold redraws the arrow and does not restart the hold.
 
 **Follow-up same session — render helpers moved into `Display`:** `_write_pattern_on_the_fly`/`_render_colmajor`/`_render_ring_window` were module-level free functions taking `pixels`/`lut`/`off` as parameters (decoupled from any specific `Display`, mirroring `Image`'s `disp`-parameter pattern). Grepped all call sites: all four (in `render_pattern`/`render_icon`/`show_string`×2) are `Display`-internal, always passing `self._pixels`/`self._lut` — no second beneficiary of the decoupling exists (`Image` doesn't call these). Alex: "I would be inclined to move those methods to Display" — advised first (confirmed via grep the decoupling had no live consumer, confirmed the LOAD_FAST-caching discipline survives the move if `self._pixels`/`self._lut`/`OFF` are still cached to locals at the top of each method body), then implemented on "please proceed": all three are now private `Display` methods; `_write_pattern_on_the_fly` also dropped its `width`/`height` params (always called with `WIDTH`/`HEIGHT` — same no-real-degree-of-freedom pattern as its `off` param). One test broke and was fixed: `test_public_names.py::test_fused_scan_is_wired_in_render_pattern` AST-walked for a bare-`Name` call, now checks the `self._write_pattern_on_the_fly` `Attribute` call. README's "Rotation during an in-flight Tier 2 animation" section updated (no longer describes a `lut` parameter that no longer exists). Verified: `py_compile` + `tests/` 178 passed + no lints.
 

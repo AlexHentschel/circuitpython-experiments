@@ -33,10 +33,9 @@ What runs:
   11. ``show_string("ROTATE")`` gathered with ``set_rotation(270)`` after
       2.5 s. Rotation does not cancel, so the scroll should run out, and
       the motion should turn from horizontal to vertical. The ``[OK]``
-      check compares elapsed time with this script's full-length estimate
-      (``WIDTH`` columns per character, plus a ``WIDTH + 1`` blank tail).
-      That estimate leaves out the spacer column
-      ``SpacedGlyphColumnFeeder`` inserts between characters.
+      check compares elapsed time with ``_scroll_sleep_s``: one empty
+      frame, then one frame per text column, then ``WIDTH`` empty columns,
+      each held for ``interval_ms``.
   12. ``Display.scroll_image`` gathered with ``set_rotation(180)`` after 1 s.
       Same non-cancel check, through ``Image._render_window`` rather than
       step 11's ring buffer. 180 mirrors in place. The estimate is
@@ -55,6 +54,7 @@ import time
 
 import display
 from display import Emojis, Arrows
+from display.text_layout import SpacedGlyphColumnFeeder
 
 d = display.display
 
@@ -74,6 +74,30 @@ _BIG_PATTERN = """
 . . # . . # # # # #
 """
 _big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
+
+
+def _scroll_sleep_s(text: str, interval_ms: int) -> float:
+    """Seconds that ``Display.show_string(text)`` spends waiting, with no cancellation.
+
+    ``c`` is how many columns ``SpacedGlyphColumnFeeder`` yields for ``text``.
+    Each frame is held for ``interval_ms`` milliseconds. An uninterrupted
+    scroll of text wider than the display waits three groups of frames:
+
+    * 1 frame shows the empty screen before the first column comes in.
+    * ``c`` frames bring the text in, one column at a time.
+    * ``WIDTH`` frames bring in empty columns, one column at a time, until
+      the last text column has left the screen.
+
+    The wait is therefore ``(1 + c + WIDTH) × interval_ms`` milliseconds.
+    This text has to be wider than the display. Text that fits is centered
+    and held for ``interval_ms × WIDTH`` instead, and this function does
+    not describe that hold.
+    """
+    feeder = SpacedGlyphColumnFeeder(str(text))
+    columns = 0
+    while feeder.next_column() is not None:
+        columns += 1
+    return (1 + columns + display.WIDTH) * interval_ms / 1000
 
 
 async def _trigger_cancellation_after(delay_s: float) -> None:
@@ -230,14 +254,13 @@ async def main() -> None:
         # 11) show_string("ROTATE") gathered with set_rotation(270) after 2.5 s.
         #     set_rotation does not call _acquire, so the scroll should run
         #     out, and 270 swaps axes so the motion turns vertical.
-        #     The [OK] estimate counts WIDTH columns per character plus a
-        #     WIDTH+1 blank tail. SpacedGlyphColumnFeeder also inserts one
-        #     spacer column between characters, which this estimate leaves out.
+        #     _scroll_sleep_s counts one empty frame, then one frame per
+        #     text column, then WIDTH empty columns.
         d.clear_screen()
         d.set_rotation(0)
         _text_11 = "ROTATE"
         _interval_ms_11 = 200
-        _full_length_s_11 = (display.WIDTH * len(_text_11) + display.WIDTH + 1) * _interval_ms_11 / 1000
+        _full_length_s_11 = _scroll_sleep_s(_text_11, _interval_ms_11)
         _rotate_at_s_11 = 2.5
         _t0 = time.monotonic()
         try:

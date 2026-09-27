@@ -137,25 +137,24 @@ def _iter_pattern_rows(pattern_str: str):
 class Image:
     """Bitmap image for the LED matrix.
 
-    An image is always ``HEIGHT`` rows tall (see ``height``). Its width (see
-    ``width``) is independent of the display and may be smaller, equal to,
-    or **larger** than the ``WIDTH`` physical columns of the LED matrix —
-    ``create`` accepts any width (the widest kept row). There is no
-    dedicated strict-shape constructor; check properties ``.width``/``.height``
-    yourself (e.g. ``if img.width != WIDTH: raise ...``) in the rare cases
-    where you need to enforce an exact size.
+    An image is always ``HEIGHT`` rows tall (see property ``height``). Its width (see
+    property ``width``) is independent of the display and may be smaller, equal to,
+    or **larger** than the ``WIDTH`` physical columns of the LED matrix.
+    The factory method ``Image.create`` accepts any width (the widest kept row).
+    Short rows are padded with OFF.
     An image can be monochrome (one shared color, recolorable via ``recolor``)
-    or multi-color (a fixed color per pixel).
+    or multi-color (a fixed color per pixel, ``recolor`` is no-op).
     An image wider than the display is shown a ``WIDTH``-column window at a
-    time: ``Display.show_image(offset)`` picks the window and
-    ``Display.scroll_image`` scrolls it across the full width — image
+    time: ``Display.show_image(offset)`` picks the window; image
     columns outside that window are trimmed.
-    Where the display window overhangs the image (a narrower image, or an ``offset``
+    ``Display.scroll_image`` scrolls the Image across the display. Where the
+    display window overhangs the image (a narrower image, or an ``offset``
     past an edge), the uncovered display columns render as ``OFF``.
-
-    Internally (see ``columns``): monochrome images store column-major bytes
-    plus one RGB color; multi-color images store a flat per-pixel RGB sequence.
     """
+
+    # Implementation notes:
+    # Internally (see ``columns``): monochrome images store column-major bytes
+    # plus one RGB color; multi-color images store a flat per-pixel RGB sequence.
 
     __slots__ = ("_data", "_width", "_multi", "_color")
 
@@ -190,11 +189,12 @@ class Image:
         The returned Image is reusable across multiple ``Display.show_image``
         / ``Display.scroll_image`` calls.
 
-        Rows past ``HEIGHT`` are dropped; short rows are padded with OFF.
-        Image width is the widest of the kept rows. Unknown chars in mono
-        mode render as OFF. Whitespace (spaces, tabs, CRs) in the pattern
-        is ignored. For strict size validation, check the returned
-        ``.width``/``.height`` yourself.
+        Rows past ``HEIGHT`` are dropped; short rows or columns are padded with OFF.
+        Image width is the widest of the rows (ignoring rows beyond``HEIGHT``).
+        Unknown chars in mono
+        mode render as OFF. Spaces and other invisible characters are skipped,
+        so ``#`` marks close up around them. ``render_pattern`` skips only space,
+        tab, and carriage return; anything else stays a pixel, off when it is not ``#``.
         """
         # Internal encoding: mono images store column-major bytes (one byte
         # per column, bit y = row y counted from top); multi-color stores a flat
@@ -223,22 +223,20 @@ class Image:
 
     @property
     def width(self) -> int:
-        """Column count of this image, not the physical display width.
+        """Column count of this image, not the physical display width. Read-only.
 
-        May be smaller, equal to, or larger than ``WIDTH``. Factory method ``create``
-        sets the Image width to the widest row on the LED matrix (ignoring rows overflowing ``HEIGHT``). Read-only.
+        May be smaller, equal to, or larger than ``WIDTH``. Factory method
+        ``Image.create`` sets ``width`` to the length of the widest row in the pattern.
         """
         return self._width
 
     @property
     def height(self) -> int:
-        """Row count of this image — always ``HEIGHT``. Read-only.
+        """Row count of this image: always display ``HEIGHT``. Read-only.
 
-        Not stored per-instance (every ``Image`` is exactly ``HEIGHT`` rows
-        tall by construction); exists alongside ``width`` so callers can
-        validate an image's exact shape themselves — e.g.
-        ``if img.width != WIDTH or img.height != HEIGHT: raise ValueError(...)``
-        — without a dedicated strict-shape constructor.
+        If an image is created from pattern that has less rows than the display's ``HEIGHT``,
+        the factory method ``Image.create(…)`` always pads with OFF to ``HEIGHT`` rows. Equivalently,
+        ``Image.create(…)`` truncates an overly tall pattern to ``HEIGHT`` rows.
         """
         return HEIGHT
 
@@ -309,47 +307,37 @@ class Image:
         """Internal implementation backing ``Display.scroll_image``.
 
         Scroll through the image, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
-        If a subsequent operation acquires the display before the scroll completes, this method returns immediately
-        instead; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
+        ``step`` is how many image columns scroll in from the right each frame. The scroll always starts at position 0.
+        Every ``interval_ms``, ``step`` image columns scroll in, until the last column of the image has appeared.
+        If ``step`` is greater than 1, that last step might need to pad with empty columns after the last image column.
+        Negative ``step`` is not yet supported.
+
+        If a subsequent operation acquires the display before the scroll completes, this method returns after the
+        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
 
         ``disp`` is the ``Display`` instance to render to.
 
-        `step` is a per-frame *incremental* movement of the columns. The scroll always starts at position 0.
-        Every `interval_ms` the image is moved by ``step`` columns to the left until all columns have been shown.
-        If ``Image.width`` is *not* an integer multiple of ``step``, the last columns of the image will be placed
-        left of the righ-most display column and empty rows will be padded. Negative ``step`` is not yet supported.
-
-        Cancellable: any newer display operation causes this coroutine to
-        return early (see module docstring's cancellation policy).
-
-        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative
-        ``step``) is not yet supported.
+        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
         """
         if step <= 0:
             # TODO: allow step < 0 for bi-directional (right-to-left) scrolling.
             raise ValueError(f"step must be > 0, got {step}")
         token = disp._acquire()
-        max_start = self._width - WIDTH
-        max_start = max(max_start, 0)
-        pos = 0
+        # Each frame, ``step`` image columns scroll in from the right. ``image_columns_to_scroll_in``
+        # is how many image columns start off the right edge of the screen.
+        # Scrolling continues in full steps of ``step`` until that column has come in.
+        # A last step might need to pad with empty columns after that column.
+        image_columns_to_scroll_in = max(0, self._width - WIDTH)
+        columns_scrolled = 0
         interval_seconds = interval_ms / 1000
-        while pos <= max_start:
+        while True:
             if token.is_expired:
                 return token
-            self._render_window(disp, pos)
+            self._render_window(disp, columns_scrolled)
             await asyncio.sleep(interval_seconds)
-            pos += step
-        # pos increased until it *overshoots* max_start. There are two cases:
-        #  (i)  `max_start` *is* an integer multiple of `step`. In this case, the last loop iteration runs with `pos == max_start`.
-        #       Then, the while loop exits with `pos == max_start + step`.
-        #  (ii) `max_start` is *not* an integer multiple of `step`. In this case, the last full loop iteration will have `pos < max_start`.
-        #       Then, the while loop exits with `pos < max_start + step`. In this case, the last row(s) will not have been shown yet.
-        if pos != max_start + step:  # The following happens if `max_start` is *not* an integer multiple of `step`
-            if token.is_expired:
+            if columns_scrolled >= image_columns_to_scroll_in:
                 return token
-            self._render_window(disp, max_start)
-            await asyncio.sleep(interval_seconds)
-        return token
+            columns_scrolled += step
 
     def _render_window(self, disp: Display, offset: int) -> None:
         """Render a WIDTH-column window of this image at ``offset`` into ``disp``'s pixel buffer and show().
@@ -528,7 +516,7 @@ class Icon:
         Smaller patterns are accepted: missing rows/columns pad as ``OFF``
         (bottom/right, since row 0 = top and column 0 = left). Raises
         ``ValueError`` if the pattern *exceeds* ``WIDTH`` columns or
-        ``HEIGHT`` rows (whitespace and blank lines ignored). For a
+        ``HEIGHT`` rows (every whitespace character and blank lines ignored). For a
         multi-color bitmap, or one wider than ``WIDTH`` (e.g. a scrollable
         image), use ``Image.create`` instead.
         """
@@ -869,6 +857,8 @@ class Display:
 
         color: RGB tuple for mono ('#'/'.' mode) or dict for palette.
         Short rows are padded with OFF; rows past HEIGHT are ignored.
+        Space, tab, and carriage return are gaps. Any other character is a cell.
+        In mono mode a cell other than ``#`` is off and still takes a column.
         """
         self._acquire()
         # Direct render via LUT — no intermediate column-major buffer. Fused one-pass scan.
@@ -984,6 +974,7 @@ class Display:
         immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
+        Same pattern rules as ``render_pattern``.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
@@ -1033,24 +1024,17 @@ class Display:
         return await image._show_image(self, offset, interval_ms)
 
     async def scroll_image(self, image: Image, step: int = 1, interval_ms: int = 200) -> Token:
-        """Scroll through ``img``, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
+        """Scroll through ``image``, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
 
-        ``step`` is a per-frame *incremental* movement of the columns. The scroll always starts at position 0.
-        Every ``interval_ms`` the image is moved by ``step`` columns to the left until all columns have been shown.
-        If ``Image.width`` is *not* an integer multiple of ``step``, the last columns of the image will be placed
-        left of the righ-most display column and empty rows will be padded. Negative ``step`` is not yet supported.
+        ``step`` is how many image columns scroll in from the right each frame. The scroll always starts at position 0.
+        Every ``interval_ms``, ``step`` image columns scroll in, until the last column of the image has appeared.
+        If ``step`` is greater than 1, that last step might need to pad with empty columns after the last image column.
+        Negative ``step`` is not yet supported.
 
+        If a subsequent operation acquires the display before the scroll completes, this method returns after the
+        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
 
-        ``step`` is a per-frame *incremental* movement of the columns. The
-        scroll always starts at position 0; there is no parameter to change
-        the starting position (unlike ``show_image``, which can start
-        anywhere, including negative or past the image's right edge).
-
-        Cancellable: any newer display operation causes this coroutine to
-        return early (see module docstring's cancellation policy).
-
-        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative
-        ``step``) is not yet supported.
+        Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
         """
         return await image._scroll_image(self, step, interval_ms)
 
@@ -1109,10 +1093,10 @@ class Display:
             if len(fit_buf) > WIDTH:
                 break
 
-        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing
-        # to scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop ==
-        # false`, we hold for an `interval_ms * WIDTH` duration; `_sleep_pollable` itself
-        # returns immediately, with no `asyncio.sleep()` call at all, when that duration is 0.
+        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to
+        # scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop == false`,
+        # we hold for an `interval_ms * WIDTH` duration; `_sleep_pollable` itself returns immediately,
+        # with no `asyncio.sleep()` call at all, when that duration is 0 (desired synchronous edge case).
         # Note: An empty string has zero columns and takes this same path: the frame is all OFF (the empty string drawn).
         if len(fit_buf) <= WIDTH:
             pad = (WIDTH - len(fit_buf)) // 2
@@ -1175,7 +1159,7 @@ class Display:
         interval_ms: int = 150,
         loop: bool = False,
     ) -> Token:
-        """Display a number via ``show_string(str(n))``.
+        """Display a number via ``show_string(str(n))``. ``True`` and ``False`` show as those words.
 
         Fit-on-screen numbers (total glyph width <= WIDTH — typically
         one digit in the bundled font) are centered and held;
