@@ -36,8 +36,10 @@ What runs:
      within +/-10 ms.
   3. ``Display.scroll_image`` — the long animation a press can cut short.
      Restarted every cycle, after rotation 0 and brightness 0.10.
+     When a press cuts it short, the arrow stays up for ``_ARROW_HOLD_MS``
+     of quiet (``pause``). A later press starts that wait over.
   4. ``show_string`` of the press counts (``A0B0C0D0``). No spaces, so the
-     scroll stays short.
+     scroll stays short. A press can cut this animation short too.
   5. A press increments that letter's count, prints it, and renders that
      letter's arrow. Presses are delivered whenever those coroutines are
      running, including during steps 2-4.
@@ -95,6 +97,11 @@ _LETTER_COLOR = {
     "d": display.GOLD,
 }
 
+# Duration of time the arrow stays up after a button press cuts the scroll short (step 3 or 4).
+# A later button press starts this wait over.
+_ARROW_HOLD_MS = 800
+
+
 class _PressCounter:
     """Stateful, per-letter press handler.
 
@@ -118,9 +125,7 @@ class _PressCounter:
 
     def __call__(self) -> None:
         self.count += 1
-        print(
-            f"BUTTON {self.letter.upper()} pressed (count={self.count})"
-        )
+        print(f"BUTTON {self.letter.upper()} pressed (count={self.count})")
         # Tier-1 write from inside that module's ``run()``. Cancels whatever
         # Tier-2 animation the display loop is in the middle of.
         d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter])
@@ -145,8 +150,9 @@ async def _display_loop() -> None:
     cycle = 0
     while True:
         cycle += 1
-        # Each cycle starts from the same rotation and brightness, independent
+        # Each cycle starts from the same empty screen with reset rotation and brightness, independent
         # of what the previous cycle's animation or a press left on screen (matching Stage 0-2).
+        d.clear_screen()
         d.set_rotation(0)
         d.set_brightness(0.10)  # dimmer than the library default 0.20
         print(f"\n=== cycle {cycle} ===")
@@ -173,10 +179,15 @@ async def _display_loop() -> None:
         #    step 5 (a physical button press, whenever it happens) interrupts.
         #    Restarted fresh every cycle, matching the "reset at top of cycle"
         #    convention used throughout this test series.
+        #    A press draws an arrow and expires the scroll token. pause leaves those
+        #    pixels up. A later press expires that pause, and the loop starts the hold
+        #    over, so the status line waits for a 800ms gap without any button presses.
         d.clear_screen()
         _big_image.recolor(display.CYAN)
-        await d.scroll_image(_big_image, step=1, interval_ms=300)
-        print("3/4: Display.scroll_image, background animation (press any button to interrupt it)")
+        token = await d.scroll_image(_big_image, step=1, interval_ms=300)
+        while token.is_expired:
+            token = await d.pause(_ARROW_HOLD_MS)
+        print("3/4: Display.scroll_image (a press during it keeps its arrow up for 800 ms)")
 
         # 4) Status line: live per-letter press counts, confirming Tier 2
         #    keeps rendering fresh frames every cycle regardless of whether

@@ -88,17 +88,18 @@ can tell the two cases apart.
 
 **Holds** (`pause`, the single-render waits after `show_pattern` /
 `show_icon` / `show_arrow` / `show_image`, and `show_string`'s
-fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_s)` /
+fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_ms)` /
 `_sleep_until_cancelled(token)` instead of a single bare
 `await asyncio.sleep(...)`. Both are free functions — they take a
 `Token` and have no dependency on any `Display` instance's state — that
 chunk the wait into 50 ms pieces and
 return as soon as `token.is_expired`, so a hold notices a superseding
 display operation within 50 ms rather than only after its full
-duration has elapsed. `_sleep_pollable` tracks a wall-clock deadline
-(`time.monotonic() + total_s`), not a chunk-size countdown, so
-scheduling jitter across many chunks cannot accumulate drift — the
-non-cancelled total wait still converges exactly to `total_s`.
+duration has elapsed. `_sleep_pollable` takes milliseconds and tracks a
+ticks deadline (`ticks_add(ticks_ms(), total_ms)`), not a chunk-size
+countdown, so scheduling jitter across many chunks cannot accumulate
+drift — the non-cancelled total wait still converges to `total_ms`.
+A `total_ms` of 0 returns without awaiting.
 
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
 methods, and check `token.is_expired` on both sides of the await.

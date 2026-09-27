@@ -3,6 +3,11 @@
 Per-project session memory for **ai-tooling** (`meta` family: AI tooling + self-improvement of *this* persona). Behavioral/process directives: `../../universal/`. Method-discipline references: `../../../reference/*` + `../../../00-memory-system.mdc`. Roster + routing: `../_INDEX.md`. External method/harness source (read-only, not this persona): `high-assurance-engineering` — see `CONTEXT.md § Entry points`.
 
 ## Sessions
+## 2026-09-27: Session — [project:ai-tooling] (port `/memory-light` skill)
+
+- Ported the light end-of-chat memory pass from `onflow/high-assurance-engineering` `.cursor/skills/memory-light/SKILL.md` into `.cursor/skills/memory-light/SKILL.md`. Vehicle = Cursor project skill (`disable-model-invocation: true`) → slash `/memory-light`, human-triggered only. Reachable when `ai-persona` is an open workspace root. No `.mdc` twin; no always-on reminder added to `03-memory-update-triggers.mdc` (source forbids that).
+- **Dependency remap** (source → this persona): HA `04-memory-update-triggers` items 1–6 → `03` items 1–4 + `04-multi-project.mdc § Placement gate` / `§ M1`; cold-AI + migration spectrum → `reference/cold-ai-paradigm.md § 2` + `WORKING_STYLE.md` wrap-up / working-notes rows; `TWO_LEVELS_OF_LEARNING.md` → directive catalogs vs `MONITORING` / `unverified` `CONCLUSIONS`; full cycle → `lifecycle-kit/README.md` + `00 § Maintenance`; park-heavy → existing `memory/MAINTENANCE_BACKLOG.md`. This persona has no `/no-memorize` skill — collision still fires on an explicit don't-record instruction. Sibling boundary added on `/experiment-wrapup-to-memory` ("not this skill" names `/memory-light`). Not yet run.
+
 ## 2026-09-20: Session — [project:ai-tooling] (skill inventory + restore backup)
 
 - Catalog + restore copies: `ai-persona/skill-catalog/` (`INVENTORY.md` + `backup/{workspace-cursor,workspace-claude,personal-cursor,builtin-cursor,personal-claude}/`).

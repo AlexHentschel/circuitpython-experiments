@@ -2,10 +2,10 @@
 
 **Family**: `circuitpython` · **Repo**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`
 
-**Status digest** — current state is § Resumption point. Completed-session narrative is compacted in `SESSION_LOG.md` (2026-09-21).
+**Status digest** — current state is § Resumption point. Completed-session narrative is compacted in `SESSION_LOG.md` (through 2026-09-26; recap 2026-09-27).
 
-- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Code since then (`4a337f4`, 2026-09-20) is host-green (pytest 178) and **not re-run** on the board: spaced `show_string`, and `button_a` / `button_c` registration (`ButtonPair` removed).
-- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"`. (b) `code_stage2.py` steps 11/12 not run; step 11's duration formula still assumes `WIDTH` columns/glyph. (c) re-run `code_stage3.py` on the current button API.
+- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Code at git `ec5a780` (2026-09-27 09:37) has **not** been re-run on the board. It is a renamed, token-based display API (see Resumption). Host pytest **178** is the last recorded run and predates later test edits — re-run before quoting it.
+- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"` on the spaced font. (b) `code_stage2.py` steps 11/12 not run; step 11 now calls `_scroll_sleep_s` (feeder columns, not `WIDTH` per glyph). (c) re-run `code_stage3.py` on `button_a` / `button_c` and the `Token` API. (d) Stage 3 scroll→status arrow hold is in `code_stage3.py` (`pause` 800 ms, restarts on a later press). Not run on the board. A press during step 4 `show_string` still ends at the trailing 1 s sleep, then `clear_screen`. (e) async button handlers still dropped.
 - **Board**: UID `0740D10F1BE9`, CircuitPython **10.3.0**. **Brightness floor (authoritative, Alex)**: 0.01 off, 0.02 lowest lit; library default `core.py BRIGHTNESS = 0.20`.
 
 ## Scope & goal
@@ -69,16 +69,18 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
-**2026-09-21 — notes aligned with code `4a337f4` (2026-09-20).** Host pytest **178 passed**.
+**2026-09-27 — recap of the cleanup against git `ec5a780` (2026-09-27 09:37).** Not re-run on UID `0740D10F1BE9`. Detail and chat motives: exp16 `ai-notes/2026-09-27_review-followup/NOTES.md` (gitignored). The 2026-09-21 review folder is the baseline only.
 
-**Confirmed on UID `0740D10F1BE9` (CP 10.3.0):** Stages 0–2 steps 1–10 and the original Stage 3. Brightness floor 0.01 off / 0.02 lit; library `BRIGHTNESS = 0.20`.
+**Still confirmed on the board (older code, 2026-09-13):** Stages 0–2 steps 1–10 and the original Stage 3. Brightness floor 0.01 off / 0.02 lit; library `BRIGHTNESS = 0.20`.
 
-**On the host since that confirmation, not re-run on the board:**
+**On the host since that confirmation:**
 
-- `show_string` uses `SpacedGlyphColumnFeeder` / `glyph_ink`: one spacer between characters, unknown glyphs draw tofu (`_TOFU_INK`), space is 3 blank columns.
-- Buttons: `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. `ButtonPair` is gone. `code_stage3.py` matches this.
-- `code_stage2.py` steps 11/12 (rotate during an in-flight animation) are drafted only. Step 11's elapsed-time formula still assumes `WIDTH` columns per glyph.
+- Font path unchanged in kind: `SpacedGlyphColumnFeeder` / `glyph_ink`, one spacer, tofu, space width 3. Fit-on-screen hold is `interval_ms * WIDTH` (same milliseconds as the old `* 5` while `WIDTH` is 5).
+- Display API: `Icon` + `Emojis`; `Image.create` / `Icon.create` (no `create_image`); `show_pattern` (was `show_leds`); `Display.show_image` / `scroll_image`; cancellation is a `Token` (`is_expired`), not an integer generation. Holds poll via `_sleep_pollable`. Scroll frames still sleep one `interval_ms` at a time.
+- Buttons: `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. Async handlers are still not awaited.
+- `code_stage2.py` steps 11/12 still not run on device. Step 11's estimate is `_scroll_sleep_s` (feeder column count).
+- Stage 3 arrow-during-scroll wipe is still the script's behavior.
 
 **Next hardware:** analog light on Nezha2 J1/J2, then Nezha V2 motor (`concepts/nezha.md`; no driver). Color-constant tuning and `show_number` formatting stay deferred.
 
-Detail, including 2026-09-20 chat coverage: `SESSION_LOG.md`. Blow-by-blow before the 2026-09-21 compaction is in git at `4a337f4`.
+Narrative through 2026-09-26: `SESSION_LOG.md`. Recap entry is at the end of that file.

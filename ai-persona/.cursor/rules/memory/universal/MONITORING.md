@@ -1,6 +1,6 @@
 # Monitoring
 
-Last updated: 2026-09-21.
+Last updated: 2026-09-27.
 
 *Prior dated header provenance (2026-04-21 … 2026-09-13) is relocated to `CHANGELOG.md § 2026-09-15 — MONITORING.md compaction (P8)` to keep this always-read register lean; each entry's own `First observed` field + any promoted directive's Notes column remain the authoritative per-entry lifecycle record.*
 
@@ -39,6 +39,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 - **Cross-reference on promotion**: when an entry graduates to a full directive / `concepts/<domain>.md` entry / `projects/<slug>/CONCLUSIONS.md` finding, cite this file as the original observation site in the promoted entry's Notes column so the provenance chain is preserved.
 
 ## Entries
+
+- **Slice scroll-frame sleeps only if abandoned scrolls pile up**
+  - **Observation**: `Image._scroll_image` and `show_string`'s scroll loop each `await asyncio.sleep(interval)` once per column. One awaited scroll is one sleeper; a faster poll only makes that one return sooner. A burst of un-awaited scrolls (`create_task`, not awaited) leaves each expired coroutine asleep until that column ends.
+  - **Trigger**: exp16 (or a port of this display library) starts overlapping Tier 2 scrolls without awaiting them, or a caller needs cancel latency shorter than `interval_ms` on a column around 500 ms or more.
+  - **Action on trigger**: inline the millisecond `sleep_ms` loop inside those two coroutines (not a new `async def` per column). Slice only when `interval_ms` is longer than the poll. `interval_ms == 0` still `await asyncio.sleep(0)`. Sketch and the single-sleeper reasoning: exp16 `ai-notes/2026-09-27_scroll-sleep-chunking/NOTES.md` (may vanish); chat 2026-09-27.
+  - **First observed**: 2026-09-27. Alex asked to keep it as a future optimization. Not implemented.
+  - **Scope**: `[project]` (exp16 display; the same two loops if the library is ported).
 
 - **Oversolve a questioned cost into a parallel interned table**
   - **Observation**: Alex asked to avoid an extra method on `glyph_ink`'s hot path, with an uncertain aside ("I think slice copy?"). I built a 95-element `_INK` tuple of pre-sliced `bytes`. He then said the complaint was the helper, not a cache; a tuple is also GC-managed.

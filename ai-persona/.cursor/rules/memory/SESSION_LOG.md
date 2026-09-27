@@ -63,6 +63,10 @@ When the same fact must live in two places (rare; only when duplication serves d
 
 ## Cross-project & tooling sessions
 
+## 2026-09-27: Session — [tooling] (port `/memory-light` skill)
+
+- Ported from `onflow/high-assurance-engineering` `.cursor/skills/memory-light/` into `ai-persona/.cursor/skills/memory-light/SKILL.md` (human-triggered slash; never auto-invoke). Narrative + remap: `projects/ai-tooling/SESSION_LOG.md` 2026-09-27. Not yet run.
+
 ## 2026-09-21: Session — [tooling]/[exp16] (Cursor syntax completion)
 
 - Research only. No library or workspace edit. Notes: `ai-persona/ai-notes/circuitpython-syntax-completion/` (gitignored; may vanish). Durable: `concepts/tooling.md` concept *Cursor syntax completion for CircuitPython*.

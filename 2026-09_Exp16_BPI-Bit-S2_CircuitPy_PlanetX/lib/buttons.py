@@ -17,6 +17,11 @@ To run other work (e.g. a display animation) at the same time, gather the
 tasks instead of awaiting ``run()`` alone:
 ``await asyncio.gather(buttons.run(), display_loop())``.
 
+A handler is a normal function, or an ``async def`` function (including one
+taken from an instance, such as ``counter.on_press``). A normal function runs
+and returns. An async function is awaited on this module's ``run()`` task
+before the next handler on that switch.
+
 GPIO pins are constructor arguments only, never referenced inside a handler —
 so swapping which physical pin a button uses is a one-line change at
 construction, not a hunt through handler code. There is no ``update()``
@@ -35,10 +40,9 @@ except ImportError:
     pass
 
 
-# `run()`'s poll interval: see `_pump` for why this is not `0`.
-# Half of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no
-# event can be missed for longer than one hardware scan cycle would already
-# impose.
+# `run()`'s poll interval: see `_pump` for why this is not `0`. Half
+# of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no event
+# can be missed for longer than one hardware scan cycle would already impose.
 _POLL_INTERVAL_S = 0.01
 
 
@@ -84,13 +88,16 @@ async def _pump(queue, dispatch) -> None:
 
     while True:
         event = queue.get()
+        # ``await dispatch`` runs each handler before the next event. An async
+        # handler runs to completion here. A sync handler returns None, so a
+        # burst of sync presses finishes inside this turn.
         # Deliberately no await between dispatches: this drains the whole buffered
         # burst before yielding once below. keypad.Keys' own scan caps new events at
         # ~1 per 20 ms, so a same-tick burst worth yielding *inside* is not something
         # real hardware produces; adding a yield here would spread a burst's events
         # across multiple ticks instead (considered and rejected 2026-09-20).
         while event is not None:
-            dispatch(event)
+            await dispatch(event)
             event = queue.get()
         await asyncio.sleep(_POLL_INTERVAL_S)
 
@@ -109,12 +116,22 @@ class PushButtonBase:
         self._pressed = []
         self._released = []
 
-    def on_pressed(self, handler: Callable[[], None]) -> None:
-        """Call ``handler()`` (no arguments) every time this switch is pressed."""
+    def on_pressed(self, handler: Callable[[], object]) -> None:
+        """Call ``handler()`` (no arguments) every time this switch is pressed.
+
+        A normal function runs and returns. An ``async def`` function, including
+        one taken from an instance (``counter.on_press``), is awaited before the
+        next handler on this switch.
+        """
         self._pressed.append(handler)
 
-    def on_released(self, handler: Callable[[], None]) -> None:
-        """Call ``handler()`` (no arguments) every time this switch is released."""
+    def on_released(self, handler: Callable[[], object]) -> None:
+        """Call ``handler()`` (no arguments) every time this switch is released.
+
+        A normal function runs and returns. An ``async def`` function, including
+        one taken from an instance (``counter.on_press``), is awaited before the
+        next handler on this switch.
+        """
         self._released.append(handler)
 
     def clear_pressed(self) -> None:
@@ -130,11 +147,16 @@ class PushButtonBase:
         self._pressed = []
         self._released = []
 
-    def _handle(self, pressed: bool) -> None:
-        # Owning button object's pump calls this; students do not.
+    async def _handle(self, pressed: bool) -> None:
+        # Internal method: only called by sub-classes.
+        # We look at what the call returned: A bare ``async def``, a bound method
+        # such as ``counter.on_press``, and an instance whose ``__call__`` is
+        # async all return a coroutine. A normal function returns None.
         handlers = self._pressed if pressed else self._released
         for handler in handlers:
-            handler()
+            result = handler()
+            if hasattr(result, "__await__"):
+                await result
 
 
 class Button(PushButtonBase):
@@ -161,9 +183,9 @@ class Button(PushButtonBase):
             raise ValueError("pin is required when event_queue is omitted")
         _bind_scanner(self, (pin,))
 
-    def _dispatch(self, event) -> None:
+    async def _dispatch(self, event) -> None:
         # Standalone scanner is a 1-tuple; ignore key_number.
-        self._handle(event.pressed)
+        await self._handle(event.pressed)
 
     async def run(self) -> None:
         """Never-ending task that delivers this pin's press and release events.
@@ -224,16 +246,16 @@ class OnboardButtons:
         self._a.clear()
         self._b.clear()
 
-    def _dispatch(self, event) -> None:
+    async def _dispatch(self, event) -> None:
         # ``event.key_number`` is a tuple position matching ``(a_pin, b_pin)``:
         # scanner slot 0 is A, slot 1 is B. Bounds-checked explicitly (not a bare
         # try/except IndexError) because a negative key_number would otherwise
         # silently wrap onto a *valid* button instead of being rejected.
         index = event.key_number
         if index == 0:
-            self._a._handle(event.pressed)
+            await self._a._handle(event.pressed)
         elif index == 1:
-            self._b._handle(event.pressed)
+            await self._b._handle(event.pressed)
 
     async def run(self) -> None:
         """Never-ending task that delivers both buttons' press and release events.

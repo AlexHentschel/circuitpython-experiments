@@ -63,9 +63,9 @@ except ImportError:
     pass
 
 import asyncio
-import time
 
 import board
+from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
 import neopixel
 from rainbowio import colorwheel  # noqa: F401 — re-export for user convenience
 
@@ -299,10 +299,13 @@ class Image:
         ``offset`` is the image column placed at display column 0. It may
         be negative or past the right edge; uncovered display columns are
         ``OFF``. Cancels any prior Tier 2 animation.
+        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0``.
         """
+        if interval_ms < 0:
+            interval_ms = 0
         token = disp._acquire()
         self._render_window(disp, offset)
-        await _sleep_pollable(token, interval_ms / 1000)
+        await _sleep_pollable(token, interval_ms)
         return token
 
     async def _scroll_image(self, disp: Display, step: int = 1, interval_ms: int = 200) -> Token:
@@ -320,10 +323,13 @@ class Image:
         ``disp`` is the ``Display`` instance to render to.
 
         Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
+        A negative ``interval_ms`` waits 0 ms between frames, the same as ``interval_ms=0``.
         """
         if step <= 0:
             # TODO: allow step < 0 for bi-directional (right-to-left) scrolling.
             raise ValueError(f"step must be > 0, got {step}")
+        if interval_ms < 0:
+            interval_ms = 0
         token = disp._acquire()
         # Each frame, ``step`` image columns scroll in from the right. ``image_columns_to_scroll_in``
         # is how many image columns start off the right edge of the screen.
@@ -598,24 +604,31 @@ class Token:
 # dependency on any ``Display`` instance's state -- callers pass whichever
 # token they are holding.
 # ---------------------------------------------------------------------------
-async def _sleep_pollable(token: Token, total_s: float, poll_s: float = 0.047) -> None:
-    """Sleep up to ``total_s`` seconds, returning early once ``token.is_expired``.
 
-    Chunks the sleep into at most ``poll_s``-sized pieces so a caller notices
-    a superseding display operation within ``poll_s``, not only after the full
-    ``total_s`` has elapsed. When not cancelled, the total elapsed time still converges
-    to ``total_s`` (the final chunk is ``min(poll_s, remaining)``, never overshooting).
+
+async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> None:
+    """Sleep up to ``total_ms`` milliseconds, returning early once ``token.is_expired``.
+
+    Chunks the sleep into at most ``poll_ms``-sized pieces so a caller notices
+    a superseding display operation within ``poll_ms``, not only after the full
+    ``total_ms`` has elapsed. When not cancelled, the total elapsed time still converges
+    to ``total_ms`` (the final chunk is the time still left, never overshooting).
+
+    ``total_ms <= 0`` returns immediately, without an ``await``.
     """
-    if total_s <= 0:
+    if total_ms <= 0:
         return
-    deadline = time.monotonic() + total_s
+    deadline = ticks_add(ticks_ms(), total_ms)
     while True:
         if token.is_expired:
             return
-        remaining = deadline - time.monotonic()
+        remaining = ticks_diff(deadline, ticks_ms())
         if remaining <= 0:
             return
-        await asyncio.sleep(min(poll_s, remaining))
+        if remaining <= poll_ms:
+            await asyncio.sleep_ms(remaining)
+            return
+        await asyncio.sleep_ms(poll_ms)
 
 
 async def _sleep_until_cancelled(token: Token, poll_s: float = 0.051) -> None:
@@ -990,7 +1003,7 @@ class Display:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_pattern(pattern, color)
         token = self._token  # render_pattern's internal _acquire() just minted this
-        await _sleep_pollable(token, interval_ms / 1000)
+        await _sleep_pollable(token, interval_ms)
         return token
 
     async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
@@ -1005,7 +1018,7 @@ class Display:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         self.render_icon(icon, color)
         token = self._token  # render_icon's internal _acquire() just minted this
-        await _sleep_pollable(token, interval_ms / 1000)
+        await _sleep_pollable(token, interval_ms)
         return token
 
     async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
@@ -1028,6 +1041,7 @@ class Display:
         ``offset`` is the image column placed at display column 0. It may be negative
         or positive and may push the image partially or fully out of the display area.
         Display columns outside the Image are ``OFF``. Cancels any prior Tier 2 animation.
+        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0`` (return after the render).
         """
         return await image._show_image(self, offset, interval_ms)
 
@@ -1043,6 +1057,7 @@ class Display:
         current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
 
         Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
+        A negative ``interval_ms`` waits 0 ms between frames, the same as ``interval_ms=0``.
         """
         return await image._scroll_image(self, step, interval_ms)
 
@@ -1104,7 +1119,7 @@ class Display:
         # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to
         # scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop == false`,
         # we hold for an `interval_ms * WIDTH` duration; `_sleep_pollable` itself returns immediately,
-        # with no `asyncio.sleep()` call at all, when that duration is 0 (desired synchronous edge case).
+        # with no sleep call at all, when that duration is 0 (desired synchronous edge case).
         # Note: An empty string has zero columns and takes this same path: the frame is all OFF (the empty string drawn).
         if len(fit_buf) <= WIDTH:
             pad = (WIDTH - len(fit_buf)) // 2
@@ -1117,7 +1132,7 @@ class Display:
             if loop:
                 await _sleep_until_cancelled(token)
                 return token
-            await _sleep_pollable(token, interval_ms * WIDTH / 1000)
+            await _sleep_pollable(token, interval_ms * WIDTH)
             return token
 
         while True:
@@ -1174,6 +1189,8 @@ class Display:
         longer numbers scroll. See ``show_string`` for the full behavior
         including ``loop=True``.
         """
+        # Implementation note: ``n`` is specified as a number. A str or a bool is unspecified. This body
+        # passes ``str(n)`` through unchanged. Booleans will therefore render as "True" or "False" for example.
         return await self.show_string(str(n), color, interval_ms, loop)
 
     async def pause(self, ms: int) -> Token:
@@ -1186,7 +1203,7 @@ class Display:
         if ms < 0:
             raise ValueError(f"ms must be >= 0, got {ms}")
         token = self._acquire()
-        await _sleep_pollable(token, ms / 1000)
+        await _sleep_pollable(token, ms)
         return token
 
     @staticmethod

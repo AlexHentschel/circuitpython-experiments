@@ -28,7 +28,7 @@ argument-hint: "[project-slug] [phase]"
 
 **Vehicle:** local command-triggered project skill; **human-triggered only** — the slash command `/experiment-wrapup-to-memory`, or a verbal instruction the agent **confirms before running**. Never auto-run (`disable-model-invocation: true`). A wrap-up is a normal task/project-close step; the reminder duty + now-vs-defer discipline live in `03-memory-update-triggers.mdc` and `04-multi-project.mdc`.
 
-**Not this skill:** ordinary per-turn memory updates (`03-memory-update-triggers.mdc`); a deliberate full-persona memory-maintenance / compaction pass (`00-memory-system.mdc § Maintenance`, `MAINTENANCE_BACKLOG.md`); authoring any skill; re-running a wrap-up already closed.
+**Not this skill:** ordinary per-turn memory updates (`03-memory-update-triggers.mdc`); a light interim close pass (`/memory-light` — persist leftovers, light tidy, park heavy work); a deliberate full-persona memory-maintenance / compaction pass (`00-memory-system.mdc § Maintenance`, `MAINTENANCE_BACKLOG.md`); authoring any skill; re-running a wrap-up already closed.
 
 ## Identity (load-bearing — restate in every ingest/review prompt)
 
