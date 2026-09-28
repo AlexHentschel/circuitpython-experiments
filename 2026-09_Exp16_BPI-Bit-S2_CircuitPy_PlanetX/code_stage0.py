@@ -33,7 +33,7 @@ behaves as described:
 import time
 
 import display
-from display import Icons
+from display import Emojis
 
 d = display.display
 
@@ -66,15 +66,15 @@ while True:
 
     # 3) render_icon -- confirms icon-table lookup + column-major bitmap decode.
     d.clear_screen()
-    d.render_icon(Icons.HEART, display.RED)
-    print("3/6: render_icon(Icons.HEART) -- recognizable heart shape")
+    d.render_icon(Emojis.HEART, color=display.RED)
+    print("3/6: render_icon(Emojis.HEART) -- recognizable heart shape")
     time.sleep(2)
 
     # 4) set_brightness + set_rotation -- confirms both non-cancelling sync setters;
     #    same heart re-rendered after rotating 90 deg so the shape should visibly turn.
     d.set_brightness(0.05)
     d.set_rotation(90)
-    d.render_icon(Icons.HEART, display.RED)
+    d.render_icon(Emojis.HEART, color=display.RED)
     print("4/6: set_brightness(0.05) + set_rotation(90) -- dimmer, heart rotated 90deg")
     time.sleep(2)
 

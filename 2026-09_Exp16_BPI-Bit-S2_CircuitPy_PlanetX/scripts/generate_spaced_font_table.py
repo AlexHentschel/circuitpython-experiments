@@ -6,14 +6,16 @@ computes each glyph's authored occupied span and writes
 
     lib/display/font_makecode_5/spaced_glyphs.py
 
+from ``scripts/templates/spaced_glyphs.py.in`` (stdlib ``string.Template``).
+
 Record layout, ``WIDTH + 1`` bytes/glyph: ``[length, ink_0, ..., ink_{length-1}, unused...]``.
-``needs_spacer`` is not stored; it is ``any(ink_bytes)`` at access time.
+The feeder always inserts a spacer between characters (not stored in the table).
 
 Ink-bearing glyphs: span is the columns that contain ink (leading/trailing
 blank columns dropped). Space (the only all-zero printable glyph): authored
-width 4, a per-font heuristic matching this font's common narrow-letter width
-— not a ``WIDTH - 1`` formula. Unknown/out-of-range characters are not in this
-table; the accessor handles them as a full-``WIDTH`` blank pass-through.
+width 3; a following inter-glyph spacer, if any, supplies the fourth column.
+Unknown/out-of-range characters are not in this table; the accessor draws
+tofu (``ink._TOFU_INK``).
 
 Source is the pinned DAL fetch (``dal_pendolino3.load_column_major``), not
 ``glyphs._COLUMN_MAJOR``. While that saved table is still live, agreement with
@@ -26,21 +28,23 @@ Usage (from this experiment's folder):
 
 from __future__ import annotations
 
+import string
 import sys
 from pathlib import Path
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent.parent
 LIB_ROOT = EXPERIMENT_ROOT / "lib"
 DEFAULT_OUTPUT = LIB_ROOT / "display" / "font_makecode_5" / "spaced_glyphs.py"
+TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "spaced_glyphs.py.in"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import dal_pendolino3  # noqa: E402
 
-# Per-font authored width for space. Heuristic: match this font's common
-# narrow-letter occupied width (49 of 94 ink-bearing glyphs are 4 columns).
-# Re-derive for a future font from that font's own width distribution; do not
-# treat this as ``FONT_WIDTH - 1``.
-SPACE_AUTHORED_WIDTH = 4
+# Per-font authored width for space, not counting the inter-glyph spacer.
+# Interior ``"A B"`` is then 3 blanks plus spacers around the space (five
+# columns of gap, same as the former 4-column space with a spacer only after A).
+# Do not treat this as ``FONT_WIDTH - 1``.
+SPACE_AUTHORED_WIDTH = 3
 SPACE_ORD = 32
 ASCII_START = 32
 ASCII_END = 126  # inclusive
@@ -48,11 +52,18 @@ HEX_LINE_BYTES = 34  # matches glyphs.py's wrap (~68 hex chars)
 
 
 def authored_ink(col_bytes: bytes, code: int) -> bytes:
-    """Return the authored occupied columns for one native-width glyph.
+    """Return the occupied column bytes to store for one native-width glyph.
 
-    Ink-bearing: uniquely determined by ink (drop blank lead/trail).
-    Space: authored 4-column blank span. Any other all-zero glyph would be a
-    full-width pass-through; this font has none besides space.
+    ``col_bytes`` is one glyph at the font's native width (five column-bytes for
+    pendolino3). Typical case: the glyph has ink, so leading and trailing all-zero
+    columns are dropped and the remaining slice is the authored span.
+
+    Space (``code == 32``) is all-zero but not empty: it is a 3-column blank span.
+    A following inter-glyph spacer, if any, supplies the fourth column. Any other
+    all-zero glyph would pass through at full native width; this font has none
+    besides space.
+
+    ``code`` is the ASCII code point (32..126), used only to recognise space.
     """
     if any(col_bytes):
         skip_lead = 0
@@ -68,7 +79,15 @@ def authored_ink(col_bytes: bytes, code: int) -> bytes:
 
 
 def pack_record(ink: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> bytes:
-    """``[length, ink..., unused padding to width]`` — ``width + 1`` bytes."""
+    """Pack one interleaved glyph record: ``[length, ink..., unused...]``.
+
+    ``ink`` is the authored occupied columns from ``authored_ink``. The record is
+    always ``width + 1`` bytes: one length byte (the value ``n``, not ``n`` zeros),
+    then the ``n`` ink bytes, then ``width - n`` trailing 0x00 so the ink/pad field
+    is a fixed ``width`` slots.
+
+    Raises ``ValueError`` if ``len(ink) > width``.
+    """
     if len(ink) > width:
         raise ValueError(f"ink length {len(ink)} exceeds native width {width}")
     length_prefix = bytes((len(ink),))  # 1-byte header whose value is n; comma → 1-tuple (litteral), specifies values not lenghts (of zero-filled array)
@@ -78,7 +97,18 @@ def pack_record(ink: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> bytes:
 
 
 def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> bytes:
-    """Pack 95 interleaved records from native-width column-major glyphs."""
+    """Build the concatenated table of 95 packed records from column-major glyphs.
+
+    ``column_major`` is the whole font blob (``GLYPH_COUNT * width`` bytes), ASCII
+    32..126 in order, each glyph native-width. Each glyph is trimmed then packed
+    via ``authored_ink`` and ``pack_record``.
+
+    Ink-bearing glyphs are checked against an independent occupied-slice of the
+    native bytes; space must be a 3-column blank.
+
+    Raises ``ValueError`` if the blob length is not ``95 * width``.
+    Raises ``RuntimeError`` if a glyph's packed ink disagrees with that slice.
+    """
     n = dal_pendolino3.GLYPH_COUNT
     if len(column_major) != n * width:
         raise ValueError(f"column-major length {len(column_major)} != {n}×{width}")
@@ -96,12 +126,18 @@ def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WID
                 raise RuntimeError(f"glyph {ASCII_START + i} ink does not match native glyph slice")
         elif ASCII_START + i == SPACE_ORD:
             if ink != bytes(SPACE_AUTHORED_WIDTH) or any(raw):
-                raise RuntimeError("space record is not a 4-column blank")
+                raise RuntimeError("space record is not a 3-column blank")
         out.extend(rec)
     return bytes(out)
 
 
 def _hex_literal(data: bytes) -> str:
+    """Format ``data`` as concatenated quoted hex strings, one per source line.
+
+    Wrap width is ``HEX_LINE_BYTES`` payload bytes (~68 hex chars per line, matching
+    ``glyphs.py``). The result is the argument body of ``bytes.fromhex(...)`` in the
+    generated module.
+    """
     hex_str = data.hex()
     chunk = HEX_LINE_BYTES * 2
     lines = [f'    "{hex_str[i : i + chunk]}"' for i in range(0, len(hex_str), chunk)]
@@ -109,51 +145,38 @@ def _hex_literal(data: bytes) -> str:
 
 
 def render_module(table: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> str:
+    """Return the full source of ``spaced_glyphs.py`` for a packed ``table``.
+
+    Fills ``scripts/templates/spaced_glyphs.py.in`` (stdlib ``string.Template``) with
+    the DAL commit, glyph count, and hex-literal body. ``table`` must be
+    ``GLYPH_COUNT * (width + 1)`` bytes.
+
+    Raises ``ValueError`` if the table length does not match that size.
+    """
     stride = width + 1
     n = dal_pendolino3.GLYPH_COUNT
     if len(table) != n * stride:
         raise ValueError(f"table length {len(table)} != {n}×{stride}")
     commit = dal_pendolino3.DAL_COMMIT
-    return f'''"""Trimmed MakeCode 5×5 glyph records for inter-glyph spacing.
-
-GENERATED by ``scripts/generate_spaced_font_table.py``. Do not hand-edit.
-Re-run that script to regenerate from the pinned Lancaster micro:bit Device Abstraction Layer [DAL] ``pendolino3`` source
-(commit ``{commit}``).
-
-Each glyph is a fixed ``WIDTH + 1``-byte record::
-
-    [length, ink_0, ..., ink_{{length-1}}, unused...]
-
-``length`` is the authored occupied span (ink-bearing glyphs: columns that
-contain ink; space: 4 blank columns). ``needs_spacer`` is not stored; it is
-``any(ink)`` at access time. Unknown/out-of-range characters are not in this
-table.
-
-MIT notice: ``LICENSE`` in this directory (Copyright 2016 BBC; Lancaster
-University by arrangement with the BBC).
-"""
-
-from .._constants import WIDTH
-
-_ASCII_START = 32
-_ASCII_END = 126  # inclusive
-_RECORD_STRIDE = WIDTH + 1
-
-# Packed from DAL pendolino3 @ {commit[:12]}… . {n} glyphs × (WIDTH+1) bytes.
-_SPACED_GLYPHS = bytes.fromhex(
-{_hex_literal(table)}
-)
-
-if len(_SPACED_GLYPHS) != (_ASCII_END - _ASCII_START + 1) * _RECORD_STRIDE:
-    raise RuntimeError("spaced glyph table length does not match ASCII range × stride")
-'''
+    template = string.Template(TEMPLATE_PATH.read_text())
+    return template.substitute(
+        commit=commit,
+        commit_short=commit[:12],
+        glyph_count=n,
+        hex_literal=_hex_literal(table),
+    )
 
 
 def _spot_check(table: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> None:
-    """Fail loudly if survey cases from the design/plan do not hold."""
+    """Raise if packed-table survey cases (space, ``.``, ``7``) do not hold.
+
+    These pin the three record shapes: 3-column blank space, 1-column ink-bearing
+    punctuation, and a full-width ink glyph. Prints a one-line summary on success.
+    """
     stride = width + 1
 
     def rec(ch: str) -> tuple[int, bytes, bool]:
+        """Unpack one record as ``(length, ink_bytes, has_ink)``."""
         i = (ord(ch) - ASCII_START) * stride
         row = table[i : i + stride]
         length = row[0]
@@ -172,10 +195,16 @@ def _spot_check(table: bytes, width: int = dal_pendolino3.FONT_WIDTH) -> None:
     if not (length == width and needs):
         raise RuntimeError(f"spot-check '7' failed: length={length} ink={ink.hex()} needs={needs}")
 
-    print(f"spot-checks: space length={SPACE_AUTHORED_WIDTH} needs_spacer=False; '.' length=1 needs_spacer=True; '7' length={width} needs_spacer=True")
+    print(f"spot-checks: space length={SPACE_AUTHORED_WIDTH} blank; '.' length=1 has_ink; '7' length={width} has_ink")
 
 
 def main() -> int:
+    """Fetch the pinned DAL font, pack the table, spot-check, and write the module.
+
+    Happy path: ``load_column_major``, ``build_spaced_table``, ``_spot_check``,
+    ``render_module``, write ``DEFAULT_OUTPUT``. Returns 0 on success, 1 on
+    fetch/pack/write failure (message on stderr).
+    """
     print(f"Fetching {dal_pendolino3.DAL_URL}")
     try:
         converted = dal_pendolino3.load_column_major()

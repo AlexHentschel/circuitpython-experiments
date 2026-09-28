@@ -19,7 +19,7 @@ distinct from its neighbors.
 import time
 
 import display
-from display import Icons
+from display import Emojis
 
 d = display.display
 
@@ -46,7 +46,7 @@ d.clear_screen()
 _i = 0
 while True:
     _name, _color = _COLORS[_i % len(_COLORS)]
-    d.render_icon(Icons.HEART, _color)
+    d.render_icon(Emojis.HEART, color=_color)
     print(f"HEART in {_name}")
     time.sleep(_HOLD_S)
     _i += 1

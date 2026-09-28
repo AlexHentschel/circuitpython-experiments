@@ -1,13 +1,35 @@
-"""
-One Python object per physical button module.
+"""Asynchronous library for physical buttons. One Python object per physical
+button module, each registering press/release handlers directly (no polling).
 
-Student operations are press/release handlers. GPIO identities belong on the
-constructor (portability seam), not inside handlers. There is no ``update()``
-loop; ``await run()`` is a background task (typically gathered with display work).
+Register handlers, then run the object's ``run()`` forever as a background task:
 
-``Button`` is one pin. ``ButtonPair`` is two pins as ``left`` / ``right``.
-``OnboardButtons`` is this board's native A/B pair. PlanetX modules live in
-the ``planetx`` package.
+    import asyncio
+    from buttons import OnboardButtons
+
+    async def main():
+        buttons = OnboardButtons()
+        buttons.button_a.on_pressed(lambda: print("A pressed"))
+        await buttons.run()
+
+    asyncio.run(main())
+
+To run other work (e.g. a display animation) at the same time, gather the
+tasks instead of awaiting ``run()`` alone:
+``await asyncio.gather(buttons.run(), display_loop())``.
+
+A handler is a normal function, or an ``async def`` function (including one
+taken from an instance, such as ``counter.on_press``). A normal function runs
+and returns. An async function is awaited on this module's ``run()`` task
+before the next handler on that switch.
+
+GPIO pins are constructor arguments only, never referenced inside a handler —
+so swapping which physical pin a button uses is a one-line change at
+construction, not a hunt through handler code. There is no ``update()``
+method to call in a loop; all event delivery happens through ``run()``.
+
+``Button`` is one GPIO pin. ``OnboardButtons`` (A/B) is this board's native
+button pair. PlanetX sensor modules (C/D, etc.) live in the ``planetx``
+package.
 """
 
 from __future__ import annotations
@@ -18,10 +40,9 @@ except ImportError:
     pass
 
 
-# `run()`'s poll interval: see `_pump` for why this is not `0`.
-# Half of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no
-# event can be missed for longer than one hardware scan cycle would already
-# impose.
+# `run()`'s poll interval: see `_pump` for why this is not `0`. Half
+# of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no event
+# can be missed for longer than one hardware scan cycle would already impose.
 _POLL_INTERVAL_S = 0.01
 
 
@@ -67,8 +88,16 @@ async def _pump(queue, dispatch) -> None:
 
     while True:
         event = queue.get()
+        # ``await dispatch`` runs each handler before the next event. An async
+        # handler runs to completion here. A sync handler returns None, so a
+        # burst of sync presses finishes inside this turn.
+        # Deliberately no await between dispatches: this drains the whole buffered
+        # burst before yielding once below. keypad.Keys' own scan caps new events at
+        # ~1 per 20 ms, so a same-tick burst worth yielding *inside* is not something
+        # real hardware produces; adding a yield here would spread a burst's events
+        # across multiple ticks instead (considered and rejected 2026-09-20).
         while event is not None:
-            dispatch(event)
+            await dispatch(event)
             event = queue.get()
         await asyncio.sleep(_POLL_INTERVAL_S)
 
@@ -76,19 +105,33 @@ async def _pump(queue, dispatch) -> None:
 class PushButtonBase:
     """Press and release handlers for one switch.
 
-    Register with ``on_pressed`` / ``on_released``. ``clear``, ``clear_pressed``,
-    and ``clear_released`` drop handlers. This object has no ``run()``; call
-    ``run`` on the owning ``Button`` or ``ButtonPair``.
+    Register with ``on_pressed`` / ``on_released``; ``clear`` (or the finer
+    ``clear_pressed`` / ``clear_released``) removes them again. This object
+    has no ``run()`` of its own — call ``run()`` on the owning button object
+    instead (e.g. ``Button``, ``OnboardButtons``).
     """
 
     def __init__(self) -> None:
+        """Start with no handlers registered."""
         self._pressed = []
         self._released = []
 
-    def on_pressed(self, handler: Callable[[], None]) -> None:
+    def on_pressed(self, handler: Callable[[], object]) -> None:
+        """Call ``handler()`` (no arguments) every time this switch is pressed.
+
+        A normal function runs and returns. An ``async def`` function, including
+        one taken from an instance (``counter.on_press``), is awaited before the
+        next handler on this switch.
+        """
         self._pressed.append(handler)
 
-    def on_released(self, handler: Callable[[], None]) -> None:
+    def on_released(self, handler: Callable[[], object]) -> None:
+        """Call ``handler()`` (no arguments) every time this switch is released.
+
+        A normal function runs and returns. An ``async def`` function, including
+        one taken from an instance (``counter.on_press``), is awaited before the
+        next handler on this switch.
+        """
         self._released.append(handler)
 
     def clear_pressed(self) -> None:
@@ -100,25 +143,36 @@ class PushButtonBase:
         self._released = []
 
     def clear(self) -> None:
-        """Drop all registered handlers for this switch."""
+        """Drop all registered handlers for this switch (press and release)."""
         self._pressed = []
         self._released = []
 
-    def _handle(self, pressed: bool) -> None:
-        # Owning Button / ButtonPair pump calls this; students do not.
+    async def _handle(self, pressed: bool) -> None:
+        # Internal method: only called by sub-classes.
+        # We look at what the call returned: A bare ``async def``, a bound method
+        # such as ``counter.on_press``, and an instance whose ``__call__`` is
+        # async all return a coroutine. A normal function returns None.
         handlers = self._pressed if pressed else self._released
         for handler in handlers:
-            handler()
+            result = handler()
+            if hasattr(result, "__await__"):
+                await result
 
 
 class Button(PushButtonBase):
-    """One GPIO pin: press/release handlers and ``run()``.
+    """One GPIO pin: press/release handlers (inherited from ``PushButtonBase``) plus ``run()``.
 
-    ``pin`` is constructor config. Pass ``event_queue=`` instead to skip GPIO
-    (host tests). ``Button()`` with neither raises ``ValueError``.
+    ``run()`` must be running (e.g. via ``asyncio.gather``) for handlers
+    registered with ``on_pressed`` / ``on_released`` to ever fire.
     """
 
     def __init__(self, pin=None, *, event_queue=None) -> None:
+        """Bind to ``pin``, or skip GPIO entirely for a hardware-free test.
+
+        ``pin`` is a board pin object, e.g. ``board.IO13``. Pass ``event_queue=``
+        instead of ``pin`` to feed pre-built events without touching GPIO — used
+        by tests that run without hardware. Passing neither raises ``ValueError``.
+        """
         super().__init__()
         self._keys = None
         self._queue = None
@@ -129,9 +183,9 @@ class Button(PushButtonBase):
             raise ValueError("pin is required when event_queue is omitted")
         _bind_scanner(self, (pin,))
 
-    def _dispatch(self, event) -> None:
+    async def _dispatch(self, event) -> None:
         # Standalone scanner is a 1-tuple; ignore key_number.
-        self._handle(event.pressed)
+        await self._handle(event.pressed)
 
     async def run(self) -> None:
         """Never-ending task that delivers this pin's press and release events.
@@ -141,94 +195,71 @@ class Button(PushButtonBase):
         await _pump(self._queue, self._dispatch)
 
 
-class ButtonPair:
-    """Two buttons on one module: ``left`` and ``right``.
+class OnboardButtons:
+    """This board's native buttons: ``button_a`` and ``button_b``.
 
-    ``left_pin`` / ``right_pin`` are constructor config. Pass ``event_queue=``
-    instead to skip GPIO (host tests). Lettered names live on ``OnboardButtons``
-    (A/B) and ``planetx.PlanetXButtonSensor`` (C/D).
+    ``button_a`` / ``button_b`` are the two switches — register handlers with
+    ``.on_pressed(handler)`` / ``.on_released(handler)``; ``.clear()`` removes
+    them again.
     """
 
-    def __init__(self, left_pin=None, right_pin=None, *, event_queue=None) -> None:
-        # Generic pair children (no scanner). Lettered aliases live on subclasses.
-        self.left = PushButtonBase()
-        self.right = PushButtonBase()
+    def __init__(self, a_pin=None, b_pin=None, *, event_queue=None) -> None:
+        """Bind to this board's A and B buttons. Typically requires no arguments:
+
+            buttons = OnboardButtons()
+
+        ``a_pin`` / ``b_pin`` default to ``board.BUTTON_A`` / ``board.BUTTON_B``;
+        pass them only if you want to wire A/B to different pins instead.
+        """
+        # event_queue is a developer/test-only hook: it replaces a_pin/b_pin
+        # entirely, feeding pre-built events instead of a real keypad.Keys scanner,
+        # so tests can run without hardware (same pattern as Button/PlanetXButtonSensor).
+        # Not part of the student-facing construction API documented above.
+        self._a = PushButtonBase()
+        self._b = PushButtonBase()
         self._keys = None
         self._queue = None
         if event_queue is not None:
             self._queue = event_queue
             return
-        if left_pin is None or right_pin is None:
-            raise ValueError("left_pin and right_pin are required when event_queue is omitted")
-        _bind_scanner(self, (left_pin, right_pin))
-
-    def clear(self) -> None:
-        """Drop all registered handlers on both buttons."""
-        self.left.clear()
-        self.right.clear()
-
-    def _dispatch(self, event) -> None:
-        # ``event.key_number`` is a tuple position matching ``(left_pin, right_pin)``.
-        # Bounds-checked explicitly (not a bare try/except IndexError) because a
-        # negative key_number would otherwise silently wrap to a *valid* tuple
-        # element instead of being rejected.
-        index = event.key_number
-        if index == 0:
-            self.left._handle(event.pressed)
-        elif index == 1:
-            self.right._handle(event.pressed)
-
-    async def run(self) -> None:
-        """Never-ending task that delivers this pair's press and release events.
-
-        Typically ``await asyncio.gather(pair.run(), display_loop())``.
-        Call ``run`` on the pair, not on ``left`` or ``right``.
-        """
-        # Pair owns the queue; contained PushButtonBase instances do not.
-        await _pump(self._queue, self._dispatch)
-
-
-class OnboardButtons(ButtonPair):
-    """This board's native buttons A and B.
-
-    Student operations are ``on_a_pressed`` / ``on_b_pressed`` and the matching
-    release and clear names. Pins default to ``board.BUTTON_A`` / ``board.BUTTON_B``.
-    Pass ``event_queue=`` to skip ``board`` / GPIO (host tests).
-    """
-
-    def __init__(self, a_pin=None, b_pin=None, *, event_queue=None) -> None:
-        if event_queue is None and (a_pin is None or b_pin is None):
+        if a_pin is None or b_pin is None:
             import board  # CircuitPython-only; not imported on the host test path
 
             if a_pin is None:
                 a_pin = board.BUTTON_A
             if b_pin is None:
                 b_pin = board.BUTTON_B
-        super().__init__(a_pin, b_pin, event_queue=event_queue)
-
-    # Pair slots: A is left (key_number 0), B is right (key_number 1).
-    @property
-    def a(self) -> PushButtonBase:
-        return self.left
+        _bind_scanner(self, (a_pin, b_pin))
 
     @property
-    def b(self) -> PushButtonBase:
-        return self.right
+    def button_a(self) -> PushButtonBase:
+        """Button A — ``on_pressed`` / ``on_released`` / ``clear``."""
+        return self._a
 
-    def on_a_pressed(self, handler: Callable[[], None]) -> None:
-        self.left.on_pressed(handler)
+    @property
+    def button_b(self) -> PushButtonBase:
+        """Button B — ``on_pressed`` / ``on_released`` / ``clear``."""
+        return self._b
 
-    def on_b_pressed(self, handler: Callable[[], None]) -> None:
-        self.right.on_pressed(handler)
+    def clear(self) -> None:
+        """Drop all registered handlers for both buttons."""
+        self._a.clear()
+        self._b.clear()
 
-    def on_a_released(self, handler: Callable[[], None]) -> None:
-        self.left.on_released(handler)
+    async def _dispatch(self, event) -> None:
+        # ``event.key_number`` is a tuple position matching ``(a_pin, b_pin)``:
+        # scanner slot 0 is A, slot 1 is B. Bounds-checked explicitly (not a bare
+        # try/except IndexError) because a negative key_number would otherwise
+        # silently wrap onto a *valid* button instead of being rejected.
+        index = event.key_number
+        if index == 0:
+            await self._a._handle(event.pressed)
+        elif index == 1:
+            await self._b._handle(event.pressed)
 
-    def on_b_released(self, handler: Callable[[], None]) -> None:
-        self.right.on_released(handler)
+    async def run(self) -> None:
+        """Never-ending task that delivers both buttons' press and release events.
 
-    def clear_a(self) -> None:
-        self.left.clear()
-
-    def clear_b(self) -> None:
-        self.right.clear()
+        Typically ``await asyncio.gather(buttons.run(), display_loop())``.
+        """
+        await _pump(self._queue, self._dispatch)

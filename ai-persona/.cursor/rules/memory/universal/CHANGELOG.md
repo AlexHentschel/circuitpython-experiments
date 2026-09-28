@@ -4,6 +4,17 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-21 — exp16 session-log compaction + notes catch-up (`compact`)
+
+**Trigger:** Alex — review 2026-09-20 Exp16 chats and make notes match finished work; completed items keep start/end/result/challenges, not superseded step-by-step progress.
+
+**Change:**
+
+- `projects/circuitpython-exp16-planetx/SESSION_LOG.md` — Sessions 10–50 blow-by-blow collapsed into five completed-work blocks (stages, font, buttons, deploy, vendor). The missing end state was the 2026-09-20 button call shape (`button_a` / `button_c`, `ButtonPair` removed) from chat `1523f597`. Full prose recoverable at git `4a337f4`.
+- `CONTEXT.md` resumption point replaced with that current state (the old resumption duplicated the session novel and still said Phase 4 was gated in older entries).
+- `CONCLUSIONS.md` font-design novel thinned to the invalidated pre-cutover claim + the live row; K3 row notes the confirm predates the new call shape.
+- Promoted the notes-sweep habit: `MONITORING.md` *Stale internal notes after an API change* (2nd occurrence) → `WORKING_STYLE.md § Document Authoring`. Monitoring entry removed.
+
 ## 2026-09-16 — `extend` + invariant `refine`: in-tree `lifecycle-kit/` for the meta project (C8 exception)
 
 **Trigger:** Alex — preserve the reusable memory-lifecycle machinery durably before clearing the gitignored `ai-notes/` working store; decided (with rationale) it should live co-located under `projects/ai-tooling/`.

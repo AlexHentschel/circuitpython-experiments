@@ -27,7 +27,7 @@ def pattern_to_colmajor(pattern: str, width: int = WIDTH, height: int = HEIGHT) 
     long rows, wrong row counts, or unknown cell characters. This surfaces typos in hard-coded icon definitions rather
     than silently padding/truncating.
 
-    Use case: author a new icon as ASCII art, convert once, paste the hex bytes into ICONS. Example:
+    Use case: author a new icon as ASCII art, convert once, paste the hex bytes into EMOJIS. Example:
 
         >>> pattern_to_colmajor('''
         ... . # # . . # # .
@@ -85,7 +85,7 @@ def colmajor_to_pattern(data: bytes, width: int | None = None, height: int = HEI
 
     Output: multiline string, one line per row, cells separated by spaces (`# . . # ...`). Paste-ready for documentation comments.
 
-    Use case: inspect existing ICONS / ARROWS bytes or verify a round trip.
+    Use case: inspect existing EMOJIS / ARROWS bytes or verify a round trip.
     """
     if height > _MAX_HEIGHT_PER_COLUMN_BYTE:
         raise ValueError(f"height={height} exceeds column-major encoding limit of {_MAX_HEIGHT_PER_COLUMN_BYTE} (one byte per column)")

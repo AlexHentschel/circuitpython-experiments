@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 
-from buttons import Button, ButtonPair, OnboardButtons, PushButtonBase
+from buttons import Button, OnboardButtons, PushButtonBase
 from planetx import PlanetXButtonSensor
 
 
@@ -61,7 +61,60 @@ async def test_button_press_fires(queue):
     assert fired == ["p"]
 
 
-def test_button_clear_drops_handler(queue):
+@pytest.mark.asyncio
+async def test_async_handler_and_bound_method_run():
+    """An ``async def`` and an async bound method both run their bodies.
+
+    - Covers: a bare ``async def`` and ``Counter.on_press`` both execute when the switch is pressed.
+    - How: register both; ``await _handle(True)``; the list and the counter each advance once.
+    """
+    button = PushButtonBase()
+
+    async def on_bare():
+        fired.append("bare")
+
+    class Counter:
+        def __init__(self):
+            self.count = 0
+
+        async def on_press(self):
+            self.count += 1
+
+    counter = Counter()
+    fired = []
+    button.on_pressed(on_bare)
+    button.on_pressed(counter.on_press)
+    await button._handle(True)
+    assert fired == ["bare"]
+    assert counter.count == 1
+
+
+@pytest.mark.asyncio
+async def test_async_handlers_run_in_registration_order():
+    """The second handler starts after the first async handler returns.
+
+    - Covers: handlers on one switch run in registration order, one finishing before the next starts.
+    - How: the first handler sleeps, then appends; the second appends. Order is first-done, then second.
+    """
+    button = PushButtonBase()
+    order = []
+
+    async def first():
+        order.append("first-start")
+        await asyncio.sleep(0)
+        order.append("first-done")
+
+    async def second():
+        order.append("second")
+
+    button.on_pressed(first)
+    button.on_pressed(second)
+    await button._handle(True)
+    assert order == ["first-start", "first-done", "second"]
+
+
+@pytest.mark.asyncio
+async def test_button_clear_drops_handler(queue):
     """``clear()`` removes previously registered handlers on that Button only.
 
     - Covers: ``clear`` as a no-op, or clearing a different button.
@@ -71,11 +124,12 @@ def test_button_clear_drops_handler(queue):
     fired = []
     button.on_pressed(lambda: fired.append("p"))
     button.clear()
-    button._dispatch(FakeEvent(key_number=0, pressed=True))
+    await button._dispatch(FakeEvent(key_number=0, pressed=True))
     assert fired == []
 
 
-def test_clear_pressed_leaves_released():
+@pytest.mark.asyncio
+async def test_clear_pressed_leaves_released():
     """``clear_pressed()`` drops press handlers and leaves release handlers.
 
     - Covers: ``clear_pressed`` clearing both lists.
@@ -86,12 +140,13 @@ def test_clear_pressed_leaves_released():
     button.on_pressed(lambda: fired.append("p"))
     button.on_released(lambda: fired.append("r"))
     button.clear_pressed()
-    button._handle(True)
-    button._handle(False)
+    await button._handle(True)
+    await button._handle(False)
     assert fired == ["r"]
 
 
-def test_clear_released_leaves_pressed():
+@pytest.mark.asyncio
+async def test_clear_released_leaves_pressed():
     """``clear_released()`` drops release handlers and leaves press handlers.
 
     - Covers: ``clear_released`` clearing both lists.
@@ -102,8 +157,8 @@ def test_clear_released_leaves_pressed():
     button.on_pressed(lambda: fired.append("p"))
     button.on_released(lambda: fired.append("r"))
     button.clear_released()
-    button._handle(True)
-    button._handle(False)
+    await button._handle(True)
+    await button._handle(False)
     assert fired == ["p"]
 
 
@@ -118,63 +173,91 @@ def test_button_requires_pin_or_event_queue():
 
 
 def test_pushbutton_has_no_run():
-    """``PushButtonBase`` is handlers only; ``run()`` lives on ``Button`` / ``ButtonPair``.
+    """``PushButtonBase`` is handlers only; ``run()`` lives on the owning button object.
 
-    - Covers: pair children exposing ``run`` (student ``await pair.left.run()``).
-    - How: ``PushButtonBase`` and ``pair.left`` have no ``run`` attribute.
+    - Covers: a lettered button property exposing ``run`` (student ``await ab.button_a.run()``).
+    - How: ``PushButtonBase``, ``OnboardButtons.button_a``, and ``PlanetXButtonSensor.button_c``
+      all have no ``run`` attribute.
     """
-    pair = ButtonPair(event_queue=FakeEventQueue())
+    ab = OnboardButtons(event_queue=FakeEventQueue())
+    px = PlanetXButtonSensor(event_queue=FakeEventQueue())
     assert not hasattr(PushButtonBase, "run")
-    assert not hasattr(pair.left, "run")
-    assert type(pair.left) is PushButtonBase
-    assert not isinstance(pair.left, Button)
+    assert not hasattr(ab.button_a, "run")
+    assert not hasattr(px.button_c, "run")
+    assert type(ab.button_a) is PushButtonBase
+    assert not isinstance(ab.button_a, Button)
+
+
+# The following pair-mechanics checks (clear-drops-both, out-of-range index) are
+# deliberately duplicated across OnboardButtons and PlanetXButtonSensor: since
+# 2026-09-20 each owns its own copy of the dispatch/clear logic (no shared
+# ButtonPair base — see buttons.py's module docstring), so each needs its own
+# direct coverage instead of one shared test exercising a common base class.
 
 
 @pytest.mark.asyncio
-async def test_pair_left_and_right_fire(queue):
-    """key_number 0/1 run left/right handlers on a generic pair.
-
-    - Covers: swapped indices, or both events hitting the same Button.
-    - How: register both sides; inject 0 then 1; ``fired == ["L", "R"]``.
-    """
-    pair = ButtonPair(event_queue=queue)
-    fired = []
-    pair.left.on_pressed(lambda: fired.append("L"))
-    pair.right.on_pressed(lambda: fired.append("R"))
-    queue.send(FakeEvent(key_number=0, pressed=True))
-    queue.send(FakeEvent(key_number=1, pressed=True))
-    await _one_tick(pair)
-    assert fired == ["L", "R"]
-
-
-def test_pair_clear_drops_both(queue):
-    """``ButtonPair.clear()`` drops handlers on left and right.
+async def test_onboard_clear_drops_both(queue):
+    """``OnboardButtons.clear()`` drops handlers on both A and B.
 
     - Covers: ``clear`` only wiping one side.
     - How: register both, ``clear()``, ``_dispatch`` 0 and 1; ``fired`` empty.
     """
-    pair = ButtonPair(event_queue=queue)
+    ab = OnboardButtons(event_queue=queue)
     fired = []
-    pair.left.on_pressed(lambda: fired.append("L"))
-    pair.right.on_pressed(lambda: fired.append("R"))
-    pair.clear()
-    pair._dispatch(FakeEvent(key_number=0, pressed=True))
-    pair._dispatch(FakeEvent(key_number=1, pressed=True))
+    ab.button_a.on_pressed(lambda: fired.append("a"))
+    ab.button_b.on_pressed(lambda: fired.append("b"))
+    ab.clear()
+    await ab._dispatch(FakeEvent(key_number=0, pressed=True))
+    await ab._dispatch(FakeEvent(key_number=1, pressed=True))
     assert fired == []
 
 
-def test_pair_rejects_out_of_range_index(queue):
-    """Negative / too-large key_number does not wrap onto left or right.
+@pytest.mark.asyncio
+async def test_onboard_rejects_out_of_range_index(queue):
+    """Negative / too-large key_number does not wrap onto A or B.
 
     - Covers: bare IndexError wrap of ``-1`` onto the last element.
     - How: ``_dispatch`` key_number -1 and 2; ``fired`` stays empty.
     """
-    pair = ButtonPair(event_queue=queue)
+    ab = OnboardButtons(event_queue=queue)
     fired = []
-    pair.left.on_pressed(lambda: fired.append("L"))
-    pair.right.on_pressed(lambda: fired.append("R"))
-    pair._dispatch(FakeEvent(key_number=-1, pressed=True))
-    pair._dispatch(FakeEvent(key_number=2, pressed=True))
+    ab.button_a.on_pressed(lambda: fired.append("a"))
+    ab.button_b.on_pressed(lambda: fired.append("b"))
+    await ab._dispatch(FakeEvent(key_number=-1, pressed=True))
+    await ab._dispatch(FakeEvent(key_number=2, pressed=True))
+    assert fired == []
+
+
+@pytest.mark.asyncio
+async def test_planetx_clear_drops_both(queue):
+    """``PlanetXButtonSensor.clear()`` drops handlers on both C and D.
+
+    - Covers: ``clear`` only wiping one side.
+    - How: register both, ``clear()``, ``_dispatch`` 0 and 1; ``fired`` empty.
+    """
+    px = PlanetXButtonSensor(event_queue=queue)
+    fired = []
+    px.button_c.on_pressed(lambda: fired.append("c"))
+    px.button_d.on_pressed(lambda: fired.append("d"))
+    px.clear()
+    await px._dispatch(FakeEvent(key_number=0, pressed=True))
+    await px._dispatch(FakeEvent(key_number=1, pressed=True))
+    assert fired == []
+
+
+@pytest.mark.asyncio
+async def test_planetx_rejects_out_of_range_index(queue):
+    """Negative / too-large key_number does not wrap onto C or D.
+
+    - Covers: bare IndexError wrap of ``-1`` onto the last element.
+    - How: ``_dispatch`` key_number -1 and 2; ``fired`` stays empty.
+    """
+    px = PlanetXButtonSensor(event_queue=queue)
+    fired = []
+    px.button_c.on_pressed(lambda: fired.append("c"))
+    px.button_d.on_pressed(lambda: fired.append("d"))
+    await px._dispatch(FakeEvent(key_number=-1, pressed=True))
+    await px._dispatch(FakeEvent(key_number=2, pressed=True))
     assert fired == []
 
 
@@ -183,19 +266,20 @@ async def test_planetx_c_and_d_pressed(queue):
     """PlanetX C is left (key 0), D is right (key 1).
 
     - Covers: C/D swapped, or letters bound to a different instance.
-    - How: ``on_c_pressed`` / ``on_d_pressed``; inject 0 then 1; ``fired == ["c", "d"]``.
+    - How: ``button_c.on_pressed`` / ``button_d.on_pressed``; inject 0 then 1; ``fired == ["c", "d"]``.
     """
     px = PlanetXButtonSensor(event_queue=queue)
     fired = []
-    px.on_c_pressed(lambda: fired.append("c"))
-    px.on_d_pressed(lambda: fired.append("d"))
+    px.button_c.on_pressed(lambda: fired.append("c"))
+    px.button_d.on_pressed(lambda: fired.append("d"))
     queue.send(FakeEvent(key_number=0, pressed=True))
     queue.send(FakeEvent(key_number=1, pressed=True))
     await _one_tick(px)
     assert fired == ["c", "d"]
 
 
-def test_two_planetx_instances_are_independent():
+@pytest.mark.asyncio
+async def test_two_planetx_instances_are_independent():
     """Two PlanetX sensors both have C/D locally; handlers do not cross.
 
     - Covers: a global C/D table so the second instance overwrites the first.
@@ -205,26 +289,27 @@ def test_two_planetx_instances_are_independent():
     px1 = PlanetXButtonSensor(event_queue=q1)
     px2 = PlanetXButtonSensor(event_queue=q2)
     fired1, fired2 = [], []
-    px1.on_c_pressed(lambda: fired1.append("c"))
-    px2.on_c_pressed(lambda: fired2.append("c"))
-    px2._dispatch(FakeEvent(key_number=0, pressed=True))
+    px1.button_c.on_pressed(lambda: fired1.append("c"))
+    px2.button_c.on_pressed(lambda: fired2.append("c"))
+    await px2._dispatch(FakeEvent(key_number=0, pressed=True))
     assert fired1 == []
     assert fired2 == ["c"]
 
 
-def test_planetx_clear_c_leaves_d(queue):
-    """``clear_c()`` drops C handlers and leaves D.
+@pytest.mark.asyncio
+async def test_planetx_clear_c_leaves_d(queue):
+    """``button_c.clear()`` drops C handlers and leaves D.
 
-    - Covers: ``clear_c`` clearing the whole pair.
-    - How: register C and D, ``clear_c()``, dispatch both; only D fires.
+    - Covers: ``clear`` on one switch clearing the whole pair.
+    - How: register C and D, ``button_c.clear()``, dispatch both; only D fires.
     """
     px = PlanetXButtonSensor(event_queue=queue)
     fired = []
-    px.on_c_pressed(lambda: fired.append("c"))
-    px.on_d_pressed(lambda: fired.append("d"))
-    px.clear_c()
-    px._dispatch(FakeEvent(key_number=0, pressed=True))
-    px._dispatch(FakeEvent(key_number=1, pressed=True))
+    px.button_c.on_pressed(lambda: fired.append("c"))
+    px.button_d.on_pressed(lambda: fired.append("d"))
+    px.button_c.clear()
+    await px._dispatch(FakeEvent(key_number=0, pressed=True))
+    await px._dispatch(FakeEvent(key_number=1, pressed=True))
     assert fired == ["d"]
 
 
@@ -237,8 +322,8 @@ async def test_onboard_a_and_b_pressed(queue):
     """
     ab = OnboardButtons(event_queue=queue)
     fired = []
-    ab.on_a_pressed(lambda: fired.append("a"))
-    ab.on_b_pressed(lambda: fired.append("b"))
+    ab.button_a.on_pressed(lambda: fired.append("a"))
+    ab.button_b.on_pressed(lambda: fired.append("b"))
     queue.send(FakeEvent(key_number=0, pressed=True))
     queue.send(FakeEvent(key_number=1, pressed=True))
     await _one_tick(ab)
@@ -251,5 +336,5 @@ def test_no_update_on_public_classes():
     - Covers: ``update`` sneaking onto Button or a pair class.
     - How: ``hasattr(..., "update")`` is false on the public button classes.
     """
-    for cls in (PushButtonBase, Button, ButtonPair, PlanetXButtonSensor, OnboardButtons):
+    for cls in (PushButtonBase, Button, PlanetXButtonSensor, OnboardButtons):
         assert not hasattr(cls, "update")

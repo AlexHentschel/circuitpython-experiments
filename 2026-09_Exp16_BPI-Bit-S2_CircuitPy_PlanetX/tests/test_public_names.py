@@ -66,7 +66,7 @@ def test_display_student_ops_exist_on_display_class():
 
 
 def test_button_student_ops_exist():
-    """Board button classes have letter handlers + ``run`` / ``clear``, no ``Buttons``, no ``update``.
+    """Board button classes have letter properties + ``run`` / ``clear``, no ``Buttons``, no ``update``.
 
     - Covers: leftover 4-pin ``Buttons``, missing A/B, PlanetX class still in ``buttons.py``.
     - How: AST of ``buttons.py``; class names + required methods; ``update`` absent.
@@ -75,7 +75,7 @@ def test_button_student_ops_exist():
     names = _class_names(tree)
     assert "Buttons" not in names
     assert "PlanetXButtonSensor" not in names
-    assert {"PushButtonBase", "Button", "ButtonPair", "OnboardButtons"} <= names
+    assert {"PushButtonBase", "Button", "OnboardButtons"} <= names
 
     push = _class_methods(tree, "PushButtonBase")
     for name in ("on_pressed", "on_released", "clear", "clear_pressed", "clear_released"):
@@ -87,28 +87,23 @@ def test_button_student_ops_exist():
     assert "run" in button
     assert "update" not in button
 
-    pair = _class_methods(tree, "ButtonPair")
-    for name in ("clear", "run"):
-        assert name in pair, name
-    assert "update" not in pair
-
     ab = _class_methods(tree, "OnboardButtons")
-    for name in ("on_a_pressed", "on_b_pressed", "clear_a", "clear_b"):
+    for name in ("button_a", "button_b", "clear", "run"):
         assert name in ab, name
     assert "update" not in ab
 
 
 def test_planetx_button_student_ops_exist():
-    """``PlanetXButtonSensor`` lives in ``planetx`` with C/D handlers, no ``update``.
+    """``PlanetXButtonSensor`` lives in ``planetx`` with C/D button objects, no ``update``.
 
-    - Covers: class left in ``buttons.py``, or missing C/D names.
-    - How: AST of ``planetx/button.py``; required methods; ``update`` absent.
+    - Covers: class left in ``buttons.py``, or missing ``button_c`` / ``button_d``.
+    - How: AST of ``planetx/button.py``; required properties; ``update`` absent.
     """
     tree = _module_ast(PLANETX_BUTTON)
     names = _class_names(tree)
     assert "PlanetXButtonSensor" in names
     px = _class_methods(tree, "PlanetXButtonSensor")
-    for name in ("on_c_pressed", "on_d_pressed", "clear_c", "clear_d"):
+    for name in ("button_c", "button_d"):
         assert name in px, name
     assert "update" not in px
 
@@ -151,10 +146,10 @@ def test_font_path_is_makecode_5_not_freemono():
 
 
 def test_fused_scan_is_wired_in_render_pattern():
-    """``Display.render_pattern`` calls ``_write_pattern_on_the_fly`` (not only defines it).
+    """``Display.render_pattern`` calls ``self._write_pattern_on_the_fly`` (not only defines it).
 
-    - Covers: helper present in the module but unused (Exp14 sketch state).
-    - How: AST walk of ``render_pattern``; a ``Name`` call to ``_write_pattern_on_the_fly``.
+    - Covers: helper present in the class but unused (Exp14 sketch state).
+    - How: AST walk of ``render_pattern``; an ``Attribute`` call ``self._write_pattern_on_the_fly``.
     """
     src = CORE.read_text()
     assert "_write_pattern_on_the_fly" in src
@@ -168,5 +163,11 @@ def test_fused_scan_is_wired_in_render_pattern():
         n for n in display_methods.body
         if isinstance(n, ast.FunctionDef) and n.name == "render_pattern"
     ][0]
-    calls = [n.func.id for n in ast.walk(render) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    calls = [
+        n.func.attr for n in ast.walk(render)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and isinstance(n.func.value, ast.Name)
+        and n.func.value.id == "self"
+    ]
     assert "_write_pattern_on_the_fly" in calls

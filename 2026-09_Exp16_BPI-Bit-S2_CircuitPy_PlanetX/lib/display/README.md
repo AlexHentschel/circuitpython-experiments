@@ -29,8 +29,8 @@ NeoPixel buffer; no ``await``):
 
 - `render_pattern(pattern, color=WHITE)` — parse-and-render a
   `#`/`.` grid string or palette dict.
-- `render_icon(icon, color=WHITE)` — render an icon `Image` (e.g. `Icons.HEART`).
-- `render_arrow(arrow, color=WHITE)` — render an arrow `Image` (e.g. `Arrows.NORTH`).
+- `render_icon(icon, color=WHITE)` — render an `Icon` (e.g. `Emojis.HEART`). `Icon` carries no color of its own; `color` is the render color, not an override.
+- `render_arrow(arrow, color=WHITE)` — alias of `render_icon` for an `Icon` from the arrow catalog (e.g. `Arrows.NORTH`), kept as a separate public method name.
 - `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
   `clear()` / `get_pixel(x, y)`.
 - `set_brightness(value)` / `set_rotation(degrees)`.
@@ -38,39 +38,77 @@ NeoPixel buffer; no ``await``):
 **Lifecycle:**
 
 - `deinit()` — release the data pin / RMT peripheral. Cancels any
-  ongoing animation, then deinitializes the NeoPixel buffer; the singleton
-  is unusable afterwards (no re-init path). See [Singleton design &
+  ongoing animation, then deinitializes the NeoPixel buffer; *this
+  instance* is unusable afterwards (no re-init path on it), but the pin
+  is now free for a newly-constructed `Display()`. See [Singleton design &
   `deinit`](#singleton-design--deinit) below.
 
 **Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_leds` / `show_icon` / `show_arrow` — render + hold.
+- `show_pattern` / `show_icon(icon, color=WHITE, interval_ms=0)` / `show_arrow` (alias of `show_icon`) — render, then wait up to `interval_ms` before returning, returning early if a later display call supersedes this one first.
+- `show_image(img, offset=0, interval_ms=0)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image` / scroll through one. Thin wrappers delegating to `Image._show_image` / `_scroll_image` (internal — call the `Display` methods, not these).
 - `show_string(text, color=WHITE, interval_ms=150, loop=False)` — scroll
   text (single character displays centered). With `loop=True`, keeps
   scrolling (or holding, for short text) until cancelled by another
-  display call; on short text the cancellation poll cadence is
-  `interval_ms` ms, or 50 ms when `interval_ms == 0`.
+  display call. On the short-text hold path (looping or not), a later
+  display call is noticed within 50 ms, not only after the full hold
+  duration has elapsed.
 - `show_number(n, color=WHITE, interval_ms=150, loop=False)` — delegate
   to `show_string`.
-- `pause(ms)` — cancellable async sleep.
+- `pause(ms)` — cancellable async sleep; returns early if a later
+  display call supersedes this one first.
 - `forever(callback)` — sync convenience wrapper running a callback in
   an asyncio `while True` loop.
 
-Image methods (`show_image`, `scroll_image`) are also Tier 2.
+## Cooperative multitasking & `Token`
 
-## Cooperative multitasking & `_seq`
+`Token` (`__slots__ = ("_is_expired",)`) is a self-contained cancellation
+marker — no back-reference to `Display`, no sequence number to compare.
+`is_expired` is a read-only property backed by `_is_expired`; only
+`Display._acquire()` (module-internal) writes it, so a `Token` is
+immutable from outside `core.py`. `_acquire()`, called internally by
+every display-mutating method, expires the *previous* token in place
+(`self._token._is_expired = True`), mints a fresh one, stores it, and
+returns it.
 
-`Display._seq` is a monotonically-increasing sequence counter. Every
-display-mutating method calls `_acquire()`, which increments `_seq` and
-returns the new value as a **cancellation token**. Tier 2 animations
-capture the token at start and re-check it between frames via
-`_is_cancelled(token)` (``True`` if `_seq` has advanced past the token).
-This lets a new render cancel an ongoing scroll without explicit
-task cancellation; the scroll coroutine simply returns early.
+Every **Tier 2** method returns the `Token` its own `_acquire()` call
+produced, so any caller can check `token.is_expired` afterwards. **Tier
+1** methods (and `deinit`) do not return a token — there is nothing to
+`await` after them, so a caller couldn't have anything meaningful to
+check for cancellation against. A Tier 2 method that renders via a Tier
+1 method (e.g. `show_pattern` → `render_pattern`) reads `self._token`
+right after that call to recover the token its internal `_acquire()` minted.
+
+Tier 2 animations capture the token at start and re-check
+`token.is_expired` between frames. This lets a new render cancel an
+ongoing scroll without explicit task cancellation; the scroll coroutine
+simply returns early, returning the (now-expired) token, so the caller
+can tell the two cases apart.
+
+**Holds** (`pause`, the single-render waits after `show_pattern` /
+`show_icon` / `show_arrow` / `show_image`, and `show_string`'s
+fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_ms)` /
+`_sleep_until_cancelled(token)` instead of a single bare
+`await asyncio.sleep(...)`. Both are free functions — they take a
+`Token` and have no dependency on any `Display` instance's state — that
+chunk the wait into 50 ms pieces and
+return as soon as `token.is_expired`, so a hold notices a superseding
+display operation within 50 ms rather than only after its full
+duration has elapsed. `_sleep_pollable` takes milliseconds and tracks a
+ticks deadline (`ticks_add(ticks_ms(), total_ms)`), not a chunk-size
+countdown, so scheduling jitter across many chunks cannot accumulate
+drift — the non-cancelled total wait still converges to `total_ms`.
+A `total_ms` of 0 returns without awaiting.
 
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
-methods, and check `_is_cancelled(token)` on both sides of the await.
+methods, and check `token.is_expired` on both sides of the await.
+
+Note: as of this writing, callers must branch on `token.is_expired` after
+every chained call if they want a stale sequence to stop drawing —
+tokens aren't yet accepted back in as an argument to make that automatic
+(see `ai-notes/design/tier2-cancellation-semantics.md` for the open
+follow-up).
 
 ## Rotation during an in-flight Tier 2 animation
 
@@ -79,19 +117,19 @@ a running animation (see the cancellation-policy exceptions above). That
 is safe by construction, not just by convention — three independent
 facts compose into a mechanical guarantee:
 
-1. **In-place LUT mutation.** `set_rotation(degrees)` rebuilds the
-   coordinate LUT *in place*: `build_lut(degrees, dest=_LUT)` (see
-   [geometry.py](geometry.py)) writes into the existing `_LUT`
-   `bytearray` rather than rebinding the module-global to a new object.
-   Any code holding a reference to `_LUT` sees the update immediately,
-   with no re-import and no cache-invalidation step needed.
-2. **Fresh LUT read every frame.** Every render primitive — `core.py`'s
-   `_render_ring_window` (`show_string`'s scroll), `Image._render_window`
-   (`show_image` / `scroll_image`), `_render_colmajor` (icon/arrow
-   renders) — does `lut = _LUT` (a local alias) on **every call**, not
-   once at animation start and cached for the animation's duration. A
-   long-running scroll therefore never has a "stale" LUT to invalidate;
-   it just picks up whatever `_LUT` currently contains, frame by frame.
+1. **In-place LUT mutation.** `set_rotation(degrees)` rebuilds this
+   `Display` instance's coordinate LUT *in place*: `build_lut(degrees,
+   dest=self._lut)` (see [geometry.py](geometry.py)) writes the new table
+   directly into the existing `self._lut` `bytearray`. Any code holding a
+   reference to `self._lut` sees the update immediately, with no
+   cache-invalidation step needed.
+2. **Fresh LUT read every frame.** Every render primitive — `Display._render_ring_window`
+   (`show_string`'s scroll), `Image._render_window` (`Display.show_image` /
+   `scroll_image`), `Display._render_colmajor` (icon/arrow renders) — reads
+   `self._lut` fresh on **every call**, not once at animation start and
+   cached for the animation's duration. A long-running scroll therefore
+   never has a "stale" LUT to invalidate; it just picks up whatever
+   `self._lut` currently contains, frame by frame.
 3. **Cooperative-scheduler atomicity.** CircuitPython's bundled
    `asyncio` is single-threaded and cooperative — nothing preempts a
    running coroutine mid-statement, only at an explicit `await`.
@@ -101,8 +139,8 @@ facts compose into a mechanical guarantee:
 
 Together: **a rotation issued while a Tier 2 animation is in flight
 cannot corrupt a frame or the animation's own state.** `show_string`'s
-ring-buffer `read_head` / feeder position and `scroll_image`'s `pos`
-live entirely in the coroutine's own stack frame — rotation never
+ring-buffer `read_head` / feeder position and `Image._scroll_image`'s
+`pos` live entirely in the coroutine's own stack frame — rotation never
 touches them. The only possible effect is on *which physical LEDs the
 next frame lights up*; the animation's logical progress is unaffected,
 and a scroll's screen-relative direction/axis can change mid-scroll
@@ -115,8 +153,8 @@ This is a **code-level, argued** guarantee (in-place mutation +
 read-fresh-every-frame + scheduler atomicity), not one derived from
 watching it run: static-rotation correctness and scroll-mechanics
 correctness have each been confirmed on-device independently, but their
-*combination* — rotating while a scroll or `scroll_image` animation is
-actually in flight — is, as of this writing, still pending a dedicated
+*combination* — rotating while a scroll or `Display.scroll_image` animation
+is actually in flight — is, as of this writing, still pending a dedicated
 on-device confirmation (see the project's test plan / session memory).
 
 ## Column-major bytes (monochrome bitmap format)
@@ -147,7 +185,7 @@ contiguous byte array — each frame is `buf[offset:offset+WIDTH]` with
 no per-pixel recomputation.
 
 **Persistent vs one-shot**: `Image` converts to column-major at parse
-time (once, amortised over repeated `show_image`/`scroll_image` calls).
+time (once, amortised over repeated `Display.show_image`/`scroll_image` calls).
 `Display.render_pattern` deliberately skips the intermediate and writes
 pixels directly from the parse loop — chosen for one-shot display
 speed.
@@ -157,43 +195,46 @@ rows (`_MAX_HEIGHT_PER_COLUMN_BYTE`). This is distinct from display
 geometry; a taller display is a storage-format redesign, not a
 parameter tweak.
 
-## `Image` coupling to module state
+## `Image` rendering: no fixed display of its own
 
-`Image.show_image` / `scroll_image` reference module-level
-`display` / `_LUT` / `_pixels` directly rather than receiving them as
-arguments or holding a reference via `__init__`. For a single-display
-MCU library this tight coupling is acceptable: there is exactly one
-display, and keeping Image lean (via `__slots__` with four fields) is
-preferred over plumbing the singletons through every instance.
+`Image._show_image` / `_scroll_image` / `_render_window` — the internal
+implementations behind the public `Display.show_image` / `scroll_image`
+methods — take the acting `Display` instance as an explicit parameter
+(`disp`). An `Image` has no display of its own; it renders to whichever
+`Display` calls it (`Display.show_image`/`scroll_image` pass `self`).
+This keeps `Image` lean (`__slots__` with four fields, no `Display`
+reference to keep in sync) while still supporting more than one live
+`Display` instance.
+
+`Icon` (the type behind `Emojis.*` / `Arrows.*`) has *no* such coupling
+either — it is a plain `__slots__ = ("_data",)` bitmap with no reference
+to any `Display` at all. All rendering happens in `Display.render_icon`,
+which reads `icon.columns` and writes to `self._pixels` itself; `Icon`
+never touches display state.
 
 ## Singleton design & `deinit`
 
-The package exposes exactly one display: the module-level `display`
-instance (`from display import display`). The NeoPixel buffer (`_pixels`),
-coordinate LUT (`_LUT`), and font are likewise module-global, constructed
-once at import. This is a deliberate design choice, not an oversight.
+The package ships one ready-made display: the module-level `display`
+instance (`from display import display`), for the common case of "one
+matrix, one program." That said, `Display` itself is not a true
+singleton — each instance owns its own NeoPixel buffer (`self._pixels`),
+coordinate LUT (`self._lut`), and cancellation token (`self._token`),
+constructed fresh in `__init__`. Constructing `Display()` claims the
+data pin's RMT peripheral; constructing a *second* one while an existing
+instance is still live raises (the pin is already claimed by the first)
+— this is enforced by hardware, not by application-level bookkeeping.
 
-**Why single-instance.** The project drives one 5x5 matrix on one
-BPI-Bit-S2. Supporting multiple `Display` instances would require unravelling
-the module-global coupling described above — `Image` would need to carry a
-reference to its owning display's `_pixels` / `_LUT`, every render method
-would gain an instance-state lookup, and the lean `__slots__` Image would
-grow. That is real cost (RAM per Image, an extra indirection in the render
-hot path, a wider API surface) paid against a speculative requirement. The
-single-display assumption is honest about the hardware and keeps the hot
-path tight. If a concrete multi-display need arises, the coupling points are
-documented and localized (search for `_pixels` / `_LUT` / `display` module
-globals in [core.py](core.py)).
-
-**`deinit()` as the teardown hook.** Declining multi-instance does not mean
-declining lifecycle management. `display.deinit()` calls `_pixels.deinit()`,
-releasing the RMT peripheral and the GPIO18 data pin so other code (or a
-soft reboot) can claim them. It first calls `_acquire()` to cancel any
-in-progress Tier 2 animation, so no coroutine writes to a torn-down buffer.
-There is intentionally **no re-init path**: after `deinit()` the singleton is
-spent and any further render call raises. Re-initialization would reintroduce
-much of the instance-lifecycle complexity that the singleton design exists to
-avoid; a program that needs the display again should restart.
+**`deinit()` as the teardown *and* hand-off hook.** `d.deinit()` calls
+`self._pixels.deinit()`, releasing the RMT peripheral and the GPIO18 data
+pin so other code (a different peripheral, a fresh `Display()`, or a soft
+reboot) can claim them. It first calls `_acquire()` to cancel any
+in-progress Tier 2 animation, so no coroutine writes to a torn-down
+buffer. There is **no re-init path *on that instance*** — `d` itself must
+be discarded, any further call on it raises — but the freed pin means a
+*new* `Display()` can be constructed right after, with a clean buffer,
+LUT, and token, entirely independent of `d`. A program that wants to
+free the pin *and* stay done with the display can simply not construct a
+new one; a program that wants to reconfigure and resume can construct one.
 
 ## Sub-module responsibilities
 
@@ -202,7 +243,7 @@ avoid; a program that needs the display again should restart.
 | [`_constants.py`](_constants.py) | Dimensions, encoding-format limits, and color constants — single source of truth, pure (no hardware imports). |
 | [`bitmap_codec.py`](bitmap_codec.py) | Design-time conversion between row-major ASCII art and column-major bytes. |
 | [`geometry.py`](geometry.py) | Pure `build_lut(rotation, dest=None)` + `xy_to_index(x, y, lut)` — no hardware dependency. Optional `dest` lets `set_rotation` rebuild the live LUT in place (no per-rotation allocation). |
-| [`icons.py`](icons.py) | Icon + arrow bitmap data and `ICON_NAMES` / `ARROW_NAMES` ordered name tuples (kept together so slot ordering cannot drift). `Icons` / `Arrows` wrapper classes exposing one `Image` attribute per name are built in `core.py` at import (each `Image` owns its own `WIDTH`-byte backing block — `bytes` slicing copies in (Circuit)Python). |
+| [`icons.py`](icons.py) | Emoji + arrow bitmap data and `EMOJI_NAMES` / `ARROW_NAMES` ordered name tuples (kept together so slot ordering cannot drift). `Emojis` / `Arrows` wrapper classes exposing one `Icon` attribute per name are built in `core.py` at import (each `Icon` owns its own `WIDTH`-byte backing block — `bytes` slicing copies in (Circuit)Python). |
 | [`core.py`](core.py) | `Display` + `Image` runtime: NeoPixel buffer, LUT, font, async methods. Only module that imports `board` / `neopixel`. |
 | [`__init__.py`](__init__.py) | Public-API re-exports; guarded core import lets host-side tests load pure sub-modules without a device. |
 

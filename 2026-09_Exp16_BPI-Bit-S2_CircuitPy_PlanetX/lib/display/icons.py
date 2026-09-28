@@ -14,14 +14,14 @@ Encoding-vs-geometry: the single-byte-per-column format caps height at
 display would need a different storage format, not just a parameter
 change. See ``_MAX_HEIGHT_PER_COLUMN_BYTE`` in ``_constants``.
 
-Lookup: the slice ``ICONS[i * WIDTH : (i + 1) * WIDTH]`` represents the icon at position ``i``.
-Specifically, the icon is ``WIDTH`` bytes, each byte representing one column of the icon.
+Lookup: the slice ``EMOJIS[i * WIDTH : (i + 1) * WIDTH]`` represents the emoji at position ``i``.
+Specifically, the emoji is ``WIDTH`` bytes, each byte representing one column of the emoji.
 Identical convention applies for ``ARROWS``.
 
-Name lists ``ICON_NAMES`` and ``ARROW_NAMES`` are ordered tuples of
-strings that describe which icon/arrow lives at each slot. ``core.py``
+Name lists ``EMOJI_NAMES`` and ``ARROW_NAMES`` are ordered tuples of
+strings that describe which emoji/arrow lives at each slot. ``core.py``
 consumes these lists at import time to populate the user-facing
-``Icons`` / ``Arrows`` classes whose attributes are ``Image`` instances
+``Emojis`` / ``Arrows`` classes whose attributes are ``Icon`` instances
 backed by the matching slice. Any name-vs-byte drift therefore surfaces
 as a single-place mismatch in this file, not as silent slot corruption
 across the API.
@@ -36,9 +36,9 @@ from ._constants import WIDTH  # noqa: F401 -- documents the lookup math
 
 
 # ---------------------------------------------------------------------------
-# Ordered name lists -- index = slot in ICONS / ARROWS.
+# Ordered name lists -- index = slot in EMOJIS / ARROWS.
 # ---------------------------------------------------------------------------
-ICON_NAMES = (
+EMOJI_NAMES = (
     "HEART",
     "SMALL_HEART",
     "YES",
@@ -98,10 +98,10 @@ ARROW_NAMES = (
 # fmt: off
 
 # ---------------------------------------------------------------------------
-# 40 Icons -- 5 bytes each, column-major. Ordering matches ICON_NAMES.
+# 40 Emojis -- 5 bytes each, column-major. Ordering matches EMOJI_NAMES.
 # ---------------------------------------------------------------------------
 
-ICONS = bytes([
+EMOJIS = bytes([
     # 0: HEART
     #    . # . # .
     #    # # # # #
@@ -426,6 +426,8 @@ ICONS = bytes([
 
 # ---------------------------------------------------------------------------
 # 8 Arrows -- 5 bytes each, column-major. Ordering matches ARROW_NAMES.
+# Same ``Icon`` type as Emojis -- an arrow is not a distinct shape kind,
+# just a different name catalog over the same WIDTHxHEIGHT monochrome format.
 # ---------------------------------------------------------------------------
 
 ARROWS = bytes([
