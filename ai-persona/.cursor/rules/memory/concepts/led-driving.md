@@ -37,3 +37,12 @@ The **data pin is not shared**: original bit matrix = **GPIO 4**; Bit-S2 = **GPI
 **What may carry (algorithm, not pins):** 25-pixel icon/font buffers in sequential-index order (`microbit/display.py` `Image.seq` / `Image.HEART`); Webduino Blockly 25-bit LED strings (e.g. `webbit_i18n` `bit-s-02.json` heart pair). Re-bind the NeoPixel pin per board.
 
 **Sources.** [BPI-BIT-Hardware `readme_en.md`](https://github.com/BPI-STEAM/BPI-BIT-Hardware/blob/master/readme_en.md) (GPIO 4 + sequential table); BananaPi Bit-S2 “5*5 LED Sequential List” (already in exp16 CONCLUSIONS); Exp09 `lib/display_v0.py`; CircuitPython `bpi_bit_s2` `pins.c` `NEOPIXEL`→GPIO18. Bit-S2 **electrical** schematic (this generation, not original bit): [BPI-BIT-Lite-Doc `sch/BPI-BIT-Lite-V0.2.pdf`](https://github.com/BPI-STEAM/BPI-BIT-Lite-Doc/blob/main/sch/BPI-BIT-Lite-V0.2.pdf) — 25× WS2812B sheet; local `ai-notes/BPI-Bit-S2_Hardware/` (CONTEXT *BPI-Bit-S2 schematic*). Vendor catalog: `crossref/BY_TOPIC.md` *BPI-STEAM predecessor*. **Local alternate for original-bit samples (may vanish):** exp16 `ai-notes/Elecfreaks-Repos/MicroPython-Samples/` pin `c03ed50` — GitHub is canonical; freshness procedure in exp16 CONTEXT *Local vendor snapshots*.
+
+### PlanetX RJ11 NeoPixel data wire is the jack's second pin — wiring `evidence-supported`; on-device `unverified`
+
+**Claim.** ELECFREAKS PlanetX rainbow ring and the generic MakeCode NeoPixel block (`pxt-PlanetX` `display.ts` `create`) drive WS2812 on the **second** signal of a Nezha2 jack: J1=P8, J2=P12, J3=P14, J4=P16. That is `Port.pins[1]`, not the analog pin. The EF05015 ring is that strip with **8** pixels, GRB. Exp16 `PlanetXRainbowRing` fixes the length; `PlanetXNeoPixel` takes a count. A second `NeoPixel` beside the onboard matrix is a second RMT channel on the ESP32-S2.
+
+**Not shared with the 5×5 display library.** `lib/display/` is a LUT and font renderer. The ring constructs its own `neopixel.NeoPixel` (`auto_write=False`, brightness 0.20).
+
+**Sources.** MakeCode `RJpin_to_digital` / `create()`; `PlanetX_MicroPython/enum.py` (`J1 = pin8`) and the wiki sample `NeoPixel(J1, 8)`. Notes: exp16 `ai-notes/planetx-drivers/NOTES.md`.
+

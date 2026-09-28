@@ -4,6 +4,12 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-09-28 — seed `concepts/sensors.md` (`extend`)
+
+**Trigger:** Exp16 PlanetX light-sensor driver. The 2026-06-15 taxonomy said environmental sensors seed `sensors` when the first curve exists.
+
+**Change:** new `concepts/sensors.md` (PlanetX EF05001 lux curve, one `AnalogIn` sample). `concepts/_INDEX.md` lists it and drops `sensors` from the unseeded candidate line. Buttons stay in `lib/planetx/button.py`.
+
 ## 2026-09-21 — exp16 session-log compaction + notes catch-up (`compact`)
 
 **Trigger:** Alex — review 2026-09-20 Exp16 chats and make notes match finished work; completed items keep start/end/result/challenges, not superseded step-by-step progress.

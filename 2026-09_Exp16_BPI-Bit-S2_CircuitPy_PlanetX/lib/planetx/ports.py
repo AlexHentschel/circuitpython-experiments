@@ -9,8 +9,8 @@ houses the RJ11 sockets that sensors and motors actually plug into:
 - Four **IO ports**, J1-J4, on the right side.
 - Four **IIC ports** (blue marking) on the left side — wired together
   internally as one shared bus, so a sensor works the same in any of the four.
-- Four **motor connectors**, M1-M4 (red marking) at the bottom of the Nezha2;
-  NOT handled by this file.
+- Four **motor connectors**, M1-M4 (red marking) at the bottom of the Nezha2.
+  ``M1``–``M4`` below name those connectors. They are not GPIO pins.
 
     PlanetX sensor  ━━RJ11-cable━━▶  Nezha2 port  ━━edge connector━━▶  BPI-Bit-S2
 
@@ -94,6 +94,28 @@ J1 = Port("J1", (1, 8), analog_p_number=1)
 J2 = Port("J2", (2, 12), analog_p_number=2)
 J3 = Port("J3", (13, 14))
 J4 = Port("J4", (15, 16))
+
+
+class MotorPort:
+    """One Nezha2 motor connector, M1–M4.
+
+    These are not jack pins. ``index`` is the motor number the Nezha board
+    expects (1 for M1 … 4 for M4).
+
+        from planetx import M4, PlanetXSmartMotor
+
+        motor = PlanetXSmartMotor(port=M4)
+    """
+
+    def __init__(self, name: str, index: int) -> None:
+        self.name = name
+        self.index = index
+
+
+M1 = MotorPort("M1", 1)
+M2 = MotorPort("M2", 2)
+M3 = MotorPort("M3", 3)
+M4 = MotorPort("M4", 4)
 
 
 class I2CBus:

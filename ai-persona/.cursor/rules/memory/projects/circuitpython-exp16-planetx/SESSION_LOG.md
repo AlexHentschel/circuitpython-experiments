@@ -2,9 +2,9 @@
 
 Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, LightTower PoC). Behavioral/process: `../../universal/`. Domain: `../../concepts/`. Roster: `../_INDEX.md`.
 
-## Current state (2026-09-26)
+## Current state (2026-09-28)
 
-Code post-`4a337f4`, plus 2026-09-25/26 work: `Icon`/`Emojis` rename, `show_leds`→`show_pattern`, `Token`-based Tier 2 cancellation, and `Display` instance-ownership (see 2026-09-26 entry below) — none yet committed/tagged, none yet re-run on-device. Host pytest **178 passed** throughout (run from `tests/`, not repo root). Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0.
+Display and button work since `4a337f4` is still not re-run on the board. PlanetX light, ring, motor, and crash drivers landed 2026-09-28 (host only). Host pytest **193 passed** (`pytest tests`). Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0.
 
 | Work item | End state | Still open |
 |-----------|-----------|------------|
@@ -12,7 +12,7 @@ Code post-`4a337f4`, plus 2026-09-25/26 work: `Icon`/`Emojis` rename, `show_leds
 | Font spacing | Live `show_string` uses `SpacedGlyphColumnFeeder`. Always one spacer between characters; unknown → tofu; space = 3 columns. | Phase 5: Alex looks at `"STAGE2"` / `"42"` / `"!!"` on the matrix. `code_stage2.py` step 11's duration formula still assumes `WIDTH` columns/glyph. |
 | Button API | `OnboardButtons().button_a.on_pressed(...)`; `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. `ButtonPair` removed. | Re-run `code_stage3.py`. The 2026-09-13 confirm used `Buttons` / `on_*_pressed`. |
 | Rotation during scroll | Steps 11/12 drafted in `code_stage2.py`. | Not run on-device. |
-| LightTower extras | Nezha V2 I2C decoded (`concepts/nezha.md`). J1–J4 + shared I2C in `planetx.ports`. | No light-sensor driver, no motor driver. |
+| LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
 
 ## 2026-09-26 — typos in `lib/display/core.py`
 
@@ -119,6 +119,11 @@ Procedural session notes for finished items are collapsed to start, end, result,
 - ~~**Tier 2 cancellation redesign (Q1–Q5, opened 2026-09-25):** should `Display` Tier 1/Tier 2 methods return status (token / completed-vs-superseded bool) so calling code can chain display operations that cancel together?~~ **Resolved 2026-09-26** — `Token` class implemented, Tier 2 only. See 2026-09-26 entry below + `ai-notes/design/tier2-cancellation-semantics.md` §8/§8.5. New open item from that same work: on-device re-run of any Tier 2 cancellation path (never run on hardware under the `Token` design).
 - **New (2026-09-26):** `Display` instance-ownership + `Image`/renderer decoupling from the module-level `display` singleton — implemented, host-verified only. Needs an on-device pass exercising a real second `Display()` after `deinit()`.
 - **Deferred (2026-09-27):** slice scroll-frame sleeps. One awaited scroll is one sleeper; polling it faster only returns that one sooner. Do it if un-awaited scrolls overlap, or if a column of ~500 ms or more must be cut short inside the column. Trigger and the inlined `sleep_ms` shape: `universal/MONITORING.md` § *Slice scroll-frame sleeps only if abandoned scrolls pile up*.
+- **Deferred (2026-09-28):** `PlanetXSmartMotor.stop` reporting whether it cut off a motion that was still running. Needs an in-progress versus finished fact (a busy flag is enough; a third token state is not). `start` must stay current after it returns. Notes: exp16 `ai-notes/planetx-drivers/NOTES.md`.
+
+## 2026-09-28 — PlanetX light, ring, motor, crash
+
+Host-only. `lib/planetx/`: `PlanetXLightSensor.lux` (one sample, MakeCode integer curve), `PlanetXNeoPixel` / `PlanetXRainbowRing` (second jack wire, 8 pixels, brightness 0.20), `PlanetXSmartMotor` on `M1`–`M4` (bookmarked `angle`/`go_to`, `set_zero(45)` moves the origin to the pose that reads 45°, `stop` returns None and expires the in-flight token), `PlanetXCrashSensor` forwards to `buttons.Button` on `pins[1]`. `lib/display/` and `lib/buttons.py` unchanged. `code_stage4.py` is not in `cpfiles.txt`. Notes: `ai-notes/planetx-drivers/`. Concepts: `sensors.md` (new), `led-driving.md` ring wire, `nezha.md` driver line. Pytest `tests`: **193 passed**.
 
 ## 2026-09-25 — Cancellation semantics re-opened (design only, no code changed)
 
@@ -317,7 +322,7 @@ Alex asked for in-code proposals for the Stage 3 arrow wipe and for async button
 - Alex, 2026-09-27 20:47 PDT: check async-vs-sync once at `on_pressed` / `on_released` and store a wrapper, instead of `hasattr` on every event. Agreed as the shape if this is built. Wrapper for an `async def`: a sync callable that `create_task`s it. Sync handlers stored unchanged. `_handle` stays `handler()`. Device-side detection of `async def` at registration is unverified (`__code__.co_flags` is the CPython mechanism). Not implemented.
 - Alex, 2026-09-27 20:52 PDT: run a button's handlers with `await`, in list order, instead of `create_task`. Shape: registration wraps a sync handler in `async def` so every stored callable is awaitable; `_pump` awaits each handler before the next. That await is on the module's `run()` task, so the display loop and the other button module still run while a handler is suspended. Sync presses would allocate one coroutine per call. Not implemented.
 - Alex, 2026-09-27 21:02 PDT: a list of sync handlers, awaited via the registration wrapper, runs one after another with no scheduler turn between them. Confirmed from the await-entry rule: a coroutine with no suspending `await` finishes inside the current `send()`. Other tasks run at the pump's next `asyncio.sleep`, after that list.
-- Alex, 2026-09-28 00:43 PDT: are the `co_flags` lines in `_is_coroutine_function` only executed on desktop Python? They also run on the board, for every handler whose type name is not `coroutine` (a normal function, a bound method). On the board they return false. They return true for an `async def` only under CPython, where that function's type name is `function`. The board catches a bare `async def` on the first line, `type(handler).__name__ == "coroutine"`.
+- Alex, 2026-09-28 00:52 PDT: async bound methods are required (e.g. a display method). Registration-time detection is not sufficient on CircuitPython 10.3.0: a bound method's type name is `bound_method` and the wrapped function is not visible. The check has to be on the object returned when the handler is called.
 
 ## 2026-09-27 21:14 PDT — Stage 3 arrow hold applied
 
@@ -344,3 +349,9 @@ Applied the integer-ms form. `_sleep_pollable(token, total_ms)` uses `ticks_add`
 ## 2026-09-27 22:06 PDT — `asyncio.sleep` of ≤ 0
 
 Alex asked whether `asyncio.sleep` of a non-positive value is an immediate yield. Yes, when awaited: bundle `sleep_ms` clamps with `max(0, t)` to a deadline of now, and the scheduler does not block. `sleep(seconds)` also truncates sub-millisecond positives to that path. CPython 3.13 yields on `delay <= 0` and keeps a real timer for a positive fraction of a millisecond. `_sleep_pollable` still returns without awaiting when `total_s <= 0`. Detail: `concepts/circuitpython-runtime.md` § `asyncio.sleep(0)`.
+
+## 2026-09-28 — call-time await for button handlers
+
+Alex: use the handler-call-time check consistently. `PushButtonBase._handle` calls each handler and awaits the result when it has `__await__`. `Button._dispatch`, `OnboardButtons._dispatch`, and `PlanetXButtonSensor._dispatch` are async and await `_handle`. `_pump` awaits `dispatch(event)`. A sync handler still finishes inside the current turn. An async handler, including a bound method, runs to completion before the next handler on that switch. No registration wrapper, no `create_task`, no `asyncio.sleep(0)` after each handler. Host `tests/test_buttons.py`: 17 passed. Not run on UID `0740D10F1BE9`. Cost note for the rejected wrap: exp16 `ai-notes/2026-09-27_handler-await-cost/NOTES.md`.
+
+**Same night, 01:03 PDT:** Alex: the `_pump` comment should describe the code as it is. The 2026-09-20 rejection of a yield between sync events in a burst moved to that cost note. Comment now states that `await dispatch` runs each handler before the next event, and a sync handler returns `None` so a sync burst finishes inside the turn.

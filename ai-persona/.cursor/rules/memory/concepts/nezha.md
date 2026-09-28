@@ -2,7 +2,7 @@
 
 `[domain:nezha]` `[cross-experiment]` — **seeded 2026-09-14** (first concrete concept). Smart-motor / breakout I2C protocol for Nezha V2 (哪吒2), used by exp16 LightTower mast (later) and coding-tutor's Nezha2 target. Retrieval: `_INDEX.md` → here → `#concept`; lateral edges in `_RELATIONS.md`. **Not** general I2C-bus properties (`i2c.md`) and **not** PlanetX GPIO buttons (`lib/planetx/`).
 
-**No CircuitPython driver exists yet.** Student API stays semantic (`mast` park/sweep/nudge), not `M4` / opcodes (`Notes/student-api-portability.md` G6).
+**No CircuitPython driver existed until 2026-09-28.** Exp16 `lib/planetx/motor.py` (`PlanetXSmartMotor`) sends this frame. Host tests cover opcodes and the bookmark. On-device behavior is still `unverified` (`code_stage4.py`, not deployed). The student API is one motor with a bookmarked zero (`angle` / `go_to` / `set_zero` / `go_zero`), not a lighthouse `mast` class. Car combo blocks are not in the driver.
 
 ## Concepts
 

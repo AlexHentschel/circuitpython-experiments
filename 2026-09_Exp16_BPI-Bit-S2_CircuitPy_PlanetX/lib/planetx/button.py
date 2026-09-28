@@ -65,16 +65,16 @@ class PlanetXButtonSensor:
         self._c.clear()
         self._d.clear()
 
-    def _dispatch(self, event) -> None:
+    async def _dispatch(self, event) -> None:
         # ``event.key_number`` is a tuple position matching ``(c_pin, d_pin)``:
         # scanner slot 0 is C, slot 1 is D. Bounds-checked explicitly (not a bare
         # try/except IndexError) because a negative key_number would otherwise
         # silently wrap onto a *valid* switch instead of being rejected.
         index = event.key_number
         if index == 0:
-            self._c._handle(event.pressed)
+            await self._c._handle(event.pressed)
         elif index == 1:
-            self._d._handle(event.pressed)
+            await self._d._handle(event.pressed)
 
     async def run(self) -> None:
         """Never-ending task that delivers both switches' press and release events.

@@ -1,13 +1,15 @@
 """
-ElecFreaks PlanetX sensors.
+ElecFreaks PlanetX sensors and the Nezha2 smart motor.
 
-Student-facing operations stay on each module class (press handlers, later
-sensor reads). GPIO / RJ11 port is constructor config.
+Student-facing operations stay on each module class. The jack or motor
+port is constructor config.
 
-This package is the home for PlanetX modules. Shared Nezha2 jack map:
-``J1``–``J4`` and the shared ``I2C`` bus in ``ports``. The first module is
-the two-button push-button sensor (C/D). Further sensors join as sibling
-modules; do not wrap Exp09 ``elecfreaks_planetx``.
+    from planetx import J1, J2, J3, M4
+    from planetx import PlanetXLightSensor, PlanetXRainbowRing
+    from planetx import PlanetXSmartMotor, PlanetXCrashSensor, CLOCKWISE
+
+Shared Nezha2 map: ``J1``–``J4``, ``M1``–``M4``, and the shared ``I2C`` bus
+in ``ports``. Do not wrap Exp09 ``elecfreaks_planetx``.
 
 Protocol sources (MicroPython / MakeCode — not drop-in CircuitPython):
 https://github.com/elecfreaks/PlanetX_MicroPython
@@ -18,6 +20,46 @@ See the experiment README § Further reading.
 """
 
 from .button import PlanetXButtonSensor
-from .ports import I2C, I2CBus, J1, J2, J3, J4, Port
+from .crash import PlanetXCrashSensor
+from .light import PlanetXLightSensor
+from .motor import (
+    CLOCKWISE,
+    COUNTERCLOCKWISE,
+    DEGREES,
+    SECONDS,
+    SHORTEST,
+    TURNS,
+    PlanetXSmartMotor,
+    Token,
+)
+from .neopixel import PlanetXNeoPixel, PlanetXRainbowRing, hsl
+from .ports import I2C, I2CBus, J1, J2, J3, J4, M1, M2, M3, M4, MotorPort, Port
 
-__all__ = ["PlanetXButtonSensor", "J1", "J2", "J3", "J4", "Port", "I2C", "I2CBus"]
+__all__ = [
+    "PlanetXButtonSensor",
+    "PlanetXLightSensor",
+    "PlanetXNeoPixel",
+    "PlanetXRainbowRing",
+    "PlanetXSmartMotor",
+    "PlanetXCrashSensor",
+    "Token",
+    "hsl",
+    "CLOCKWISE",
+    "COUNTERCLOCKWISE",
+    "SHORTEST",
+    "DEGREES",
+    "TURNS",
+    "SECONDS",
+    "J1",
+    "J2",
+    "J3",
+    "J4",
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "Port",
+    "MotorPort",
+    "I2C",
+    "I2CBus",
+]

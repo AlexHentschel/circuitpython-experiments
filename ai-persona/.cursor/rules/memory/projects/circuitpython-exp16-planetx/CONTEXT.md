@@ -4,8 +4,8 @@
 
 **Status digest** — current state is § Resumption point. Completed-session narrative is compacted in `SESSION_LOG.md` (through 2026-09-26; recap 2026-09-27).
 
-- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Code at git `ec5a780` (2026-09-27 09:37) has **not** been re-run on the board. It is a renamed, token-based display API (see Resumption). Host pytest **178** is the last recorded run and predates later test edits — re-run before quoting it.
-- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"` on the spaced font. (b) `code_stage2.py` steps 11/12 not run; step 11 now calls `_scroll_sleep_s` (feeder columns, not `WIDTH` per glyph). (c) re-run `code_stage3.py` on `button_a` / `button_c` and the `Token` API. (d) Stage 3 scroll→status arrow hold is in `code_stage3.py` (`pause` 800 ms, restarts on a later press). Not run on the board. A press during step 4 `show_string` still ends at the trailing 1 s sleep, then `clear_screen`. (e) async button handlers still dropped.
+- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Host `tests/test_buttons.py` **17 passed** (2026-09-28) after the call-time await. The earlier full-suite **193** is from before that edit. PlanetX drivers have not been run on UID `0740D10F1BE9`.
+- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"` on the spaced font. (b) `code_stage2.py` steps 11/12 not run; step 11 now calls `_scroll_sleep_s` (feeder columns, not `WIDTH` per glyph). (c) re-run `code_stage3.py` on `button_a` / `button_c` and the `Token` API. (d) Stage 3 scroll→status arrow hold is in `code_stage3.py` (`pause` 800 ms, restarts on a later press). Not run on the board. A press during step 4 `show_string` still ends at the trailing 1 s sleep, then `clear_screen`. (e) async button handlers are awaited in source (`hasattr(result, "__await__")`); not run on the board.
 - **Board**: UID `0740D10F1BE9`, CircuitPython **10.3.0**. **Brightness floor (authoritative, Alex)**: 0.01 off, 0.02 lowest lit; library default `core.py BRIGHTNESS = 0.20`.
 
 ## Scope & goal
@@ -81,6 +81,6 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 - `code_stage2.py` steps 11/12 still not run on device. Step 11's estimate is `_scroll_sleep_s` (feeder column count).
 - Stage 3 arrow-during-scroll wipe is still the script's behavior.
 
-**Next hardware:** analog light on Nezha2 J1/J2, then Nezha V2 motor (`concepts/nezha.md`; no driver). Color-constant tuning and `show_number` formatting stay deferred.
+**Next hardware:** drivers are in `lib/planetx/` (light, ring, motor, crash). On-device smoke is `code_stage4.py`, not wired into the deploy manifest. Color-constant tuning and `show_number` formatting stay deferred.
 
 Narrative through 2026-09-26: `SESSION_LOG.md`. Recap entry is at the end of that file.
