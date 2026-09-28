@@ -355,3 +355,7 @@ Alex asked whether `asyncio.sleep` of a non-positive value is an immediate yield
 Alex: use the handler-call-time check consistently. `PushButtonBase._handle` calls each handler and awaits the result when it has `__await__`. `Button._dispatch`, `OnboardButtons._dispatch`, and `PlanetXButtonSensor._dispatch` are async and await `_handle`. `_pump` awaits `dispatch(event)`. A sync handler still finishes inside the current turn. An async handler, including a bound method, runs to completion before the next handler on that switch. No registration wrapper, no `create_task`, no `asyncio.sleep(0)` after each handler. Host `tests/test_buttons.py`: 17 passed. Not run on UID `0740D10F1BE9`. Cost note for the rejected wrap: exp16 `ai-notes/2026-09-27_handler-await-cost/NOTES.md`.
 
 **Same night, 01:03 PDT:** Alex: the `_pump` comment should describe the code as it is. The 2026-09-20 rejection of a yield between sync events in a burst moved to that cost note. Comment now states that `await dispatch` runs each handler before the next event, and a sync handler returns `None` so a sync burst finishes inside the turn.
+
+**12:01 PDT, memory-light:** that 2026-09-20 paragraph is back in `_pump`, under the behavior comment. Left in place. Handler behavior is unchanged.
+
+**12:04 PDT:** Alex asked the cost of `hasattr(result, "__await__")` in `_handle`. Miss path (a sync handler's `None`) does not allocate an `AttributeError`. Once per handler per event. Not timed. Detail: `concepts/circuitpython-runtime.md` § `hasattr` on a missing name does not allocate.

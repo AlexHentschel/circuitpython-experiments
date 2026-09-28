@@ -122,6 +122,12 @@ Bundle `asyncio.run(coro)` (`Adafruit_CircuitPython_asyncio` `asyncio/core.py`, 
 
 **Status:** `evidence-supported` for the raise (bundle source). On-device confirmation `unverified`.
 
+### `hasattr` on a missing name does not allocate
+
+`hasattr` (CircuitPython 10.3.0 `py/modbuiltins.c`) calls `mp_load_method_protected` (`py/runtime.c`), which calls `mp_load_method_maybe`. A missing name leaves `dest[0] == NULL`. It does not call the raising `mp_load_method`, so the usual miss does not build an `AttributeError`. `nlr_push` / `nlr_pop` still wrap the lookup. `NoneType` (`py/objnone.c`) has no attribute slot and no locals dict, so `hasattr(None, "__await__")` is that miss: a type-pointer check, then false. The name `"__await__"` is a compiled qstr. `True` / `False` are singletons. Applied: exp16 `PushButtonBase._handle` once per handler per event. Not timed on UID `0740D10F1BE9`.
+
+**Status:** `evidence-supported` for the control flow (10.3.0 tag, read 2026-09-28). Duration `unverified`.
+
 ### `mpy-cross` is CircuitPython’s binary, not PyPI MicroPython
 
 Host bytecode compile for a CircuitPython board must use **Adafruit’s** `mpy-cross` matching the firmware series (S3 `bin/mpy-cross/macos/`, e.g. `mpy-cross-macos-10.3.0-arm64`). Adafruit: do **not** use `pip install mpy-cross` / pypi.org — that tool is MicroPython and emits the wrong `.mpy` ([Adafruit-learn] “Creating an .mpy file”; [CPy-src] issue #10032). CP **10.3.0** emits **mpy v6.3** (binary `--version`, 2026-09-04). Installed binary, located 2026-09-27: `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/mpy-cross-macos-10.3.0-arm64`. Compiling `.py` → `.mpy` catches CP-rejected syntax; it is not an on-device run.
