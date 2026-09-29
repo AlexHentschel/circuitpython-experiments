@@ -359,3 +359,27 @@ Alex: use the handler-call-time check consistently. `PushButtonBase._handle` cal
 **12:01 PDT, memory-light:** that 2026-09-20 paragraph is back in `_pump`, under the behavior comment. Left in place. Handler behavior is unchanged.
 
 **12:04 PDT:** Alex asked the cost of `hasattr(result, "__await__")` in `_handle`. Miss path (a sync handler's `None`) does not allocate an `AttributeError`. Once per handler per event. Not timed. Detail: `concepts/circuitpython-runtime.md` § `hasattr` on a missing name does not allocate.
+
+## 2026-09-28 — display and buttons audit (no code change)
+
+Fresh pass over `lib/display/` and `lib/buttons.py` (+ `lib/planetx/button.py`) at git `ffd9cb5`. No edits to that tree. Notes: exp16 `ai-notes/2026-09-28_display-buttons-audit/` (gitignored; map is `NOTES.md`). Host `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/pytest tests`: **195 passed**. That suite does not import `display.core`. A stubbed import of `core.py` (fake NeoPixel, 29-bit ticks) plus CPython probes of `buttons.py` executed the paths below. Not run on UID `0740D10F1BE9`.
+
+**Stall.** `PushButtonBase._handle` awaits a result that has `__await__`, and `_pump` does not `queue.get()` the next event until that returns. `OnboardButtons` A and B share one pump; one `PlanetXButtonSensor`'s C and D share one pump. Probe: A awaiting `sleep(0)`, B already queued → log was `A-start` until A finished, then `B`. Other tasks (the display loop, the other module) still run at the handler's await. A program whose only task is that `run()`, with A awaiting `show_string(..., loop=True)` and B the only caller that would expire the token, does not finish. `code_stage3.py` handlers are sync `render_arrow` and do not take this path. Events that arrive during the await sit in the keypad queue and are then dispatched back to back. The pump never reads `overflowed`. Prior note of max 64 assumed a 10 ms poll; this pass did not re-read the firmware.
+
+**Exception.** A handler `ZeroDivisionError` skipped the rest of that event's handlers and ended the `run()` task with that exception. No restart.
+
+**Zero hold.** `_sleep_pollable` returns with no `await` when `total_ms <= 0`. Probe: `await pause(0)` and `await show_icon(..., interval_ms=0)` did not let a sibling task run; a later real `asyncio.sleep(0)` did. A loop of those awaits starves the button pump. Scroll with `interval_ms=0` is the other shape: `show_string("HELLO", interval_ms=0)` recorded 30 `sleep(0)` calls. On the bundle scheduler that is the busy-spin while the scroll task is the only one due (`concepts/circuitpython-runtime.md`). The 2026-09-27 "do not slice column sleeps" decision still stands for a positive interval.
+
+**Redraw.** `set_rotation(90)` and `Image.recolor` changed LUT / color and did not call `show` again. A held frame stays visually as it was until the next render. `set_brightness` does call `show` and does not cancel.
+
+**Also recorded, narrower:** `clear()` swaps in a new list, so handlers already on this event still run. `on_pressed` during an awaited handler appends onto the list being iterated and runs on this same press. A sync handler that returns a coroutine is awaited; an `async def` that returns a coroutine drops the inner one. `Icon(b"\xff")` raises `IndexError` inside `_render_colmajor` after partial buffer writes and before `show()`. Window bounds for widths 0..12 and offsets −8..15 matched the half-open interval, no out-of-range index. `"HI"` scrolled 14 frames (8 columns; first and last blank), matching `_scroll_sleep_s`. PlanetX pin pairs and active-low match the ElecFreaks snapshot; both-low fires both handlers, and the vendor poll API reports a chord instead. `Display.forever` treats any object with `.send` as awaitable (a generator raises `TypeError`) and then `sleep(0)`.
+
+**Reconfirmed, not reopened:** one `show()` per frame; step lattice (width 10, step 6 → offsets 0 then 6, column 5 skipped); negative interval raises before acquire on `show_string` / `show_pattern` / `pause` and clamps on `show_image`; empty `show_string` draws blank; out-of-range `set_pixel` cancels and does not write. Full table: the notes file `04-reconfirmed.md`.
+
+## 2026-09-28 evening — address the audit's three items next
+
+Alex, after the audit summary. Not built. Recorded in exp16 `ai-notes/2026-09-28_display-buttons-audit/NOTES.md` § Decided 2026-09-28 evening, and in `CONTEXT.md` open thread (e).
+
+- Same switch: handlers stay in order, each awaited before the next on that switch. Different switch on the same module (`A`/`B`, `C`/`D`): cooperative concurrency. Shape: one long-lived worker task per switch, pump enqueues and does not await the other switch. The 2026-09-27 rejection of `create_task` per handler still stands; this is one task per switch for the life of `run()`.
+- `_sleep_pollable(total_ms <= 0)` should `await asyncio.sleep_ms(0)` once. Tier 1 sync methods stay the no-yield API. A tight `interval_ms=0` loop becomes the busy-spin and does service other due tasks. That yield alone does not unblock the other switch; the pump is still inside the handler until item 1 lands.
+- `set_rotation`: snapshot logical pixels, rebuild the LUT in place, write them back, `show()`, do not `_acquire`. Reuse a buffer on the `Display`. `Image.recolor` stays next-render. Alex will also accept rotation-as-next-render if the snapshot is awkward; on 5×5 it is a straight copy.

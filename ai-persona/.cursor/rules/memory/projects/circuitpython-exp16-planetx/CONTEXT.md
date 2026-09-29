@@ -2,10 +2,10 @@
 
 **Family**: `circuitpython` · **Repo**: `/Users/alex/Development/VsCode/CircuitPython/2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX/` · **Goal note**: `Notes/overall_goal.md`
 
-**Status digest** — current state is § Resumption point. Completed-session narrative is compacted in `SESSION_LOG.md` (through 2026-09-26; recap 2026-09-27).
+**Status digest** — current state is § Resumption point. Completed-session narrative is compacted in `SESSION_LOG.md` (through 2026-09-26; recap 2026-09-27; display+buttons audit 2026-09-28).
 
-- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Host `tests/test_buttons.py` **17 passed** (2026-09-28) after the call-time await. The earlier full-suite **193** is from before that edit. PlanetX drivers have not been run on UID `0740D10F1BE9`.
-- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"` on the spaced font. (b) `code_stage2.py` steps 11/12 not run; step 11 now calls `_scroll_sleep_s` (feeder columns, not `WIDTH` per glyph). (c) re-run `code_stage3.py` on `button_a` / `button_c` and the `Token` API. (d) Stage 3 scroll→status arrow hold is in `code_stage3.py` (`pause` 800 ms, restarts on a later press). Not run on the board. A press during step 4 `show_string` still ends at the trailing 1 s sleep, then `clear_screen`. (e) async button handlers are awaited in source (`hasattr(result, "__await__")`); not run on the board.
+- **Headline**: first milestone (async 5×5 display + async buttons) is **confirmed on-device** for the 2026-09-13 code (K1/K2/K3). Host `pytest tests` **195 passed** (2026-09-28); that suite does not import `display.core`. PlanetX drivers have not been run on UID `0740D10F1BE9`.
+- **Open threads**: (a) font Phase 5 — Alex re-confirms `"STAGE2"` / `"42"` / `"!!"` on the spaced font. (b) `code_stage2.py` steps 11/12 not run; step 11 now calls `_scroll_sleep_s` (feeder columns, not `WIDTH` per glyph). (c) re-run `code_stage3.py` on `button_a` / `button_c` and the `Token` API. (d) Stage 3 scroll→status arrow hold is in `code_stage3.py` (`pause` 800 ms, restarts on a later press). Not run on the board. A press during step 4 `show_string` still ends at the trailing 1 s sleep, then `clear_screen`. (e) **Next code, Alex 2026-09-28 evening, not built.** Same switch's handlers stay sequential; the other switch on that module runs concurrently (cooperative, at `await`). A 0 ms Tier-2 hold should `await asyncio.sleep_ms(0)` once (Tier 1 stays the no-yield API). `set_rotation` may snapshot and redraw the current frame without cancelling; `recolor` stays next-render. Audit + decision: exp16 `ai-notes/2026-09-28_display-buttons-audit/NOTES.md` § Decided 2026-09-28 evening.
 - **Board**: UID `0740D10F1BE9`, CircuitPython **10.3.0**. **Brightness floor (authoritative, Alex)**: 0.01 off, 0.02 lowest lit; library default `core.py BRIGHTNESS = 0.20`.
 
 ## Scope & goal
@@ -69,6 +69,10 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 ## Resumption point
 
+**2026-09-28 evening — three follow-ups to build next, not started.** Alex: (1) handlers on one switch stay sequential; handlers on the other switch of the same module run cooperatively at the same time. (2) a 0 ms Tier-2 hold yields once via `sleep_ms(0)`; sync Tier 1 stays the no-yield path. (3) `set_rotation` may redraw the current frame rotated, without cancelling; `recolor` waits for the next draw. Constraints and why (1) and (2) are both required: exp16 `ai-notes/2026-09-28_display-buttons-audit/NOTES.md` § Decided 2026-09-28 evening.
+
+**2026-09-28 — display + buttons audit, no code change.** Git `ffd9cb5`. Detail: exp16 `ai-notes/2026-09-28_display-buttons-audit/NOTES.md` (gitignored). Host `pytest tests`: 195 passed; that suite does not import `display.core`. A stub import of `core.py` plus CPython button probes found: an awaited handler blocks the other switch on the same scanner; a handler exception ends `run()`; a 0 ms Tier-2 hold does not yield; `interval_ms=0` on a scroll is `sleep(0)` per column; `set_rotation` / `Image.recolor` do not redraw a hold. Not run on UID `0740D10F1BE9`. `code_stage3.py` handlers are still synchronous `render_arrow` and do not take the stall path.
+
 **2026-09-27 — recap of the cleanup against git `ec5a780` (2026-09-27 09:37).** Not re-run on UID `0740D10F1BE9`. Detail and chat motives: exp16 `ai-notes/2026-09-27_review-followup/NOTES.md` (gitignored). The 2026-09-21 review folder is the baseline only.
 
 **Still confirmed on the board (older code, 2026-09-13):** Stages 0–2 steps 1–10 and the original Stage 3. Brightness floor 0.01 off / 0.02 lit; library `BRIGHTNESS = 0.20`.
@@ -77,7 +81,7 @@ Prove a CircuitPython stack on the **BPI-Bit-S2** (ESP32-S2, micro:bit form fact
 
 - Font path unchanged in kind: `SpacedGlyphColumnFeeder` / `glyph_ink`, one spacer, tofu, space width 3. Fit-on-screen hold is `interval_ms * WIDTH` (same milliseconds as the old `* 5` while `WIDTH` is 5).
 - Display API: `Icon` + `Emojis`; `Image.create` / `Icon.create` (no `create_image`); `show_pattern` (was `show_leds`); `Display.show_image` / `scroll_image`; cancellation is a `Token` (`is_expired`), not an integer generation. Holds poll via `_sleep_pollable`. Scroll frames still sleep one `interval_ms` at a time.
-- Buttons: `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. Async handlers are still not awaited.
+- Buttons: `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. Async handlers are awaited at call time (`_handle` checks `__await__`, 2026-09-28). That await runs on the module's `run()` task, so the other switch on the same module is not read until the handler returns. Not run on the board.
 - `code_stage2.py` steps 11/12 still not run on device. Step 11's estimate is `_scroll_sleep_s` (feeder column count).
 - Stage 3 arrow-during-scroll wipe is still the script's behavior.
 
