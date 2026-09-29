@@ -614,9 +614,12 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
     ``total_ms`` has elapsed. When not cancelled, the total elapsed time still converges
     to ``total_ms`` (the final chunk is the time still left, never overshooting).
 
-    ``total_ms <= 0`` returns immediately, without an ``await``.
+    ``total_ms <= 0`` yields once via ``asyncio.sleep_ms(0)`` and returns.
+    That is one scheduler lap, so another due task can run. The synchronous
+    Tier 1 methods are the path that does not yield.
     """
     if total_ms <= 0:
+        await asyncio.sleep_ms(0)
         return
     deadline = ticks_add(ticks_ms(), total_ms)
     while True:
@@ -670,6 +673,8 @@ class Display:
         self._pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False)
         self._lut = build_lut(0)
         self._token = Token()
+        # Reused by set_rotation so a turn does not allocate a new color list.
+        self._frame = [OFF] * NUM_PIXELS
 
     # — Cancellation token --------------------------------------------------
 
@@ -944,22 +949,39 @@ class Display:
     def set_rotation(self, degrees: int) -> None:
         """Set clockwise rotation to 0/90/180/270 degrees. Does not cancel animations.
 
+        The picture currently on the LEDs is drawn again in the new orientation.
+        A scroll that is already running keeps going; its next frame uses the
+        new orientation too.
+
         ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
         ``-270``, ``-180``, ``-90``. Other values raise ``ValueError``. Out-of-range inputs (``360``,
         ``-360``, ...) are rejected; normalise at the call site (e.g. ``set_rotation(d % 360)``) if wrap-around
         is needed.
         """
-        # Mutate in place so any code holding a reference to this instance's
-        # LUT (e.g. an in-flight animation's render primitive) sees the new
-        # mapping without needing to re-fetch it. Passing dest=self._lut writes
-        # the new table directly into the live buffer — no fresh bytearray +
-        # slice-copy. This in-place mutation (plus render primitives re-reading
-        # self._lut fresh each frame, plus asyncio's cooperative single-threaded
-        # scheduling) is exactly what makes this method safe to call while a
-        # Tier 2 animation is running, despite deliberately not cancelling it.
-        # See README.md § "Rotation during an in-flight Tier 2 animation" for
-        # the full argument.
-        build_lut(degrees, dest=self._lut)
+        # Snapshot logical colors through the current LUT, then rebuild the LUT
+        # in place, then write those colors back. build_lut raises before it
+        # writes when degrees is rejected, so a bad value leaves the LEDs and
+        # the LUT as they were. No await in this method, and no _acquire, so an
+        # in-flight Tier 2 animation is not cancelled and cannot interleave
+        # with the rewrite. self._frame is allocated once in __init__.
+        # See README.md § "Rotation during an in-flight Tier 2 animation".
+        snap = self._frame
+        pixels = self._pixels
+        lut = self._lut
+        i = 0
+        for x in range(WIDTH):
+            base = x * HEIGHT
+            for y in range(HEIGHT):
+                snap[i] = pixels[lut[base + y]]
+                i += 1
+        build_lut(degrees, dest=lut)
+        i = 0
+        for x in range(WIDTH):
+            base = x * HEIGHT
+            for y in range(HEIGHT):
+                pixels[lut[base + y]] = snap[i]
+                i += 1
+        pixels.show()
 
     # — Lifecycle -----------------------------------------------------------
 
@@ -1118,8 +1140,8 @@ class Display:
 
         # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to
         # scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop == false`,
-        # we hold for an `interval_ms * WIDTH` duration; `_sleep_pollable` itself returns immediately,
-        # with no sleep call at all, when that duration is 0 (desired synchronous edge case).
+        # we hold for an `interval_ms * WIDTH` duration. When that duration is 0,
+        # `_sleep_pollable` yields once (`asyncio.sleep_ms(0)`) and returns.
         # Note: An empty string has zero columns and takes this same path: the frame is all OFF (the empty string drawn).
         if len(fit_buf) <= WIDTH:
             pad = (WIDTH - len(fit_buf)) // 2

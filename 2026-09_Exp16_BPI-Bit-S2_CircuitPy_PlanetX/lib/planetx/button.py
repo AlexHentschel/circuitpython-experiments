@@ -14,7 +14,7 @@ the C/D names are local to each instance, not shared across modules.
 
 from __future__ import annotations
 
-from buttons import PushButtonBase, _bind_scanner, _pump
+from buttons import PushButtonBase, _SwitchLane, _bind_scanner, _route_pair, _serve
 from .ports import Port
 
 
@@ -81,4 +81,6 @@ class PlanetXButtonSensor:
 
         Typically ``await asyncio.gather(buttons.run(), display_loop())``.
         """
-        await _pump(self._queue, self._dispatch)
+        lane_c = _SwitchLane(self._c)
+        lane_d = _SwitchLane(self._d)
+        await _serve(self._queue, (lane_c, lane_d), _route_pair(lane_c, lane_d))

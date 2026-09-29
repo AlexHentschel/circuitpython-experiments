@@ -18,9 +18,12 @@ tasks instead of awaiting ``run()`` alone:
 ``await asyncio.gather(buttons.run(), display_loop())``.
 
 A handler is a normal function, or an ``async def`` function (including one
-taken from an instance, such as ``counter.on_press``). A normal function runs
-and returns. An async function is awaited on this module's ``run()`` task
-before the next handler on that switch.
+taken from an instance, such as ``counter.on_press``). Handlers on one switch
+run one after another: a normal function runs to the end, and an async function
+is awaited, before the next handler on that same switch starts. The other
+switch on this module has its own task, so its handlers can run during an
+``await`` in the first switch's handler. A normal function has no ``await``,
+so it runs to the end before that other switch gets a turn.
 
 GPIO pins are constructor arguments only, never referenced inside a handler —
 so swapping which physical pin a button uses is a one-line change at
@@ -45,6 +48,11 @@ except ImportError:
 # can be missed for longer than one hardware scan cycle would already impose.
 _POLL_INTERVAL_S = 0.01
 
+# Per-switch queue cap. keypad.EventQueue defaults to 64 for the whole scanner.
+# Each switch keeps its own bounded list so a handler that awaits for a long
+# time cannot grow memory without limit when that switch is pressed again.
+_LANE_MAX = 64
+
 
 def _bind_scanner(owner, pins) -> None:
     """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``.
@@ -62,8 +70,89 @@ def _bind_scanner(owner, pins) -> None:
     owner._queue = owner._keys.events
 
 
-async def _pump(queue, dispatch) -> None:
-    """Drain ``queue`` and call ``dispatch(event)`` until cancelled.
+def _report_handler_error(exc) -> None:
+    """Print ``exc`` on the serial console and return. The switch keeps running."""
+    try:
+        import sys
+
+        sys.print_exception(exc)  # CircuitPython / MicroPython
+    except AttributeError:
+        import traceback
+
+        traceback.print_exception(exc)
+
+
+class _SwitchLane:
+    """One switch's event list and the task that runs its handlers in order.
+
+    ``offer`` appends from the keypad pump and returns immediately. ``run``
+    awaits each handler before taking the next event for this switch. A second
+    lane's ``run`` is another task, so the other switch proceeds at an
+    ``await``. The list stops growing at ``_LANE_MAX``; a further ``offer``
+    drops that event.
+    """
+
+    def __init__(self, switch) -> None:
+        self.switch = switch
+        self.pending = []
+        self.wake = None
+
+    def offer(self, pressed) -> None:
+        if len(self.pending) >= _LANE_MAX:
+            return
+        self.pending.append(pressed)
+        if self.wake is not None:
+            self.wake.set()
+
+    async def run(self) -> None:
+        import asyncio
+
+        self.wake = asyncio.Event()
+        while True:
+            while self.pending:
+                pressed = self.pending.pop(0)
+                try:
+                    await self.switch._handle(pressed)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    _report_handler_error(exc)
+            # Clear only while empty, then look again: an offer between the
+            # empty check and wait() must still be seen.
+            self.wake.clear()
+            if self.pending:
+                continue
+            await self.wake.wait()
+
+
+def _route_one(lane):
+    """Every event on a one-pin scanner belongs to ``lane``."""
+
+    def route(event) -> None:
+        lane.offer(event.pressed)
+
+    return route
+
+
+def _route_pair(first, second):
+    """Key 0 → ``first``, key 1 → ``second``. Any other key number is ignored.
+
+    Equality is ``==``, so a boolean ``True`` selects ``second`` (``True == 1``).
+    ``keypad.Event.key_number`` is an int. A negative number does not wrap.
+    """
+
+    def route(event) -> None:
+        index = event.key_number
+        if index == 0:
+            first.offer(event.pressed)
+        elif index == 1:
+            second.offer(event.pressed)
+
+    return route
+
+
+async def _pump(queue, route) -> None:
+    """Move keypad events onto switch lanes until cancelled.
 
     Host CPython ``asyncio`` here is the test stand-in; the CIRCUITPY bundle
     ``asyncio`` is a different library.
@@ -83,23 +172,36 @@ async def _pump(queue, dispatch) -> None:
     physically appear faster than that regardless of how often this loop
     polls, so polling faster than ~20 ms only spins the CPU checking an
     EventQueue that cannot have changed yet.
+
+    ``route`` only appends to a lane. The drain loop does not await handlers,
+    so a burst already sitting in the keypad queue is handed off before this
+    task sleeps. Each switch's lane task runs the handlers.
     """
     import asyncio
 
     while True:
         event = queue.get()
-        # ``await dispatch`` runs each handler before the next event. An async
-        # handler runs to completion here. A sync handler returns None, so a
-        # burst of sync presses finishes inside this turn.
-        # Deliberately no await between dispatches: this drains the whole buffered
-        # burst before yielding once below. keypad.Keys' own scan caps new events at
-        # ~1 per 20 ms, so a same-tick burst worth yielding *inside* is not something
-        # real hardware produces; adding a yield here would spread a burst's events
-        # across multiple ticks instead (considered and rejected 2026-09-20).
         while event is not None:
-            await dispatch(event)
+            route(event)
             event = queue.get()
         await asyncio.sleep(_POLL_INTERVAL_S)
+
+
+async def _serve(queue, lanes, route) -> None:
+    """Run ``lanes`` beside the keypad pump. Cancel the lanes when the pump ends."""
+    import asyncio
+
+    tasks = [asyncio.create_task(lane.run()) for lane in lanes]
+    try:
+        await _pump(queue, route)
+    finally:
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 class PushButtonBase:
@@ -121,7 +223,8 @@ class PushButtonBase:
 
         A normal function runs and returns. An ``async def`` function, including
         one taken from an instance (``counter.on_press``), is awaited before the
-        next handler on this switch.
+        next handler on this switch. A handler on another switch of the same
+        module can run during that ``await``.
         """
         self._pressed.append(handler)
 
@@ -130,7 +233,8 @@ class PushButtonBase:
 
         A normal function runs and returns. An ``async def`` function, including
         one taken from an instance (``counter.on_press``), is awaited before the
-        next handler on this switch.
+        next handler on this switch. A handler on another switch of the same
+        module can run during that ``await``.
         """
         self._released.append(handler)
 
@@ -192,7 +296,8 @@ class Button(PushButtonBase):
 
         Typically ``await asyncio.gather(button.run(), display_loop())``.
         """
-        await _pump(self._queue, self._dispatch)
+        lane = _SwitchLane(self)
+        await _serve(self._queue, (lane,), _route_one(lane))
 
 
 class OnboardButtons:
@@ -262,4 +367,6 @@ class OnboardButtons:
 
         Typically ``await asyncio.gather(buttons.run(), display_loop())``.
         """
-        await _pump(self._queue, self._dispatch)
+        lane_a = _SwitchLane(self._a)
+        lane_b = _SwitchLane(self._b)
+        await _serve(self._queue, (lane_a, lane_b), _route_pair(lane_a, lane_b))

@@ -99,7 +99,7 @@ duration has elapsed. `_sleep_pollable` takes milliseconds and tracks a
 ticks deadline (`ticks_add(ticks_ms(), total_ms)`), not a chunk-size
 countdown, so scheduling jitter across many chunks cannot accumulate
 drift — the non-cancelled total wait still converges to `total_ms`.
-A `total_ms` of 0 returns without awaiting.
+A `total_ms` of 0 awaits `asyncio.sleep_ms(0)` once (one scheduler lap) and returns. The synchronous Tier 1 methods are the path with no yield.
 
 Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
 methods, and check `token.is_expired` on both sides of the await.
@@ -112,10 +112,17 @@ follow-up).
 
 ## Rotation during an in-flight Tier 2 animation
 
-`set_rotation` is the one display-mutating call that does **not** cancel
-a running animation (see the cancellation-policy exceptions above). That
-is safe by construction, not just by convention — three independent
-facts compose into a mechanical guarantee:
+`set_rotation` does **not** cancel a running animation (`set_brightness`
+does not either; see the cancellation-policy exceptions above). It also
+redraws the frame that is already on the LEDs: logical colors are copied
+out through the old LUT, the LUT is rebuilt, and those colors are written
+back through the new LUT, then `show()` once. The copy uses a list allocated
+in `Display.__init__`. There is no `await` in that rewrite, so it finishes
+between two frames of an in-flight scroll. The scroll's next frame is drawn
+with the new LUT as well.
+
+That combination is safe by construction — these facts compose into a
+mechanical guarantee:
 
 1. **In-place LUT mutation.** `set_rotation(degrees)` rebuilds this
    `Display` instance's coordinate LUT *in place*: `build_lut(degrees,
@@ -140,9 +147,9 @@ facts compose into a mechanical guarantee:
 Together: **a rotation issued while a Tier 2 animation is in flight
 cannot corrupt a frame or the animation's own state.** `show_string`'s
 ring-buffer `read_head` / feeder position and `Image._scroll_image`'s
-`pos` live entirely in the coroutine's own stack frame — rotation never
-touches them. The only possible effect is on *which physical LEDs the
-next frame lights up*; the animation's logical progress is unaffected,
+`columns_scrolled` live entirely in the coroutine's own stack frame — rotation never
+touches them. The current frame is shown again through the new LUT, and the
+next frame uses that LUT too. The animation's logical progress is unaffected,
 and a scroll's screen-relative direction/axis can change mid-scroll
 (e.g. a 90°/270° rotation swaps a horizontally-scrolling animation onto
 the vertical axis, since it swaps which logical axis maps to which

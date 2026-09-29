@@ -9,7 +9,7 @@ import asyncio
 
 import pytest
 
-from buttons import Button, OnboardButtons, PushButtonBase
+from buttons import Button, OnboardButtons, PushButtonBase, _LANE_MAX, _SwitchLane
 from planetx import PlanetXButtonSensor
 
 
@@ -32,10 +32,16 @@ class FakeEventQueue:
         return self._pending.pop(0)
 
 
-async def _one_tick(runner):
-    """Pump ``run()`` through one ``asyncio.sleep`` then cancel."""
+async def _one_tick(runner, turns=3):
+    """Let ``run()`` and its per-switch tasks drain queued events, then cancel.
+
+    The first ``sleep(0)`` runs the pump until it parks on its 10 ms sleep.
+    The switch tasks are scheduled during that turn, so they need a later
+    turn before a synchronous handler has run.
+    """
     task = asyncio.create_task(runner.run())
-    await asyncio.sleep(0)
+    for _ in range(turns):
+        await asyncio.sleep(0)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
@@ -328,6 +334,84 @@ async def test_onboard_a_and_b_pressed(queue):
     queue.send(FakeEvent(key_number=1, pressed=True))
     await _one_tick(ab)
     assert fired == ["a", "b"]
+
+
+@pytest.mark.asyncio
+async def test_other_switch_runs_during_await(queue):
+    """B's handler runs while A's async handler is suspended.
+
+    - Covers: both switches sharing one task, so B waits until A returns.
+    - How: A awaits ``sleep(0)``; B is a sync press already queued; B appears before ``a-end``.
+    """
+    ab = OnboardButtons(event_queue=queue)
+    order = []
+
+    async def on_a():
+        order.append("a-start")
+        await asyncio.sleep(0)
+        order.append("a-end")
+
+    ab.button_a.on_pressed(on_a)
+    ab.button_b.on_pressed(lambda: order.append("b"))
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    queue.send(FakeEvent(key_number=1, pressed=True))
+    await _one_tick(ab, turns=6)
+    assert order.index("a-start") < order.index("b") < order.index("a-end")
+
+
+@pytest.mark.asyncio
+async def test_same_switch_events_stay_sequential(queue):
+    """A second press on A waits until the first press's handler returns.
+
+    - Covers: two events on one switch overlapping because each has its own task.
+    - How: one async handler, two queued presses; the log is start, end, start, end.
+    """
+    button = Button(event_queue=queue)
+    order = []
+
+    async def on_press():
+        order.append("start")
+        await asyncio.sleep(0)
+        order.append("end")
+
+    button.on_pressed(on_press)
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    await _one_tick(button, turns=6)
+    assert order == ["start", "end", "start", "end"]
+
+
+@pytest.mark.asyncio
+async def test_handler_error_leaves_the_other_switch_running(queue):
+    """An exception on A is reported and B still runs. ``run()`` stays alive.
+
+    - Covers: one handler error ending the whole module's ``run()``.
+    - How: A raises; B is queued; after the drive, ``fired == ["b"]`` and cancel is ``CancelledError``.
+    """
+    ab = OnboardButtons(event_queue=queue)
+    fired = []
+
+    def boom():
+        raise RuntimeError("boom")
+
+    ab.button_a.on_pressed(boom)
+    ab.button_b.on_pressed(lambda: fired.append("b"))
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    queue.send(FakeEvent(key_number=1, pressed=True))
+    await _one_tick(ab, turns=4)
+    assert fired == ["b"]
+
+
+def test_lane_drops_events_past_the_cap():
+    """A switch keeps at most ``_LANE_MAX`` events waiting.
+
+    - Covers: an unbounded list while a handler awaits and that switch is pressed again.
+    - How: ``offer`` ``_LANE_MAX + 5`` times with no ``run``; the list length is the cap.
+    """
+    lane = _SwitchLane(PushButtonBase())
+    for _ in range(_LANE_MAX + 5):
+        lane.offer(True)
+    assert len(lane.pending) == _LANE_MAX
 
 
 def test_no_update_on_public_classes():
