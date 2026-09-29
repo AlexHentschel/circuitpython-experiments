@@ -6,6 +6,7 @@ Event shape matches CircuitPython ``keypad.Event`` (``.key_number``, ``.pressed`
 """
 
 import asyncio
+import warnings
 
 import pytest
 
@@ -400,6 +401,140 @@ async def test_handler_error_leaves_the_other_switch_running(queue):
     queue.send(FakeEvent(key_number=1, pressed=True))
     await _one_tick(ab, turns=4)
     assert fired == ["b"]
+
+
+@pytest.mark.asyncio
+async def test_release_reaches_the_lane(queue):
+    """A release event delivered by ``run()`` calls the release handler.
+
+    - Covers: the lane forwarding only presses.
+    - How: queue a release; one drive; ``fired == ["r"]``.
+    """
+    button = Button(event_queue=queue)
+    fired = []
+    button.on_released(lambda: fired.append("r"))
+    queue.send(FakeEvent(key_number=0, pressed=False))
+    await _one_tick(button)
+    assert fired == ["r"]
+
+
+@pytest.mark.asyncio
+async def test_planetx_other_switch_runs_during_await(queue):
+    """D runs while C's async handler is suspended.
+
+    - Covers: PlanetX ``run()`` still awaiting both switches on one task.
+    - How: C awaits ``sleep(0)``; D is already queued; D appears before ``c-end``.
+    """
+    px = PlanetXButtonSensor(event_queue=queue)
+    order = []
+
+    async def on_c():
+        order.append("c-start")
+        await asyncio.sleep(0)
+        order.append("c-end")
+
+    px.button_c.on_pressed(on_c)
+    px.button_d.on_pressed(lambda: order.append("d"))
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    queue.send(FakeEvent(key_number=1, pressed=True))
+    await _one_tick(px, turns=6)
+    assert order.index("c-start") < order.index("d") < order.index("c-end")
+
+
+@pytest.mark.asyncio
+async def test_error_skips_later_handlers_on_that_event(queue):
+    """A raising handler skips the rest of that event. The next event still runs.
+
+    - Covers: the lane dying, or continuing into the next handler of the failed event.
+    - How: first handler raises, second is registered; one press then another; only the first handler of each press runs.
+    """
+    button = Button(event_queue=queue)
+    order = []
+
+    def boom():
+        order.append("boom")
+        raise RuntimeError("boom")
+
+    def later():
+        order.append("later")
+
+    button.on_pressed(boom)
+    button.on_pressed(later)
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    await _one_tick(button, turns=4)
+    assert order == ["boom", "boom"]
+
+
+@pytest.mark.asyncio
+async def test_sync_handler_returning_coroutine_is_awaited(queue):
+    """A normal function's returned coroutine is awaited by the lane.
+
+    - Covers: dropping a coroutine that the handler returned.
+    - How: sync handler returns an async animation; the animation body runs.
+    """
+    button = Button(event_queue=queue)
+    order = []
+
+    async def anim():
+        order.append("anim")
+
+    def sync():
+        return anim()
+
+    button.on_pressed(sync)
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    await _one_tick(button)
+    assert order == ["anim"]
+
+
+@pytest.mark.asyncio
+async def test_async_handler_return_value_is_not_awaited(queue):
+    """The coroutine returned by an async handler is not itself awaited.
+
+    - Covers: awaiting both the handler and the object it returns.
+    - How: async handler returns another coroutine; that body does not run.
+    """
+    button = Button(event_queue=queue)
+    order = []
+
+    async def anim():
+        order.append("anim")
+
+    async def handler():
+        order.append("handler")
+        return anim()
+
+    button.on_pressed(handler)
+    queue.send(FakeEvent(key_number=0, pressed=True))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        await _one_tick(button)
+    assert order == ["handler"]
+
+
+@pytest.mark.asyncio
+async def test_clear_during_handle_still_runs_handlers_already_listed():
+    """``clear()`` inside a handler does not drop the rest of this event.
+
+    - Covers: ``clear`` replacing the list the ``for`` loop is already walking.
+    - How: first handler calls ``clear()``; the second handler still appends.
+    """
+    button = PushButtonBase()
+    seen = []
+
+    def first():
+        seen.append("1")
+        button.clear()
+
+    def second():
+        seen.append("2")
+
+    button.on_pressed(first)
+    button.on_pressed(second)
+    await button._handle(True)
+    await button._handle(True)
+    assert seen == ["1", "2"]
 
 
 def test_lane_drops_events_past_the_cap():
