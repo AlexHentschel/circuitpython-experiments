@@ -144,7 +144,8 @@ class PlanetXSmartMotor:
         self._read4 = bytearray(4)
         self._bus = bus
         self._settle_s = settle_s
-        self._poll_s = poll_s
+        # Test hook, stored once as whole milliseconds. ``sleep_ms`` clamps a negative to 0.
+        self._poll_ms = int(poll_s * 1000)
         self._limit = 100
 
     def _claim(self) -> Token:
@@ -230,7 +231,7 @@ class PlanetXSmartMotor:
                 return
             if time.monotonic() >= deadline:
                 return
-            await asyncio.sleep(self._poll_s)
+            await asyncio.sleep_ms(self._poll_ms)
 
     async def _wait_delta(self, token: Token, start: int, amount: int, direction: int) -> None:
         import asyncio
@@ -254,7 +255,7 @@ class PlanetXSmartMotor:
                 return
             if time.monotonic() >= deadline:
                 return
-            await asyncio.sleep(self._poll_s)
+            await asyncio.sleep_ms(self._poll_ms)
 
     async def _wait_seconds(self, token: Token, seconds: float) -> None:
         import asyncio
@@ -263,7 +264,7 @@ class PlanetXSmartMotor:
         while not token.is_expired:
             if time.monotonic() >= deadline:
                 return
-            await asyncio.sleep(self._poll_s)
+            await asyncio.sleep_ms(self._poll_ms)
 
     def angle(self) -> int:
         """Degrees from the bookmarked zero, 0–359.

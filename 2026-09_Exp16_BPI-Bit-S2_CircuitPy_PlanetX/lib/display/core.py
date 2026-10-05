@@ -58,7 +58,7 @@ from __future__ import annotations
 # https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information
 # https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18
 try:
-    from typing import Callable
+    from typing import Callable, NoReturn
 except ImportError:
     pass
 
@@ -291,7 +291,7 @@ class Image:
         """Internal implementation backing ``Display.show_image``.
 
         Show a ``WIDTH``-column window of this image, then wait up to ``interval_ms`` milliseconds before
-        returning (0 = return after render). If a subsequent operation acquires the display before the wait
+        returning. If a subsequent operation acquires the display before the wait
         elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
         tell whether that happened.
 
@@ -300,9 +300,8 @@ class Image:
         be negative or past the right edge; uncovered display columns are
         ``OFF``. Cancels any prior Tier 2 animation.
         A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0``.
+        That 0 ms wait still lets other tasks that are ready run once, then this call returns.
         """
-        if interval_ms < 0:
-            interval_ms = 0
         token = disp._acquire()
         self._render_window(disp, offset)
         await _sleep_pollable(token, interval_ms)
@@ -324,12 +323,11 @@ class Image:
 
         Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
         A negative ``interval_ms`` waits 0 ms between frames, the same as ``interval_ms=0``.
+        That wait still lets other tasks that are ready run once before the next frame.
         """
         if step <= 0:
             # TODO: allow step < 0 for bi-directional (right-to-left) scrolling.
             raise ValueError(f"step must be > 0, got {step}")
-        if interval_ms < 0:
-            interval_ms = 0
         token = disp._acquire()
         # Each frame, ``step`` image columns scroll in from the right. ``image_columns_to_scroll_in``
         # is how many image columns start off the right edge of the screen.
@@ -337,12 +335,14 @@ class Image:
         # A last step might need to pad with empty columns after that column.
         image_columns_to_scroll_in = max(0, self._width - WIDTH)
         columns_scrolled = 0
-        interval_seconds = interval_ms / 1000
+        # Once. ``int`` truncates a float; ``sleep_ms`` clamps a negative to 0.
+        interval_ms = int(interval_ms)
+        sleep_ms = asyncio.sleep_ms
         while True:
             if token.is_expired:
                 return token
             self._render_window(disp, columns_scrolled)
-            await asyncio.sleep(interval_seconds)
+            await sleep_ms(interval_ms)
             if columns_scrolled >= image_columns_to_scroll_in:
                 return token
             columns_scrolled += step
@@ -614,10 +614,12 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
     ``total_ms`` has elapsed. When not cancelled, the total elapsed time still converges
     to ``total_ms`` (the final chunk is the time still left, never overshooting).
 
-    ``total_ms <= 0`` yields once via ``asyncio.sleep_ms(0)`` and returns.
-    That is one scheduler lap, so another due task can run. The synchronous
-    Tier 1 methods are the path that does not yield.
+    A ``total_ms ≤ 0`` allows once for other coroutines to run (we call ``asyncio.sleep_ms(0)``)
+    before this function returns. If no pause is desired, please use a synchronous Tier 1 method, which
+    returns in the same call, so those other coroutines must wait until the caller itself pauses.
     """
+    # Once. ``int`` truncates a float (0.9 becomes 0). ``<= 0`` still yields once.
+    total_ms = int(total_ms)
     if total_ms <= 0:
         await asyncio.sleep_ms(0)
         return
@@ -634,10 +636,15 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
         await asyncio.sleep_ms(poll_ms)
 
 
-async def _sleep_until_cancelled(token: Token, poll_s: float = 0.051) -> None:
-    """Sleep indefinitely in ``poll_s``-sized chunks until ``token.is_expired``."""
+async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
+    """Sleep in ``poll_ms``-sized chunks until ``token.is_expired``.
+
+    A negative ``poll_ms`` waits 0 ms per chunk. Each chunk still lets other
+    tasks that are ready run once.
+    """
+    poll_ms = int(poll_ms)
     while not token.is_expired:
-        await asyncio.sleep(poll_s)
+        await asyncio.sleep_ms(poll_ms)
 
 
 # ---------------------------------------------------------------------------
@@ -673,7 +680,9 @@ class Display:
         self._pixels = neopixel.NeoPixel(PIXEL_PIN, NUM_PIXELS, brightness=BRIGHTNESS, auto_write=False)
         self._lut = build_lut(0)
         self._token = Token()
-        # Reused by set_rotation so a turn does not allocate a new color list.
+        # We allocate a single list here to hold a snapshot of a frame. This is useful for the ``set_rotation`` operation, which is
+        # supposed to rotate the frame in place. This is beneficial, because rotation needs to first cache the current frame, then update
+        # the LUT and finally write the frame back to the rotated LUT; we can reuse this list instead of allocating a new one on each rotation.
         self._frame = [OFF] * NUM_PIXELS
 
     # — Cancellation token --------------------------------------------------
@@ -950,36 +959,32 @@ class Display:
         """Set clockwise rotation to 0/90/180/270 degrees. Does not cancel animations.
 
         The picture currently on the LEDs is drawn again in the new orientation.
-        A scroll that is already running keeps going; its next frame uses the
-        new orientation too.
+        A scroll that is already running keeps going, just rotated in the new orientation.
 
         ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
         ``-270``, ``-180``, ``-90``. Other values raise ``ValueError``. Out-of-range inputs (``360``,
         ``-360``, ...) are rejected; normalise at the call site (e.g. ``set_rotation(d % 360)``) if wrap-around
         is needed.
         """
-        # Snapshot logical colors through the current LUT, then rebuild the LUT
-        # in place, then write those colors back. build_lut raises before it
-        # writes when degrees is rejected, so a bad value leaves the LEDs and
-        # the LUT as they were. No await in this method, and no _acquire, so an
-        # in-flight Tier 2 animation is not cancelled and cannot interleave
-        # with the rewrite. self._frame is allocated once in __init__.
-        # See README.md § "Rotation during an in-flight Tier 2 animation".
+        # Snapshot the current frame using the current LUT (prior to rotation), then rebuild the LUT in place to represent the new rotation, then write
+        # the frame back. `build_lut` raises before it writes when degrees is rejected, so a bad value leaves the LEDs and the LUT as they were. No await
+        # in this method, and no _acquire, so an in-flight Tier 2 animation is not cancelled and cannot interleave with the rewrite. The list we use as
+        # cache for the current frame, `self._frame`, is allocated once in `__init__`. See README.md § "Rotation during an in-flight Tier 2 animation".
         snap = self._frame
         pixels = self._pixels
         lut = self._lut
         i = 0
         for x in range(WIDTH):
-            base = x * HEIGHT
+            x_base = x * HEIGHT
             for y in range(HEIGHT):
-                snap[i] = pixels[lut[base + y]]
+                snap[i] = pixels[lut[x_base + y]]
                 i += 1
         build_lut(degrees, dest=lut)
         i = 0
         for x in range(WIDTH):
-            base = x * HEIGHT
+            x_base = x * HEIGHT
             for y in range(HEIGHT):
-                pixels[lut[base + y]] = snap[i]
+                pixels[lut[x_base + y]] = snap[i]
                 i += 1
         pixels.show()
 
@@ -1012,8 +1017,9 @@ class Display:
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
         interval_ms: int = 0,
     ) -> Token:
-        """Render a pattern, then wait up to ``interval_ms`` milliseconds before returning (0 = return after
-        render). If a subsequent operation acquires the display before the wait elapses, this method returns
+        """Render a pattern, then wait up to ``interval_ms`` milliseconds before returning. A wait of 0 ms
+        still lets other tasks that are ready run once, then this call returns. If a subsequent operation
+        acquires the display before the wait elapses, this method returns
         immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
@@ -1056,14 +1062,15 @@ class Display:
 
     async def show_image(self, image: Image, offset: int = 0, interval_ms: int = 0) -> Token:
         """Show a ``WIDTH``-column window of ``img``, then wait up to ``interval_ms`` milliseconds before
-        returning (0 = return after render). If a subsequent operation acquires the display before the wait
+        returning. If a subsequent operation acquires the display before the wait
         elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
         tell whether that happened.
 
         ``offset`` is the image column placed at display column 0. It may be negative
         or positive and may push the image partially or fully out of the display area.
         Display columns outside the Image are ``OFF``. Cancels any prior Tier 2 animation.
-        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0`` (return after the render).
+        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0``.
+        That 0 ms wait still lets other tasks that are ready run once, then this call returns.
         """
         return await image._show_image(self, offset, interval_ms)
 
@@ -1080,6 +1087,7 @@ class Display:
 
         Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
         A negative ``interval_ms`` waits 0 ms between frames, the same as ``interval_ms=0``.
+        That wait still lets other tasks that are ready run once before the next frame.
         """
         return await image._scroll_image(self, step, interval_ms)
 
@@ -1106,9 +1114,9 @@ class Display:
         The hold duration is up to ``interval_ms * WIDTH`` when ``interval_ms > 0``,
         so a held text and a scrolled text of comparable width provide comparable time
         to read. If ``loop=True``, the string is held indefinitely until cancelled by
-        another display operation. We render and return immediately when
-        ``interval_ms == 0`` and ``loop=False`` (the short-text counterpart
-        to ``show_pattern(pattern, interval_ms=0)``).
+        another display operation. When ``interval_ms`` is 0 and ``loop`` is
+        false, we show the text, let other tasks that are ready run once, and
+        return (the short-text counterpart to ``show_pattern(pattern, interval_ms=0)``).
 
         The call replaces the matrix with ``text``. An empty string follows the same
         convention as text fitting on screen without scrolling: we just show a blank
@@ -1122,9 +1130,9 @@ class Display:
         """
         if interval_ms < 0:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
+        interval_ms = int(interval_ms)
         token = self._acquire()
         text = str(text)
-        sleep_s = interval_ms / 1000
 
         # Probe with the same feeder the scroll path uses, so spacer / tofu /
         # space-width rules cannot drift between "fits?" and the actual render.
@@ -1138,10 +1146,10 @@ class Display:
             if len(fit_buf) > WIDTH:
                 break
 
-        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to
-        # scroll. Center text once and hold: indefinitely iff `loop == true`. For `loop == false`,
-        # we hold for an `interval_ms * WIDTH` duration. When that duration is 0,
-        # `_sleep_pollable` yields once (`asyncio.sleep_ms(0)`) and returns.
+        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to scroll. Center text
+        # once and hold: indefinitely iff `loop == true`. For `loop == false`, we hold for an `interval_ms * WIDTH`
+        # duration. When that duration is 0, `_sleep_pollable` pauses once (`asyncio.sleep_ms(0)`) so other
+        # coroutines can run, then returns.
         # Note: An empty string has zero columns and takes this same path: the frame is all OFF (the empty string drawn).
         if len(fit_buf) <= WIDTH:
             pad = (WIDTH - len(fit_buf)) // 2
@@ -1157,6 +1165,8 @@ class Display:
             await _sleep_pollable(token, interval_ms * WIDTH)
             return token
 
+        # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop does no float math.
+        sleep_ms = asyncio.sleep_ms
         while True:
             # Scroll loop memory: rather than materialising the whole scrolled
             # bitmap, columns are fed one at a time from `feeder` into a
@@ -1175,7 +1185,7 @@ class Display:
                 if token.is_expired:
                     return token
                 self._render_ring_window(ring, read_head, color)
-                await asyncio.sleep(sleep_s)
+                await sleep_ms(interval_ms)
                 if token.is_expired:
                     return token
                 col = feeder.next_column()
@@ -1229,20 +1239,70 @@ class Display:
         return token
 
     @staticmethod
-    def forever(callback: Callable[[], object]) -> None:
-        """Sync convenience: run callback in a while-True loop via asyncio.
+    async def forever(callback: Callable[[], object], sleep_between_ms: int = 10) -> NoReturn:
+        """Run ``callback`` again and again, without ever stopping.
 
-        For simple scripts that don't need custom async setup.
+        Use this when you want to do a certain task forever, for example scrolling
+        a message over and over. You give ``forever`` a function that takes no
+        arguments. It calls that function, waits for it to finish, rests for
+        ``sleep_between_ms`` milliseconds, and then calls it again.
+
+        The ``callback`` can be a normal ``def`` function or an ``async def`` (a function that
+        uses ``await``). If it is an ``async def`` function, ``forever`` waits until it is done.
+
+        Here is a function to repeat. Give ``forever`` its name without parentheses
+        (``say_hello``, not ``say_hello()``), because ``forever`` calls it for you:
+
+            async def say_hello():
+                await display.show_string("Hello")
+
+        ``forever`` is itself ``async`` and it never ends. So the code you write after it, in the same
+        place, never runs, unless you start ``forever`` as a task (way 3 below). There are three ways:
+
+            # 1. In the main part of your program, outside any async function, as its last line. No
+            #    code after this line will ever run, so use it only when repeating is the whole program:
+            asyncio.run(display.forever(say_hello))
+
+            # 2. Inside an async function. The rest of this function will never run, but your
+            #    other tasks (for example button handlers) keep running:
+            await display.forever(say_hello)
+
+            # 3. Inside an async function, as a task. The function carries on while ``forever``
+            #    repeats, and you can stop it later:
+            task = asyncio.create_task(display.forever(say_hello))
+            await asyncio.sleep(10)  # ...do other things, for example wait for a button press
+            task.cancel()            # stops ``forever`` at its next ``await``
+
+        A cancelled ``forever`` leaves the last picture on the LEDs. Call ``display.clear_screen()``
+        afterwards if you want them dark.
+
+        After each round, ``forever`` rests for ``sleep_between_ms`` milliseconds. This rest keeps the
+        board calm and lets your other tasks (for example button handlers) run, even when ``callback``
+        finishes instantly (``show_icon`` does by default, unless you configure it to sleep by setting
+        ``interval_ms``). If your callback already waits (for example ``show_string`` or ``pause``),
+        the rest is not needed, but by default the rest is so short (10 ms) that you will probably not
+        notice. Set ``sleep_between_ms=0`` only if you need the timing of your own callback to be exact,
+        for example a repeat every 1000 ms, or a very fast repeat.
+
+        Only one task runs at a time, and it keeps going until it reaches an ``await``. Tasks
+        that are ready to run will get their turn, but they have to wait until your ``callback``
+        reaches its next ``await``. So keep your callback short and let it ``await`` often, or
+        other tasks (such as button handlers) will react late.
+
+        Raises ``ValueError`` if ``sleep_between_ms`` is negative. Because ``forever``
+        never returns, the only ways out are an exception in ``callback`` or cancelling
+        the task that is running it.
         """
-
-        async def _loop():
-            while True:
-                result = callback()
-                if hasattr(result, "__await__") or hasattr(result, "send"):
-                    await result
-                await asyncio.sleep(0)
-
-        asyncio.run(_loop())
+        if sleep_between_ms < 0:
+            raise ValueError(f"sleep_between_ms must be >= 0, got {sleep_between_ms}")
+        # Once. ``sleep_ms`` leaves a positive float as a float deadline; the C task queue asserts a small int.
+        # ``int`` truncates (25.9 becomes 25). A negative already raised above.
+        rest_ms = int(sleep_between_ms)
+        while True:
+            result = callback()
+            if hasattr(result, "__await__"):
+                await result
+            await asyncio.sleep_ms(rest_ms)
 
 
 # Singleton — ``from display import display``

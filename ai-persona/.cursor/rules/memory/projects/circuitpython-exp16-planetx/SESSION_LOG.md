@@ -14,6 +14,54 @@ Display and button work since `4a337f4` is still not re-run on the board. Planet
 | Rotation during scroll | Steps 11/12 drafted in `code_stage2.py`. | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
 
+## 2026-09-29 — typos in the `buttons.py` module docstring
+
+Space after "contrast,", "asynchronous function", stray period before the colon on the `create_task` sentence, and double backticks on `asyncio.create_task`.
+
+## 2026-09-29 — gather paragraph leads with the two-module case
+
+`lib/buttons.py`: the A/B vs C/D names now follow a lead sentence — both the onboard buttons and an external module delivering presses at once, each with its own `run()`.
+
+## 2026-09-29 — gather example is onboard A/B and PlanetX C/D
+
+`lib/buttons.py` module docstring: `buttons_ab` is `OnboardButtons` (A/B on the board); `buttons_cd` is `PlanetXButtonSensor` (external module, C/D). Gather is `buttons_ab.run()` and `buttons_cd.run()`.
+
+## 2026-09-29 — handlers may be registered after `run()` starts
+
+`on_pressed` appends to the list `_handle` reads per event. `gather` in `code_stage3.py` and `create_task(run())` do not snapshot it. Docstring line "Register handlers, then run" is sequence-of-the-example, not a lock. Detail: `CONCLUSIONS.md`.
+
+## 2026-09-29 — button module GPIO paragraph states what is
+
+`lib/buttons.py` module docstring: pins are constructor arguments; handlers are written against the button object; events are delivered by `run()`. Dropped "never referenced", "not a hunt", and "there is no `update()`".
+
+## 2026-09-29 — button module example is two named handlers
+
+`lib/buttons.py` opening sample: `show_press` (prints) and `announce_and_wait` (`async def`, prints then `await asyncio.sleep(1)`), both registered on A. Prose below and `on_pressed` / `on_released` name those functions. Lambda and ``counter.on_press`` removed from that explanation. `lib/planetx/button.py` and `lib/planetx/crash.py` still open with a lambda.
+
+## 2026-09-29 — leave rotation's 25 tuples where they are
+
+Recommendation: keep `set_rotation` reading `pixels[i]` into `_frame`. Do not pack on the render path, and do not keep a parallel frame. The 25 tuples are the rare call's cost. Packing only inside `set_rotation` would drop the retained tuples and would still allocate them.
+
+## 2026-09-29 — packed RGB ints are not a render speedup
+
+Outside rotation, `pixels[i] = color` already passes one shared tuple and allocates nothing. An int only changes the C color parse (three shifts instead of three tuple slots), 25 times per frame, next to the Python loop and `show()`.
+
+## 2026-09-29 — packed ints on the hot path, tuples only on a pixel read
+
+Alex: do not tax render to spare `set_rotation`. A packed RGB int is a small int; `pixels[i] = n` allocates nothing. Pack once at a loop edge. `pixels[i]` still returns a new tuple, so those 25 allocations stay on rotation. No parallel frame buffer.
+
+## 2026-09-29 — list index store vs the tuple `set_rotation` actually stores
+
+CircuitPython 10.3.0 `mp_obj_list_store` is a pointer write: in-range `lst[i] = v` does not grow the list. `PixelBuf.get_pixel` returns `mp_obj_new_tuple`, so `set_rotation`'s `snap[i] = pixels[...]` allocates 25 new 3-tuples per call. The NeoPixel buffer holds bytes. Detail: `concepts/circuitpython-runtime.md` § Preallocate and § `neopixel.NeoPixel` allocation.
+
+## 2026-09-29 — `set_rotation`'s frame list is heap either way
+
+Hypothetical: `[OFF] * NUM_PIXELS` inside `set_rotation` would still be a GC-heap list (25 pointer slots). The local name is one frame reference. `self._frame` in `__init__` reuses that block. Detail: `concepts/circuitpython-runtime.md` § Preallocate.
+
+## 2026-09-29 — zero-hold pause wording in `_sleep_pollable`
+
+`lib/display/core.py` `_sleep_pollable` docstring, the fit-on-screen comment in `show_string`, and `lib/display/README.md` holds paragraph: a `total_ms` of 0 or less pauses once via `asyncio.sleep_ms(0)` so other ready coroutines can run, then returns. Replaced "scheduler lap" / "due task".
+
 ## 2026-09-26 — typos in `lib/display/core.py`
 
 Spelling only: `benefical` → `beneficial`, `compltes` → `completes`, `ouside` → `outside`, `tailing newline` → `trailing` (both pattern-parser comments), and "is alias of" → "is an alias of". `show_image` / `scroll_image` docstrings still say ``img`` after the parameter rename to `image`.
@@ -48,7 +96,7 @@ Explained in chat (code unchanged). `Display`'s only instance field is `_seq`. T
 
 ## 2026-09-21 — Icons catalog: generate the class body
 
-Follow-up on the completion research the same day. Preferred fix, not coded: a host generator writes `class Icons` / `class Arrows` assignments into `core.py` (slices of `ICONS` / `ARROWS`), replacing `_build_image_namespace`. Checker and board then share one class. A `TYPE_CHECKING`-only twin is the fallback if generation is rejected; generating that twin is not. AST test against `ICON_NAMES` / `ARROW_NAMES`; do not import `core.py` on the host. Detail: `ai-persona/ai-notes/circuitpython-syntax-completion/04-experimental-guidelines.md` § Recommended shape.
+Follow-up on the completion research the same day. Preferred fix, not coded: a host generator writes the namespace classes into `core.py`, replacing `type()` + `setattr`. Checker and board then share one class. A `TYPE_CHECKING`-only twin is the fallback if generation is rejected; generating that twin is not. AST test; do not import `core.py` on the host. **Identifiers after 2026-09-25:** `class Emojis` / `EMOJI_NAMES` / `Icon(EMOJIS[i*WIDTH:(i+1)*WIDTH])` and `Arrows` (the 2026-09-25 entry below). Detail: `ai-persona/ai-notes/circuitpython-syntax-completion/04-experimental-guidelines.md` § Recommended shape.
 
 ## 2026-09-21 — Cursor syntax completion (research only; library unchanged)
 
@@ -383,3 +431,55 @@ Alex, after the audit summary. Not built. Recorded in exp16 `ai-notes/2026-09-28
 - Same switch: handlers stay in order, each awaited before the next on that switch. Different switch on the same module (`A`/`B`, `C`/`D`): cooperative concurrency. Shape: one long-lived worker task per switch, pump enqueues and does not await the other switch. The 2026-09-27 rejection of `create_task` per handler still stands; this is one task per switch for the life of `run()`.
 - `_sleep_pollable(total_ms <= 0)` should `await asyncio.sleep_ms(0)` once. Tier 1 sync methods stay the no-yield API. A tight `interval_ms=0` loop becomes the busy-spin and does service other due tasks. That yield alone does not unblock the other switch; the pump is still inside the handler until item 1 lands.
 - `set_rotation`: snapshot logical pixels, rebuild the LUT in place, write them back, `show()`, do not `_acquire`. Reuse a buffer on the `Display`. `Image.recolor` stays next-render. Alex will also accept rotation-as-next-render if the snapshot is awkward; on 5×5 it is a straight copy.
+
+## 2026-09-29 — three audit follow-ups implemented
+
+Alex: implement the evening decisions. Not run on UID `0740D10F1BE9`.
+
+- `lib/buttons.py`: `_SwitchLane` + `_serve`. `run()` on `Button`, `OnboardButtons`, and `PlanetXButtonSensor` starts one lane task per switch. The pump only `offer`s (cap `_LANE_MAX` 64; further events dropped). Handlers on one lane stay in order. The other switch's lane runs at an `await`. `asyncio.CancelledError` is re-raised; other exceptions go through `sys.print_exception` (host: `traceback.print_exception`) and the lane continues. Direct `_dispatch` / `_handle` still await on the caller's task (tests). `PlanetXCrashSensor` picks this up through `Button.run`.
+- `lib/display/core.py`: `_sleep_pollable` awaits `asyncio.sleep_ms(0)` when `total_ms <= 0`. `set_rotation` copies logical colors into `self._frame` (allocated in `__init__`), rebuilds the LUT, writes them back, `show()`s, does not `_acquire`. A rejected angle raises from `build_lut` before the write. `Image.recolor` unchanged.
+- Host `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/pytest tests`: **199 passed**. New button tests: other switch runs during an await; same switch stays sequential; an error on A leaves B running; the lane cap drops. Stub probe: rotation 0→90 keeps logical (0,0) red at a new strip index and calls `show` once; `set_rotation(45)` raises and does not `show`; a 0 ms hold let a sibling task run.
+
+**Same night, Alex:** why not two independent dispatchers and leave scheduling to the firmware? Answer, not a code change: `keypad.Keys` already scans in the background; handlers run only when Python calls them. A and B are one `keypad.Keys` and one queue (`key_number` 0/1), so `_SwitchLane` is the Python split onto two tasks. Two `keypad.Keys`, one pin each, each with the old pump that awaits that switch's handlers, would let asyncio do that split and the native queue (cap 64) would be the buffer. A one-pin `Button.run` does not need a lane. `gather` of the two pumps still has to catch a handler error inside each pump, or one exception cancels the other task.
+
+## 2026-09-30 — doc fixes on Alex's uncommitted edits
+
+Alex's working-tree doc edits (`buttons.py` module docstring with `log_button_press` / `announce_and_wait`, `core.py` comments, display README) reviewed. Applied on request: `_sleep_pollable` docstring "asynchronous Tier 1" → "a synchronous Tier 1"; `__init__` typo "allocateing"; `buttons.py` repeated "during"; the `create_task` follow-up paragraph re-indented 4 → 3 spaces so it continues list item 2 (renders as prose, not a code block). Wrapping untouched. Host `pytest tests`: 221 passed. Open, not acted on: tracked stray `lib/display/Untitled` (deployed by `sync_lib_to_board.py`); docstring says background `run()` tasks "stop" when `main` returns. Checked 2026-09-30 against bundle source: they stop because `run_until_complete` returns, and their `finally` does not run. Concept: `concepts/circuitpython-runtime.md` § `asyncio.run` returns when its coroutine returns.
+
+**Same night, 22:22 PDT:** Alex deleted `lib/asyncio/` and circup-installed `adafruit_ticks` plus `asyncio` into the experiment (`--path`, not the board). `lib/asyncio/core.mpy` is 3434 bytes and contains `asyncio.run() cannot be called from a running event loop`. That matches a local `mpy-cross` 10.3.0 of tag 3.1.1. `circup freeze -r` at 22:25 PDT, with `--path . --board-id bpi_bit_s2 --cpy-version 10.3.0`, rewrote `requirements.txt` to the same two lines (`adafruit_ticks==1.1.7`, `asyncio==3.1.1`). Bundle in use: `adafruit/Adafruit_CircuitPython_Bundle` tag `20260930`. Board not synced.
+
+**Same evening:** Alex deleted `lib/display/Untitled` locally (uncommitted `D`); `sync_lib_to_board.py` never prunes, so a board copy, if any, stays until removed by hand. Practical reading of abandon-not-cancel: it does not change whether the program ends ("Code done running" either way); it only decides whether a background task's `finally` runs (host yes, board no). After that message, CP 10.3.0 and 10.3.1 `main.c` waits; a CIRCUITPY content write (autoreload on) or CTRL-D reloads. Source check 2026-09-30: `concepts/circuitpython-runtime.md` § `asyncio.run` returns when its coroutine returns. No exp16 shutdown action depends on it today. Recommended: student docstring unchanged; one maintainer comment at `_serve`'s `finally`. Future shutdown actions (motor/LED off at exit) belong in the main coroutine's `try/finally` or after `asyncio.run`. Not applied yet.
+
+## 2026-09-30 22:40 PDT — `Display.forever` as `async def` (recommended, not applied)
+
+Alex: sync `forever` (`core.py` ~L1229) cannot run inside a coroutine; `async def` is acceptable; analyze and recommend. Cause: it calls `asyncio.run`, which raises `RuntimeError` when `cur_task` is set (asyncio 3.1.1; `concepts/circuitpython-runtime.md`). No caller in `lib/`, `code*.py`, `tests/`; docs only (`lib/display/README.md` L61, `tests/test_display_core_host.py` docstring L9).
+
+Recommendation: `@staticmethod async def forever(callback) -> NoReturn`; body `while True: result = callback(); if hasattr(result, "__await__"): await result; await asyncio.sleep(0)` (unconditional yield per lap, so a callback whose coroutine never suspends cannot starve siblings). Drop the `send` clause (match `buttons._handle`). Entry: `asyncio.run(display.forever(cb))` at top level, `await display.forever(cb)` inside a coroutine. Add `NoReturn` to the typing-guarded import. Update README + test docstring. Host-testable once async (sibling-task cancel). Surfaced: `__await__` is CP-specific to coroutine objects (concept added). Hazard: a forgotten `await` on a never-started coroutine is silent on CP (same as every Tier 2 method).
+
+
+**2026-10-02 19:55 PDT, Alex: remember the forgotten-`await` risk.** Recorded in `CONCLUSIONS.md` § Unverified (standing risk), in `concepts/circuitpython-runtime.md` (risk concept plus a verification step: omit an `await` on the board), and as tutor watch-list item S1 in `CodingTutor/notes-learnings-insights_for_building_tutor/03_open-questions-todos.md` (plus the `00_INDEX.md` row). When `forever` is implemented: the docstring says "must be awaited or passed to `asyncio.run`". Not built.
+
+## 2026-10-02 — `Display.forever` implemented (approved by Alex)
+
+Applied the 2026-09-30 recommendation plus Alex's caveats. `core.py`: `@staticmethod async def forever(callback, sleep_between_ms=10) -> NoReturn`; `NoReturn` added to the typing-guarded import; negative rest raises `ValueError`; `rest_ms = int(sleep_between_ms)` and `sleep_ms = asyncio.sleep_ms` bound once before the loop; loop awaits the result only when `hasattr(result, "__await__")`, then `await sleep_ms(rest_ms)` (replaces the unconditional `sleep(0)`; `0` still yields one lap). Docstring and `lib/display/README.md` rewritten for teenage students. Alex asked whether to move the loop into its own internal function: **no** — with `async def` the nested `_loop` is gone, and a module-level helper would only add one more coroutine per call with no per-lap gain; the real per-lap savings (singleton `sleep_ms`, no float, no attribute lookup) are in the body. Host: 4 new tests in `tests/test_display_core_host.py`, `pytest tests` **225 passed**. Not run on the board. Stage scripts and `code.py` do not call `forever`.
+
+## 2026-10-02 20:30 PDT — scheduler fairness vs the `forever` docstring
+
+Alex questioned "Other tasks still get a turn each round" in `Display.forever`. Research (concept *Scheduler ordering and fairness*, `concepts/circuitpython-runtime.md`): deadline-ordered, FIFO on ties, non-preemptive; no starvation among tasks that suspend, but no promptness guarantee, and not-yet-due tasks do not run each lap. The sentence is imprecise; replacement wording proposed to Alex, not yet applied. Also corrected our own 2026-09-13 note that `wait_io_event` is skipped at `dt == 0` (it is a non-blocking poll).
+
+**2026-10-02 20:45 PDT:** `Display.forever` docstring closed. Alex revised the rest paragraph on top of the suggested wording (dropped "other tasks get a turn each round", added "only one task runs at a time, until its next `await`"); typos fixed (double space, "by default the rest", "a very fast repeat"). `pytest tests` 225 passed.
+
+## 2026-10-02 — display and PlanetX waits call `asyncio.sleep_ms`
+
+Alex asked whether teaching libraries should prefer `sleep_ms` because it is marginally faster. It is: bundle `sleep(t)` is `sleep_ms(int(t * 1000))` (asyncio 3.1.1 / `main`), one heap float per call, then the same singleton generator. The sleep length does not change. Float32 round-trip is exact for the usual teaching intervals; off-by-1 ms starts at 251. Detail: `concepts/circuitpython-runtime.md` § `sleep` vs `sleep_ms` cost.
+
+Changed: `lib/display/core.py` scroll and `show_string` frame waits, `_sleep_until_cancelled` (51 ms), `lib/planetx/motor.py` poll (seconds stored once as ms), `lib/planetx/light.py` example (`sleep_ms(100)`). Student text: a negative count waits 0 ms, and other ready tasks still get a chance to run. Motor `time.sleep` under the I2C lock stays blocking. `lib/buttons.py` unchanged. Host `pytest tests`: **225 passed**. Not run on UID `0740D10F1BE9`.
+
+**Same night:** `sleep_ms` already does `max(0, t)`, so the `if interval_ms < 0: interval_ms = 0` branches in `_scroll_image` / `_show_image` (and the poll clamp in `_sleep_until_cancelled` and the motor) were redundant for the wait. `int()` is the other job: a positive float stays a float deadline, and CP 10.3.0 `task_queue_push` asserts a small int. `int()` once at `_sleep_pollable`, `_sleep_until_cancelled`, `show_string`, `_scroll_image`, `forever`, and the motor poll. `forever`'s maintainer comment cut to two lines. APIs that raise on a negative count still raise. Host `pytest tests`: 225 passed.
+
+**2026-10-02 21:00 PDT:** `Display.forever` `int(sleep_between_ms)` explained and commented for maintainers (float input; C task queue expects an int wake-up time). Alex had already removed the `sleep_ms = asyncio.sleep_ms` local binding (marginal gain); the stale "lookup done once" comment was replaced. Open: whether scroll columns also move from `asyncio.sleep(float)` to `sleep_ms(int)`.
+
+**2026-10-02 21:10 PDT:** `Display.forever` docstring examples now use a named `async def say_hello()` (no `lambda`), plus the "pass the name, not the call" note and the `create_task` / `cancel()` variant. Directive recorded in `CODING_PRINCIPLES.md`. Remaining `lambda` examples in student-facing docstrings: `lib/planetx/button.py` L8, `lib/planetx/crash.py` L11.
+
+**2026-10-02 21:20 PDT:** Alex caught that the `forever` docstring implied code after `await display.forever(...)` still runs. It does not: `forever` never returns, so both `asyncio.run(...)` and `await ...` end the surrounding flow (the rest of that function never runs; other tasks keep running). Only the `create_task` form lets the caller continue. Docstring examples renumbered 1-3 with that consequence stated per form.
+

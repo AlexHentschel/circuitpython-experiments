@@ -72,8 +72,10 @@ class PlanetXLightSensor:
                         dark = True
                     elif level > 120:
                         dark = False
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep_ms(100)
 
+        ``sleep_ms(100)`` waits 100 milliseconds. A negative number waits 0 ms,
+        and other tasks that are ready still get a chance to run during that wait.
         80 and 120 are an example gap around 100. Widen the gap if the lamp
         still flickers. Between the two limits, ``dark`` stays what it was.
         """

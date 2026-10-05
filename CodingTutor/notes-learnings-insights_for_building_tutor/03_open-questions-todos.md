@@ -42,3 +42,30 @@ Only after the research: begin designing the tutor.
   emphasized, easiest-to-violate requirement.
 - Ground pedagogy claims in cited research before elevating them to design guidelines (Alex is not the domain authority
   here; use the evidence-status discipline).
+
+## TODOs: student tooling stack (editor, linter, checks)
+Added 2026-10-02 (Alex). Not started.
+
+- **T1 — Investigate a linter rule that flags an un-awaited `async def` result.** Wanted rule: the value returned by calling an `async def` function or method must be (a) preceded by `await`, or (b) passed to `asyncio.run(...)` / `asyncio.create_task(...)` / `gather(...)`, or (c) assigned to a variable (and then used). A bare call statement is the error. Motivation: S1 below, the forgotten `await` is silent on the board. Questions for the investigation:
+  1. Pyright's `reportUnusedCoroutine` already flags a *call statement* whose coroutine result is unused (docs: default `"error"` in basic/standard mode, source `microsoft/pyright` `docs/configuration.md`, fetched 2026-10-02). Does it cover our case in Cursor/VS Code with the CircuitPython stubs (the `async def` methods of `display` must resolve to real coroutine types)? Does it miss "assigned but never used" (`x = display.show_string(...)`)?
+  2. Which other tools have a rule (Ruff, flake8-async, Pylint)? Can a custom rule be written, and how hard is a small AST check (`Expr(Call)` statement whose callee resolves to an `async def`)?
+  3. Is the diagnostic visible to a 12-year-old: wording, severity (error squiggle vs hint), and does it run in the editor the student uses without setup?
+  4. False positives: fire-and-forget `create_task(...)` returns a Task (not a coroutine), so it is not flagged; `lambda: display.show_string(...)` passed to `forever` must not be flagged.
+  5. Where does the config live (per-experiment `pyrightconfig.json` or workspace settings; note VS Code does not merge arrays across settings layers)?
+  Outcome wanted: a recommendation plus, if viable, the config or rule file shipped with the student project template. Related: persona concept `concepts/tooling.md` (stub completion, Pyright) and exp16 `ai-notes/`.
+
+## Tutor screening items (watch-list for Alice's code)
+Items the tutor persona should screen for when reviewing Alice's programs or error reports. Added by the assisting persona. Each is a Python/CircuitPython *language* fact, so the tutor may explain it directly under the tutoring contract. The algorithmic fix stays Alice's.
+
+### S1 — Forgotten `await` (added 2026-10-02): silent failure, no error message
+- **Symptom Alice reports**: "the display does nothing", "the text never shows", "my delay is ignored", "the program just ends". No traceback.
+- **Cause**: calling an `async def` function without `await` (or without `asyncio.run(...)` / `asyncio.create_task(...)` at the top level) only *creates* a coroutine object. Its body never starts. Desktop Python prints a "coroutine ... was never awaited" warning. The board is expected to print nothing (`unverified` on the board; see Exp16 persona memory `concepts/circuitpython-runtime.md`).
+- **Where it bites in the Exp16 library**: every Tier 2 display call (`show_string`, `show_icon`, `show_number`, `scroll_image`, `pause`, ...) and `display.forever(cb)` (being made `async`). Each needs `await` inside a coroutine, or `asyncio.run(...)` at top level. Sync Tier 1 calls (`render_icon`, `set_pixel`, ...) must *not* be awaited. Likewise `asyncio.sleep(1)` with no `await` gives no delay, and the button `run()` methods need `await` / `gather` / `create_task`.
+- **Screen for**:
+  1. a bare `display.show_...(...)` or `asyncio.sleep(...)` statement inside a coroutine with no `await`;
+  2. `async def` handlers that are registered but never reached;
+  3. a script whose last line calls an async function directly instead of `asyncio.run(main())`;
+  4. the opposite error, `await` on a sync call (this one does raise a `TypeError`).
+- **Suggested tutor move (to be checked against the anti-gaming rules)**: do not just patch the line. Name the symptom ("nothing happened, and no error"). Ask Alice what she expects a function call to do. Let her find the missing `await` herself with a one-line experiment: `print(display.show_string("Hi"))` shows `<coroutine object ...>`. Reflection question: "what is the difference between *calling* a function and *running* it?" (prime goal (i): precise program steps).
+- **Status**: mechanism `evidence-supported` for CPython; "silent on CircuitPython" is `unverified` until observed on the board.
+- **Tooling counterpart**: TODO T1 above (a lint rule would catch this before Alice runs the code).

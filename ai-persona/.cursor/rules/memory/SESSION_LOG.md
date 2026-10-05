@@ -71,7 +71,7 @@ When the same fact must live in two places (rare; only when duplication serves d
 
 - Research only. No library or workspace edit. Notes: `ai-persona/ai-notes/circuitpython-syntax-completion/` (gitignored; may vanish). Durable: `concepts/tooling.md` concept *Cursor syntax completion for CircuitPython*.
 - Cursor Pyright (`anysphere.cursorpyright` 1.0.12) reads `cursorpyright.analysis.extraPaths`. Sync 2.2.2 writes that key. Pylance's `python.analysis.extraPaths` is the VS Code side (`wmerkens`).
-- This workspace: stubs **10.1.3**, board firmware **10.3.0**, own `lib/` not on the path, every experiment's `libstubs` in one array (Exp11 first). `Icons`/`Arrows` built with `setattr` — predicted invisible. Popup checks C1–C6 not run.
+- This workspace: stubs **10.1.3**, board firmware **10.3.0**, own `lib/` not on the path, every experiment's `libstubs` in one array (Exp11 first). Catalog built with `setattr` — predicted invisible. Popup checks C1–C6 not run. **2026-09-25 rename (later session):** `Icons` → `Emojis`, `_build_image_namespace` → `_build_icon_namespace`. The `setattr` claim and the generated-class recommendation still apply; use the current names.
 - Correction recorded on the two-extensions concept: `circuitpythonsync.*` version/drive keys **are** in `~/Development/Cursor Workspaces/circuitpython.code-workspace` (the 2026-09-11 "zero hits" grep was the in-repo workspace file).
 
 ## 2026-09-14: Session — [user]/[exp16] (`source.txt`-pinned vendor snapshots)

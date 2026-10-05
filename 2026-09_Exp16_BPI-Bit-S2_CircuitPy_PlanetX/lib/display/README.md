@@ -58,8 +58,14 @@ NeoPixel buffer; no ``await``):
   to `show_string`.
 - `pause(ms)` — cancellable async sleep; returns early if a later
   display call supersedes this one first.
-- `forever(callback)` — sync convenience wrapper running a callback in
-  an asyncio `while True` loop.
+- `forever(callback, sleep_between_ms=10)` — an `async` helper that calls
+  `callback` again and again and never stops. `callback` is a function with
+  no arguments, either a normal `def` or an `async def` (it is awaited).
+  After each round it rests `sleep_between_ms` milliseconds so your other
+  tasks, such as button handlers, get a turn. Start it with
+  `asyncio.run(display.forever(my_function))` at the top of your program, or
+  `await display.forever(my_function)` inside another `async def`.
+  A negative `sleep_between_ms` raises `ValueError`.
 
 ## Cooperative multitasking & `Token`
 
@@ -90,7 +96,7 @@ can tell the two cases apart.
 `show_icon` / `show_arrow` / `show_image`, and `show_string`'s
 fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_ms)` /
 `_sleep_until_cancelled(token)` instead of a single bare
-`await asyncio.sleep(...)`. Both are free functions — they take a
+`await asyncio.sleep_ms(...)`. Both are free functions — they take a
 `Token` and have no dependency on any `Display` instance's state — that
 chunk the wait into 50 ms pieces and
 return as soon as `token.is_expired`, so a hold notices a superseding
@@ -99,9 +105,9 @@ duration has elapsed. `_sleep_pollable` takes milliseconds and tracks a
 ticks deadline (`ticks_add(ticks_ms(), total_ms)`), not a chunk-size
 countdown, so scheduling jitter across many chunks cannot accumulate
 drift — the non-cancelled total wait still converges to `total_ms`.
-A `total_ms` of 0 awaits `asyncio.sleep_ms(0)` once (one scheduler lap) and returns. The synchronous Tier 1 methods are the path with no yield.
+A `total_ms` of 0 or less pauses once, via `asyncio.sleep_ms(0)`, then returns. During that pause, other coroutines that are ready get a chance to run — a button check, a sensor read, another animation — before this hold continues. A synchronous Tier 1 method returns in the same call, so those other coroutines wait until the caller itself pauses.
 
-Discipline: always `await asyncio.sleep(...)` between frames in Tier 2
+Discipline: always `await asyncio.sleep_ms(...)` between frames in Tier 2
 methods, and check `token.is_expired` on both sides of the await.
 
 Note: as of this writing, callers must branch on `token.is_expired` after

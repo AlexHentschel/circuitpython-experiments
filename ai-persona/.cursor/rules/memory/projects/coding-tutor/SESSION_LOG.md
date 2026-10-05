@@ -225,3 +225,4 @@ directives: `../../universal/`. Roster + routing: `../_INDEX.md`. Heavy technica
 
 See the table in `CodingTutor/notes-learnings-insights_for_building_tutor/03_open-questions-todos.md` (Q1–Q8) — canonical.
 Research-side: the specific Scheiter tutorial-dialogue paper (`05...md § B.2`); which ranked gated sources Alex can fetch.
+Tooling (Alex, 2026-10-02): **T1** in the same file — investigate a linter rule requiring that the result of an `async def` call is awaited, run, tasked, or assigned. Starting point: Pyright `reportUnusedCoroutine`. Companion tutor watch-list item **S1** (forgotten `await`). Not started.

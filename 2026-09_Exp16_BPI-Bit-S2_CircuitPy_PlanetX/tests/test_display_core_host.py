@@ -6,8 +6,7 @@ does not load ``core``. This module installs ``board`` / ``neopixel`` /
 before the test returns.
 
 Out of scope here (needs the board or a design change): the real pin lock on
-a second ``Display()``, keypad scan timing, and ``Display.forever`` (it calls
-``asyncio.run`` and then sleeps 0).
+a second ``Display()`` and keypad scan timing.
 """
 
 import asyncio
@@ -136,6 +135,8 @@ def host():
 
     async def sleep_ms(ms):
         sleeps.append(("ms", ms))
+        if hook["fn"] is not None:
+            hook["fn"]()
         clock["now"] += int(ms)
         await orig_sleep(0)
 
@@ -380,7 +381,7 @@ def test_scroll_cancel_does_not_draw_another_frame(host):
     """A cancel during the frame sleep returns before the next ``_render_window``.
 
     - Covers: one more frame after the token expires.
-    - How: ``fill`` inside the first ``asyncio.sleep``; recorded offsets are ``[0]``; token expired.
+    - How: ``fill`` inside the first ``asyncio.sleep_ms``; recorded offsets are ``[0]``; token expired.
     """
     disp = host.disp
     image = host.core.Image(bytes([1] * 10), 10, False, WHITE)
@@ -491,3 +492,106 @@ def test_deinit_then_fill_raises(host):
     assert token.is_expired is True
     with pytest.raises(RuntimeError):
         fresh.fill(RED)
+
+
+def test_forever_runs_inside_a_running_coroutine(host):
+    """``await Display.forever(...)`` works from a coroutine, and cancelling ends it.
+
+    - Covers: ``forever`` calling ``asyncio.run`` (``RuntimeError`` inside a running loop), or ignoring cancel.
+    - How: run it as a task inside ``asyncio.run``; wait for three calls; cancel; the task ends cancelled.
+    """
+    calls = []
+
+    async def run():
+        task = asyncio.create_task(host.core.Display.forever(lambda: calls.append(1)))
+        while len(calls) < 3:
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    assert len(calls) >= 3
+
+
+def test_forever_awaits_async_callbacks_and_rests_between_rounds(host):
+    """An ``async def`` callback is awaited, and each round ends with a ``sleep_ms(rest)``.
+
+    - Covers: a coroutine callback never being awaited, or the rest not using whole milliseconds.
+    - How: callback is ``async``; after two rounds the recorded ``("ms", 25)`` sleeps are counted; ``sleep_between_ms=25.9`` becomes 25.
+    """
+    done = []
+
+    async def callback():
+        done.append(1)
+
+    async def run():
+        task = asyncio.create_task(host.core.Display.forever(callback, sleep_between_ms=25.9))
+        while len(done) < 2:
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    assert len(done) >= 2
+    assert ("ms", 25) in host.sleeps
+    assert all(ms == 25 for kind, ms in host.sleeps if kind == "ms")
+
+
+def test_forever_default_rest_is_10_ms_and_zero_still_yields(host):
+    """Default rest is 10 ms. With ``0`` a sibling task still gets a turn each round.
+
+    - Covers: a wrong default, or ``sleep_between_ms=0`` skipping the yield.
+    - How: default run records ``("ms", 10)``; a ``0`` run lets a sibling task set a flag.
+    """
+    ticks = []
+
+    async def run_default():
+        task = asyncio.create_task(host.core.Display.forever(lambda: ticks.append(1)))
+        while not ticks:
+            await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run_default())
+    assert ("ms", 10) in host.sleeps
+
+    flag = {"ran": False}
+
+    async def sibling():
+        flag["ran"] = True
+
+    async def run_zero():
+        task = asyncio.create_task(host.core.Display.forever(lambda: None, sleep_between_ms=0))
+        asyncio.create_task(sibling())
+        for _ in range(5):
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run_zero())
+    assert flag["ran"] is True
+
+
+def test_forever_negative_rest_and_callback_error(host):
+    """A negative rest raises ``ValueError``. An exception in the callback ends ``forever``.
+
+    - Covers: a negative rest being accepted, or a callback error being swallowed.
+    - How: await ``forever(cb, -1)``; then a callback that raises ``KeyError`` propagates.
+    """
+
+    async def run():
+        with pytest.raises(ValueError):
+            await host.core.Display.forever(lambda: None, sleep_between_ms=-1)
+
+        def boom():
+            raise KeyError("x")
+
+        with pytest.raises(KeyError):
+            await host.core.Display.forever(boom)
+
+    asyncio.run(run())

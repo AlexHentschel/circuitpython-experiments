@@ -1,38 +1,69 @@
 """Asynchronous library for physical buttons. One Python object per physical
 button module, each registering press/release handlers directly (no polling).
 
-Register handlers, then run the object's ``run()`` forever as a background task:
+Register handlers, then run the object's ``run()`` forever as a background task.
+``log_button_press`` is a normal function that simply prints a log message. In
+contrast, ``announce_and_wait`` is an asynchronous function (``async def``), which
+prints, then waits one second during which other coroutines can run.
 
     import asyncio
     from buttons import OnboardButtons
 
+    def log_button_press():
+        print("A pressed")
+
+    async def announce_and_wait():
+        print("start waiting")
+        await asyncio.sleep(1) # during this sleep, other coroutines can run
+        print("done waiting")
+
     async def main():
         buttons = OnboardButtons()
-        buttons.button_a.on_pressed(lambda: print("A pressed"))
+        buttons.button_a.on_pressed(log_button_press)
+        buttons.button_a.on_pressed(announce_and_wait)
         await buttons.run()
 
     asyncio.run(main())
 
-To run other work (e.g. a display animation) at the same time, gather the
-tasks instead of awaiting ``run()`` alone:
-``await asyncio.gather(buttons.run(), display_loop())``.
+``log_button_press`` and ``announce_and_wait`` are both handlers for A, registered
+in that order. Handlers on one switch run one after another, so ``log_button_press``
+runs to the end before ``announce_and_wait`` starts. Because ``log_button_press`` is
+a synchronous function, it runs straight through until it returns; no other coroutines
+are interleaved during its execution.
+In contrast, ``announce_and_wait`` is an asynchronous function: during its ``asyncio.sleep(1)``
+other coroutines (incl. handlers for other buttons) can run.
 
-A handler is a normal function, or an ``async def`` function (including one
-taken from an instance, such as ``counter.on_press``). Handlers on one switch
-run one after another: a normal function runs to the end, and an async function
-is awaited, before the next handler on that same switch starts. The other
-switch on this module has its own task, so its handlers can run during an
-``await`` in the first switch's handler. A normal function has no ``await``,
-so it runs to the end before that other switch gets a turn.
+When both the buttons on the board and an external button module should deliver
+presses at the same time, each module is its own object with its own ``run()``.
+For example, ``buttons_ab`` is an ``OnboardButtons``: buttons A and B, built onto
+this board. ``buttons_cd`` is a ``PlanetXButtonSensor``: an external PlanetX button
+module, buttons C and D. There are two options for running both:
+1. ``gather`` waits on each ``run()`` it is given. Those ``run()`` calls run forever, so
+   any lines after that ``gather`` do not run.
 
-GPIO pins are constructor arguments only, never referenced inside a handler —
-so swapping which physical pin a button uses is a one-line change at
-construction, not a hunt through handler code. There is no ``update()``
-method to call in a loop; all event delivery happens through ``run()``.
+        await asyncio.gather(buttons_ab.run(), buttons_cd.run())
+        # any code lines after this `gather` do not run
+
+2. ``create_task`` starts ``run()`` in its own coroutine and then returns right away, so this coroutine can continue:
+
+        ab_task = asyncio.create_task(buttons_ab.run())  # returns immediately
+        cd_task = asyncio.create_task(buttons_cd.run())  # returns immediately
+        buttons_ab.button_a.on_pressed(log_button_press) # register handler, also runs immediately
+        await asyncio.sleep(60)                          # returns after awaiting the completion of the sleep (60 seconds)
+
+        # ⋮ other code here will be reached after the 60 seconds sleep, and after the `create_task` calls have returned
+
+   Each ``asyncio.create_task`` creates a background task for executing ``run()``.
+   It is possible to register handlers after the ``run`` methods have been called.
+   In our example, ``log_button_press`` is registered after ``create_task`` and is
+   called on the next press of A. When ``main`` returns, ``asyncio.run`` finishes
+   and background tasks executing ``run()`` stop (no explicit termination needed).
+
+GPIO pins are constructor arguments. It is currently not possible to change the physical
+pin a button is connected to after construction or unassign a pin used by a button.
 
 ``Button`` is one GPIO pin. ``OnboardButtons`` (A/B) is this board's native
-button pair. PlanetX sensor modules (C/D, etc.) live in the ``planetx``
-package.
+button pair. PlanetX sensor modules (C/D, etc.) live in the ``planetx`` package.
 """
 
 from __future__ import annotations
@@ -194,6 +225,9 @@ async def _serve(queue, lanes, route) -> None:
     tasks = [asyncio.create_task(lane.run()) for lane in lanes]
     try:
         await _pump(queue, route)
+
+    # Runs when this task is cancelled (task.cancel(), or CPython's asyncio.run shutdown).
+    # On the board, asyncio.run returns without cancelling leftover tasks, so this does not run when main returns.
     finally:
         for task in tasks:
             task.cancel()
@@ -221,20 +255,20 @@ class PushButtonBase:
     def on_pressed(self, handler: Callable[[], object]) -> None:
         """Call ``handler()`` (no arguments) every time this switch is pressed.
 
-        A normal function runs and returns. An ``async def`` function, including
-        one taken from an instance (``counter.on_press``), is awaited before the
-        next handler on this switch. A handler on another switch of the same
-        module can run during that ``await``.
+        A normal function, such as ``log_button_press`` in the module example, runs
+        and returns. An ``async def``, such as ``announce_and_wait``, is awaited
+        before the next handler on this switch. A handler on another switch of
+        the same module can run during that ``await``.
         """
         self._pressed.append(handler)
 
     def on_released(self, handler: Callable[[], object]) -> None:
         """Call ``handler()`` (no arguments) every time this switch is released.
 
-        A normal function runs and returns. An ``async def`` function, including
-        one taken from an instance (``counter.on_press``), is awaited before the
-        next handler on this switch. A handler on another switch of the same
-        module can run during that ``await``.
+        A normal function, such as ``log_button_press`` in the module example, runs
+        and returns. An ``async def``, such as ``announce_and_wait``, is awaited
+        before the next handler on this switch. A handler on another switch of
+        the same module can run during that ``await``.
         """
         self._released.append(handler)
 
@@ -253,9 +287,10 @@ class PushButtonBase:
 
     async def _handle(self, pressed: bool) -> None:
         # Internal method: only called by sub-classes.
-        # We look at what the call returned: A bare ``async def``, a bound method
-        # such as ``counter.on_press``, and an instance whose ``__call__`` is
-        # async all return a coroutine. A normal function returns None.
+        # We look at what the call returned. ``log_button_press`` returns None.
+        # ``announce_and_wait`` returns a coroutine, as does any other
+        # ``async def`` (including a method on an instance) and an instance
+        # whose ``__call__`` is async.
         handlers = self._pressed if pressed else self._released
         for handler in handlers:
             result = handler()

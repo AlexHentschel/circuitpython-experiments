@@ -4,6 +4,18 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-10-02 — correction + two concepts in `circuitpython-runtime` (`refine`, `extend`)
+
+**Trigger:** Exp16 `Display.forever` made `async def`; Alex questioned the docstring claim "other tasks still get a turn each round".
+
+**Change:** `concepts/circuitpython-runtime.md` gains *Scheduler ordering and fairness* and *Awaitable detection*. Both indexed in `concepts/_INDEX.md`; three edges in `concepts/_RELATIONS.md`.
+
+**Demotion (M6) / correction:** the 2026-09-13 *Extension (Session 33)* paragraph said `wait_io_event` is "skipped entirely" when the next task is due. Wrong: only the blocking poll is skipped; `wait_io_event(0)` runs every lap. Original text kept, correction appended in the same file. The busy-spin finding stands. `_INDEX.md` line for `sleep(0)` edited to say "blocking poll".
+
+**Directive added (same day):** `WORKING_STYLE.md § Domain-Specific` — persist broadly applicable tool/domain research, reuse-filtered (experimental, 0 reinforcements; Alex's explicit instruction). Probe re-run recipe added to the scheduler concept.
+
+**Verification:** 10.3.0 `modasyncio.c`, `pairheap.c/.h`, `objgenerator.c`; asyncio 3.1.1 `core.py`; host probe (pure-Python scheduler on CPython). On-device `unverified`.
+
 ## 2026-09-28 — seed `concepts/sensors.md` (`extend`)
 
 **Trigger:** Exp16 PlanetX light-sensor driver. The 2026-06-15 taxonomy said environmental sensors seed `sensors` when the first curve exists.
