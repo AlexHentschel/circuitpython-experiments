@@ -108,3 +108,11 @@ Status: `evidence-supported` for host control flow (source plus `pytest tests` *
 - **No separate internal helper.** Nothing to hoist once the nested `_loop` is gone; a module-level helper adds one coroutine per call and no per-lap saving.
 - **"Other tasks get a turn each round" is not a guarantee.** Ordering is by wake-up ms, FIFO on ties; a ready task runs before a zero-sleeper's second following round; latency is bounded only by the non-suspending stretches ahead. Mechanism and probe: `../../concepts/circuitpython-runtime.md` *Scheduler ordering and fairness*.
 
+## 2026-10-10 — static text vs timed text
+
+Status: `evidence-supported` for the host contract (source plus `pytest tests` **237 passed**, including the new cases in `tests/test_display_core_host.py` and the AST sync/async check). On-device behavior is `unverified` until Alex re-runs Stages 0–3 on UID `0740D10F1BE9`.
+
+- **`render_string` / `render_number` are sync and leave the text lit.** `render_number` is `render_string(str(n))`. Wider text is centered with `start = (WIDTH - w) // 2` (floor). A negative start drops that many leading columns, so an odd leftover keeps the right-most columns. `"HELLO"` (24 feeder columns) shows feeder columns 10–14: the first L and a dark column on its right. An empty string is an all-off frame. The call takes the display (`_acquire`) and does not sleep.
+- **A finished `show_string` / `show_number` ends blank.** Fitting text is held for `interval_ms * WIDTH` milliseconds, then an all-off frame is drawn without `_acquire`, so the returned token stays current. `interval_ms=0` yields once (`sleep_ms(0)`) and then blanks. `loop=True`, or a token that expired during the hold, does not draw that blank. Scrolling text already ended blank. Image `show_pattern` / `show_icon` / `show_arrow` / `show_image` / `scroll_image` are unchanged and leave the picture up.
+- **On-device checks, not yet run:** Stage 1 steps 7–11; Stage 2 steps 5, 8, and 14–16. Matrix: exp16 `ai-notes/plan/render-vs-show-text/verification-matrix.md` (gitignored).
+
