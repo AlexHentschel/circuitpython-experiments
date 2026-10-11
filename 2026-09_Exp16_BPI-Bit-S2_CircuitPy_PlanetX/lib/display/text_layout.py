@@ -1,11 +1,12 @@
 """Column-at-a-time text layout with build-time-trimmed inter-glyph spacing.
 
 Pure module: no ``board`` / ``neopixel`` import, so host pytest can exercise
-the feeder. ``Display.show_string`` is the on-device caller.
+the feeder. ``Display.show_string`` and ``Display.render_string`` are the
+on-device callers.
 
 A spacer column (byte value 0) is prepended before every glyph except the first.
 There is never a trailing spacer after the last glyph; the same rule for
-the scrolling path and the fit-on-screen path.
+the scrolling path, the fit-on-screen path, and ``render_string``.
 """
 
 from __future__ import annotations

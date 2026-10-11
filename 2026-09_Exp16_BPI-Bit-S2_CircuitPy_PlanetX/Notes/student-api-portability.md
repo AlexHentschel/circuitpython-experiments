@@ -14,7 +14,7 @@
 
 | Layer | First milestone | Full LightTower | Portable? |
 |-------|-----------------|-----------------|-----------|
-| Display (`show_icon` / `show_string` / `show_number` / `show_arrow`) | yes | yes | **yes** — 5×5 vs 8×8 is asset swap, not API change |
+| Display (`show_icon` / `show_string` / `show_number` / `show_arrow`, plus `render_string` / `render_number`) | yes | yes | **yes** — 5×5 vs 8×8 is asset swap, not API change |
 | Buttons A/B/C/D as press events | yes | yes | **yes** — `button_a` … `button_d` then `.on_pressed`; constructor seam is *which object* (`buttons.OnboardButtons` vs `planetx.PlanetXButtonSensor`) plus pin or `port=` args |
 | Mast motor / light sensor | no | Watch II / III | **conditional** — semantic `mast` / `is_dark`, not Nezha2 `M4` or a raw pin |
 
@@ -26,7 +26,7 @@ MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: stude
 |----|-----------|
 | G1 | Semantic names for operations, not hardware names in logic. Press handlers are `button_a` / `button_b` on `OnboardButtons` and `button_c` / `button_d` on each `PlanetXButtonSensor`, then `.on_pressed`. Icons YES/NO/DIAMOND; arrows by compass. GPIO as **constructor/config arguments** is allowed. |
 | G2 | Constructors and config are the seam. Pins, LUT, font directory live in swap files and/or constructor args. Button wiring is two (or more) objects, not four pins on one dispatcher. Onboard A/B import from ``buttons``; PlanetX C/D from ``planetx`` (``port=J3`` or explicit pins). |
-| G3 | MakeCode-shaped display API is the student API (`show_icon`, `show_string`, `show_number`, `show_arrow`, `pause`). Tier 1 (`render_*`, `set_pixel`, patterns) may remain for tests; LightTower examples must not need them. |
+| G3 | MakeCode-shaped display API is the student API (`show_icon`, `show_string`, `show_number`, `show_arrow`, `pause`). Tier 1 (`render_*`, `set_pixel`, patterns) may remain for tests; LightTower examples must not need them. Exception: `render_string` and `render_number` are student-facing Tier 1 methods and have no MakeCode counterpart. |
 | G4 | Same icon/arrow *names* on 5×5 and 8×8 for the LightTower set. Extra 8×8-only names may exist only on 8×8. |
 | G5 | Library internals may be rewritten at the platform switch as long as student call sites still use the same operation names. Constructor signatures may gain/change wiring parameters. |
 | G6 | Anticipate, don't over-build. Motor/light APIs are known-unknowns this milestone. |
@@ -41,7 +41,7 @@ MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: stude
 | GPIO / `board.IO13` **inside handlers** | Pins on constructors/config, not in handler bodies |
 | `WIDTH`/`HEIGHT` or 5-vs-8 in student **logic** | Examples use icons/strings/arrows only |
 | Icon set mismatch (YES, NO, DIAMOND, 4-way arrows) | Keep those names on both geometries |
-| Font path leaked to students | Students call `show_string` only |
+| Font path leaked to students | Students call `show_string`, `render_string`, or `render_number`; they do not name the font path |
 | Sync `update()` loop in every sketch | Event/async API is the student path |
 | Nezha2 `M4` as the motor API | Defer; later expose park/sweep/nudge in mast degrees |
 | Brightness 20% cap as a student-set value | Keep cap inside the library |

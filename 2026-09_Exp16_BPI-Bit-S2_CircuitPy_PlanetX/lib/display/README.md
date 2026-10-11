@@ -31,6 +31,11 @@ NeoPixel buffer; no ``await``):
   `#`/`.` grid string or palette dict.
 - `render_icon(icon, color=WHITE)` — render an `Icon` (e.g. `Emojis.HEART`). `Icon` carries no color of its own; `color` is the render color, not an override.
 - `render_arrow(arrow, color=WHITE)` — alias of `render_icon` for an `Icon` from the arrow catalog (e.g. `Arrows.NORTH`), kept as a separate public method name.
+- `render_string(text, color=WHITE)` — draw text centered and leave it lit.
+  Text wider than the screen is cropped; when the leftover is odd, the
+  right-most columns stay. An empty string draws a blank screen. The call
+  does not pause.
+- `render_number(n, color=WHITE)` — `render_string(str(n))`.
 - `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
   `clear()` / `get_pixel(x, y)`.
 - `set_brightness(value)` / `set_rotation(degrees)`.
@@ -48,14 +53,18 @@ NeoPixel buffer; no ``await``):
 
 - `show_pattern` / `show_icon(icon, color=WHITE, interval_ms=0)` / `show_arrow` (alias of `show_icon`) — render, then wait up to `interval_ms` before returning, returning early if a later display call supersedes this one first.
 - `show_image(img, offset=0, interval_ms=0)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image` / scroll through one. Thin wrappers delegating to `Image._show_image` / `_scroll_image` (internal — call the `Display` methods, not these).
-- `show_string(text, color=WHITE, interval_ms=150, loop=False)` — scroll
-  text (single character displays centered). With `loop=True`, keeps
-  scrolling (or holding, for short text) until cancelled by another
-  display call. On the short-text hold path (looping or not), a later
-  display call is noticed within 50 ms, not only after the full hold
-  duration has elapsed.
-- `show_number(n, color=WHITE, interval_ms=150, loop=False)` — delegate
-  to `show_string`.
+- `show_string(text, color=WHITE, interval_ms=150, loop=False)` — the call
+  blocks, takes time, and ends on a blank screen. Text wider than the
+  display scrolls one column every `interval_ms` and finishes blank.
+  Text that fits is centered for `interval_ms * WIDTH` milliseconds, then
+  the screen is cleared. `loop=True` keeps scrolling or holding until
+  another display call cancels it, and leaves the screen as that call drew
+  it. `interval_ms=0` shows fitting text, lets other ready tasks run once,
+  and then clears the screen. For a letter that stays lit, call
+  `render_string`. A later display call during the hold is noticed within
+  50 ms, not only after the full hold.
+- `show_number(n, color=WHITE, interval_ms=150, loop=False)` — `show_string(str(n))`,
+  same contract. For a number that stays lit, call `render_number`.
 - `pause(ms)` — cancellable async sleep; returns early if a later
   display call supersedes this one first.
 - `forever(callback, sleep_between_ms=10)` — an `async` helper that calls
@@ -66,6 +75,18 @@ NeoPixel buffer; no ``await``):
   `asyncio.run(display.forever(my_function))` at the top of your program, or
   `await display.forever(my_function)` inside another `async def`.
   A negative `sleep_between_ms` raises `ValueError`.
+
+A fixed letter, a scrolling string, and a picture that stays up:
+
+```python
+display.render_string("A")
+await display.show_string("Hello")
+token = await display.show_icon(Emojis.HEART, interval_ms=2000)
+if token.is_expired:
+    display.render_string("!")
+```
+
+`render_string("A")` stays until the next display call. `show_string("Hello")` scrolls and ends on a blank screen. The heart stays up after the wait. When `token.is_expired` is true, something else took the display during the wait, and the `!` is what this call draws next.
 
 ## Cooperative multitasking & `Token`
 
@@ -96,7 +117,10 @@ can tell the two cases apart.
 `show_icon` / `show_arrow` / `show_image`, and `show_string`'s
 fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_ms)` /
 `_sleep_until_cancelled(token)` instead of a single bare
-`await asyncio.sleep_ms(...)`. Both are free functions — they take a
+`await asyncio.sleep_ms(...)`. A fitting `show_string` / `show_number`
+ends that wait by clearing the screen. `show_pattern`, `show_icon`,
+`show_arrow`, and `show_image` leave their picture up. Both sleep helpers
+are free functions — they take a
 `Token` and have no dependency on any `Display` instance's state — that
 chunk the wait into 50 ms pieces and
 return as soon as `token.is_expired`, so a hold notices a superseding

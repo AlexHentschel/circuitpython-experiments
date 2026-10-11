@@ -59,7 +59,9 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 **First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–2 steps 1–10, and Stage 3 on the button API of that day). **Button API (current):** `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)` (`c_pin` / `d_pin` still work). Host pytest **178 passed** (2026-09-21; suite does not import `board` / `display.core`). `code_stage3.py` matches this API. The 2026-09-13 confirm used `on_*_pressed`, so re-run this script before treating the new call shape as confirmed. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
 
-Separate, still-open thread: font-spacing Phase 4 (`show_string` → spaced feeder) landed 2026-09-20; Phase 5 is Alex's on-device re-confirm (`"STAGE2"` / `"42"` / `"!!"` hold-vs-scroll). Frozen `code_stage2.py` step 11 still assumes a fixed `WIDTH` columns per glyph for its duration formula — re-running that step against the new library will finish early relative to that formula.
+Separate, still-open thread: font-spacing Phase 5 is Alex's on-device re-confirm.
+`"STAGE2"` and `"42"` scroll and end blank; `"!!"` fits, holds for `interval_ms * WIDTH`, then blanks.
+The rotate-while-scrolling step in `code_stage2.py` compares elapsed time with `_scroll_sleep_s` (feeder column count).
 
 Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
 

@@ -5,10 +5,9 @@ events while a display loop scrolls an image, then a short status string.
 A press handler calls ``Display.render_arrow``, which cancels whichever
 Tier-2 animation is in flight.
 
-Stage 2 walked the five async ``show_*`` wrappers, ``Display.show_image`` /
-``scroll_image``, and the timer-triggered cancellation check (steps 2-10).
-We assume that works, and use ``show_string`` / ``Display.scroll_image`` here
-as the background animation.
+Stage 2 walked the async display calls, including a timer-triggered
+cancellation check. We assume that works, and use ``show_string`` /
+``Display.scroll_image`` here as the background animation.
 
   (a) Each module owns its scanner. ``run()`` is the coroutine that keeps
       reading that scanner and calling the handler for the button that was
@@ -39,7 +38,8 @@ What runs:
      When a press cuts it short, the arrow stays up for ``_ARROW_HOLD_MS``
      of quiet (``pause``). A later press starts that wait over.
   4. ``show_string`` of the press counts (``A0B0C0D0``). No spaces, so the
-     scroll stays short. A press can cut this animation short too.
+     scroll stays short. The scroll ends on a blank screen. A press can
+     cut this animation short too.
   5. A press increments that letter's count, prints it, and renders that
      letter's arrow. Presses are delivered whenever those coroutines are
      running, including during steps 2-4.
@@ -193,7 +193,8 @@ async def _display_loop() -> None:
         #    keeps rendering fresh frames every cycle regardless of whether
         #    any button has fired yet. Compact, no spaces, to keep the scroll
         #    short (show_string's scroll path was already proven by Stage 2;
-        #    this is not re-testing it, just using it).
+        #    this is not re-testing it, just using it under button load).
+        #    The scroll ends on a blank screen.
         _status_line = f"A{press_a.count}B{press_b.count}C{press_c.count}D{press_d.count}"
         await d.show_string(_status_line, display.WHITE, interval_ms=150)
         print(f"4/4: show_string('{_status_line}'), live press-count status")
@@ -207,8 +208,8 @@ async def main() -> None:
     # ``run()`` drains that module's hardware queue forever; ``_display_loop()``
     # animates forever. ``asyncio.gather`` on never-ending coroutines is the
     # "run concurrently, forever" shape this stage's claim needs. ``gather``
-    # itself was already confirmed on this device's bundled asyncio by Stage 2
-    # step 10.
+    # itself was already confirmed on this device's bundled asyncio by Stage 2's
+    # timer-triggered cancellation check.
     await asyncio.gather(ab.run(), px.run(), _display_loop())
 
 
