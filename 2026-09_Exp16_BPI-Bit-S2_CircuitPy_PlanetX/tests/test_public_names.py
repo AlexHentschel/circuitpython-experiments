@@ -171,3 +171,25 @@ def test_fused_scan_is_wired_in_render_pattern():
         and n.func.value.id == "self"
     ]
     assert "_write_pattern_on_the_fly" in calls
+
+
+def _display_method(name):
+    tree = _module_ast(CORE)
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == "Display":
+            for method in node.body:
+                if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name == name:
+                    return method
+    raise AssertionError(f"Display.{name} not found")
+
+
+def test_render_string_and_render_number_are_sync_defs():
+    """``render_string`` and ``render_number`` are plain functions. The timed shows stay async.
+
+    - Covers: the static text calls being ``async def``, or ``show_string`` / ``show_number`` becoming sync.
+    - How: AST of ``Display`` in ``core.py``; ``FunctionDef`` versus ``AsyncFunctionDef``.
+    """
+    for name in ("render_string", "render_number"):
+        assert type(_display_method(name)) is ast.FunctionDef, name
+    for name in ("show_string", "show_number"):
+        assert type(_display_method(name)) is ast.AsyncFunctionDef, name

@@ -10,6 +10,7 @@ a second ``Display()`` and keypad scan timing.
 """
 
 import asyncio
+import contextlib
 import sys
 import types
 
@@ -72,6 +73,55 @@ def _feeder_columns(text):
     while feeder.next_column() is not None:
         count += 1
     return count
+
+
+def _feeder_column_bytes(text):
+    feeder = SpacedGlyphColumnFeeder(str(text))
+    columns = []
+    while True:
+        col = feeder.next_column()
+        if col is None:
+            return columns
+        columns.append(col)
+
+
+def _frame_of(columns, color=WHITE):
+    """Logical pixels for exactly ``WIDTH`` column bytes. Bit ``y`` is row ``y``."""
+    return tuple(
+        tuple(color if (columns[x] >> y) & 1 else OFF for x in range(WIDTH))
+        for y in range(HEIGHT)
+    )
+
+
+def _fit_window(text):
+    """Centered ``WIDTH`` window for text that fits. Pad rule: ``(WIDTH - w) // 2``."""
+    columns = _feeder_column_bytes(text)
+    pad = (WIDTH - len(columns)) // 2
+    window = [0] * WIDTH
+    for i, col in enumerate(columns):
+        window[pad + i] = col
+    return window
+
+
+_BLANK = tuple(tuple(OFF for _ in range(WIDTH)) for _ in range(HEIGHT))
+
+
+@contextlib.contextmanager
+def _recorded_shows(host):
+    """Latch each ``show()`` as a logical frame. Restores the pixel ``show``."""
+    frames = []
+    pixels = host.disp._pixels
+    orig = pixels.show
+
+    def capture():
+        orig()
+        frames.append(host.logical())
+
+    pixels.show = capture
+    try:
+        yield frames
+    finally:
+        pixels.show = orig
 
 
 class _Host:
@@ -447,6 +497,234 @@ def test_show_string_negative_interval_does_not_cancel(host):
     asyncio.run(run())
     assert disp._token is token
     assert token.is_expired is False
+
+
+def test_render_string_fitting_text_stays_lit(host):
+    """``render_string`` draws a fitting string once, centered, and returns without sleeping.
+
+    - Covers: an async renderer, a second ``show``, or the previous token staying current.
+    - How: ``"A"`` (4 columns, one leftover blank on the right); one ``show``; sleeps empty; old token expired.
+    """
+    disp = host.disp
+    columns = _feeder_column_bytes("A")
+    assert len(columns) == 4
+    window = _fit_window("A")
+    assert window == columns + [0]
+    previous = disp._token
+    shows = disp._pixels.shows
+    host.sleeps.clear()
+    assert disp.render_string("A") is None
+    assert disp._pixels.shows == shows + 1
+    assert host.sleeps == []
+    assert previous.is_expired is True
+    assert disp._token is not previous
+    assert host.logical() == _frame_of(window)
+
+
+def test_render_string_exactly_width_has_no_pad(host):
+    """Text that is exactly ``WIDTH`` columns is drawn in order, with nothing added or dropped.
+
+    - Covers: a pad column, or a crop, when the feeder width is already ``WIDTH``.
+    - How: ``"7"`` is 5 columns; the frame is those feeder bytes.
+    """
+    disp = host.disp
+    columns = _feeder_column_bytes("7")
+    assert len(columns) == WIDTH
+    disp.render_string("7")
+    assert host.logical() == _frame_of(columns)
+
+
+def test_render_string_wider_than_width_keeps_the_right(host):
+    """Wider text keeps a centered window whose leftover column stays on the right.
+
+    - Covers: dropping the right side, or keeping a different slice than columns 1..5 / 2..6.
+    - How: feeder bytes, then a pinned slice. Widths 6 and 8 are where right-priority and left-priority differ; width 7 matches either way.
+    """
+    disp = host.disp
+    # (text, feeder width, index of the first kept column). Slices are pinned, not computed.
+    cases = (("0!", 6, 1), ("11", 7, 1), ("01", 8, 2))
+    for text, width, first in cases:
+        columns = _feeder_column_bytes(text)
+        assert len(columns) == width
+        window = columns[first : first + WIDTH]
+        assert len(window) == WIDTH
+        disp.render_string(text)
+        assert host.logical() == _frame_of(window), text
+
+
+def test_render_string_empty_is_blank(host):
+    """``render_string('')`` draws an all-off frame and does not sleep.
+
+    - Covers: raising on an empty string, or leaving the previous picture up.
+    - How: fill red, then render ``""``; every pixel off; sleeps empty.
+    """
+    disp = host.disp
+    disp.fill(RED)
+    host.sleeps.clear()
+    disp.render_string("")
+    assert host.sleeps == []
+    assert host.logical() == _BLANK
+
+
+def test_render_string_cancels_a_running_scroll(host):
+    """``render_string`` during a scroll expires that scroll and leaves its letter up.
+
+    - Covers: another scroll frame after the sync call, or the letter being cleared.
+    - How: on the first scroll sleep, ``render_string("K")``; token expired; last frame is ``K``; no later ``show``.
+    """
+    disp = host.disp
+    expected = _frame_of(_fit_window("K"))
+    after = {}
+
+    def preempt():
+        host.hook["fn"] = None
+        disp.render_string("K")
+        after["shows"] = disp._pixels.shows
+        after["frame"] = host.logical()
+
+    host.hook["fn"] = preempt
+    try:
+        async def run():
+            return await disp.show_string("STAGE2", interval_ms=80)
+
+        token = asyncio.run(run())
+    finally:
+        host.hook["fn"] = None
+    assert token.is_expired is True
+    assert after["frame"] == expected
+    assert host.logical() == expected
+    assert disp._pixels.shows == after["shows"]
+
+
+def test_render_number_matches_render_string(host):
+    """``render_number(n)`` draws the same frame as ``render_string(str(n))``.
+
+    - Covers: extra formatting, or a different crop, for a fitting digit and a wide number.
+    - How: ``7`` and ``42``; draw with ``render_string``, then with ``render_number``; frames match.
+    """
+    disp = host.disp
+    for n in (7, 42):
+        disp.render_string(str(n))
+        as_text = host.logical()
+        disp.render_number(n)
+        assert host.logical() == as_text
+
+
+def test_show_string_fit_path_ends_blank(host):
+    """A fitting ``show_string`` holds for ``interval_ms * WIDTH``, then the last frame is blank.
+
+    - Covers: the letter staying lit, a different hold, or the call expiring its own token.
+    - How: ``"A"``, ``interval_ms=100``; sleeps sum to 500; frames are the letter then all off; token still current.
+    """
+    disp = host.disp
+    expected = _frame_of(_fit_window("A"))
+
+    async def run():
+        host.sleeps.clear()
+        with _recorded_shows(host) as frames:
+            token = await disp.show_string("A", interval_ms=100)
+        return token, list(frames)
+
+    token, frames = asyncio.run(run())
+    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100 * WIDTH
+    assert frames[0] == expected
+    assert frames[-1] == _BLANK
+    assert token.is_expired is False
+    assert disp._token is token
+
+
+def test_show_string_fit_preempted_during_hold_keeps_the_other_frame(host):
+    """A Tier 1 write during a fitting hold wins. The hold does not blank that frame.
+
+    - Covers: a blank drawn after ``fill``, or the token staying current.
+    - How: hook ``fill(RED)`` on the first sleep of ``show_string("A")``; frame stays red; token expired.
+    """
+    disp = host.disp
+
+    def preempt():
+        host.hook["fn"] = None
+        disp.fill(RED)
+
+    host.hook["fn"] = preempt
+    try:
+        async def run():
+            return await disp.show_string("A", interval_ms=100)
+
+        token = asyncio.run(run())
+    finally:
+        host.hook["fn"] = None
+    assert token.is_expired is True
+    assert host.logical() == tuple(tuple(RED for _ in range(WIDTH)) for _ in range(HEIGHT))
+
+
+def test_show_string_fit_loop_cancelled_does_not_blank(host):
+    """``loop=True`` on fitting text leaves the canceller's frame up.
+
+    - Covers: a blank written after cancellation.
+    - How: hook ``fill(RED)`` on the first sleep; frame stays red.
+    """
+    disp = host.disp
+
+    def preempt():
+        host.hook["fn"] = None
+        disp.fill(RED)
+
+    host.hook["fn"] = preempt
+    try:
+        async def run():
+            return await disp.show_string("A", interval_ms=100, loop=True)
+
+        token = asyncio.run(run())
+    finally:
+        host.hook["fn"] = None
+    assert token.is_expired is True
+    assert host.logical() == tuple(tuple(RED for _ in range(WIDTH)) for _ in range(HEIGHT))
+
+
+def test_show_string_fit_interval_zero_flashes_then_blanks(host):
+    """``interval_ms=0`` on fitting text yields once, then the screen is blank.
+
+    - Covers: skipping the yield, leaving the text up, or expiring the token.
+    - How: ``"A"``; sleeps are ``[("ms", 0)]``; frames are the letter then all off; token not expired.
+    """
+    disp = host.disp
+    expected = _frame_of(_fit_window("A"))
+
+    async def run():
+        host.sleeps.clear()
+        with _recorded_shows(host) as frames:
+            token = await disp.show_string("A", interval_ms=0)
+        return token, list(frames)
+
+    token, frames = asyncio.run(run())
+    assert host.sleeps == [("ms", 0)]
+    assert frames == [expected, _BLANK]
+    assert token.is_expired is False
+
+
+def test_show_number_fit_ends_blank_render_number_stays(host):
+    """``show_number(7)`` ends blank. ``render_number(7)`` leaves the ``render_string("7")`` picture up.
+
+    - Covers: a one-digit show staying lit, or ``render_number`` clearing itself.
+    - How: await ``show_number(7)``; frame all off; token not expired. Then both renders of ``7``; frames match; no sleep.
+    """
+    disp = host.disp
+
+    async def run():
+        host.sleeps.clear()
+        return await disp.show_number(7, interval_ms=40)
+
+    token = asyncio.run(run())
+    assert token.is_expired is False
+    assert host.logical() == _BLANK
+    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 40 * WIDTH
+    disp.render_string("7")
+    held = host.logical()
+    assert held != _BLANK
+    host.sleeps.clear()
+    assert disp.render_number(7) is None
+    assert host.sleeps == []
+    assert host.logical() == held
 
 
 def test_short_icon_does_not_latch_a_partial_write(host):

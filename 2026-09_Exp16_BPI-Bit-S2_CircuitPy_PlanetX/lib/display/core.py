@@ -8,7 +8,7 @@ buffer and coordinate Look-Up Table [LUT] (populated via
 ``geometry.build_lut``).
 
 Two-tier API:
-  Tier 1 (sync):  render_pattern, render_icon, render_arrow, clear_screen,
+  Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number, clear_screen,
                    set_pixel, fill, set_rotation, set_brightness, get_pixel.
   Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
                    show_string, show_number, pause.  Require ``await`` from
@@ -30,8 +30,10 @@ Cancellation policy:
     being updated. If the coordinate is outside the LED matrix, the latest frame is
     left unchanged and kept on the display.
   - ``show_string`` always replaces the matrix with the given string; an empty string
-    present the blank frame on the display, the same fit-on-screen path
-    as any other short string.
+    presents the blank frame on the display, the same fit-on-screen path
+    as any other short string. A call that runs to the end then clears the
+    screen. ``loop=True`` keeps the picture until another display operation
+    cancels the call.
 * Every Tier 2 method returns a ``Token``; check ``token.is_expired`` to see
   whether a later display operation has since superseded it. Tier 1
   methods (and ``deinit``) do not return a token — there is nothing to
@@ -650,6 +652,36 @@ async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
         await asyncio.sleep_ms(poll_ms)
 
 
+def _center_window(text: str) -> bytearray:
+    """Return ``WIDTH`` column bytes with ``text`` centered.
+
+    ``start = (WIDTH - w) // 2`` (floor division). A negative ``start`` skips
+    that many leading columns, so an odd leftover keeps the right-most columns.
+    Text that fits uses the same ``start``, so an odd blank column is on the
+    right. The first pass counts columns. The second pass writes into one
+    ``bytearray(WIDTH)``.
+    """
+    feeder = SpacedGlyphColumnFeeder(text)
+    w = 0
+    while feeder.next_column() is not None:
+        w += 1
+    # Floor division: a negative start drops the extra column on the left.
+    start = (WIDTH - w) // 2
+    out = bytearray(WIDTH)
+    feeder = SpacedGlyphColumnFeeder(text)
+    i = 0
+    while True:
+        col = feeder.next_column()
+        if col is None:
+            return out
+        dest = start + i
+        i += 1
+        if dest >= WIDTH:
+            return out
+        if dest >= 0:
+            out[dest] = col
+
+
 # ---------------------------------------------------------------------------
 # Display class
 # ---------------------------------------------------------------------------
@@ -919,6 +951,22 @@ class Display:
         """
         self.render_icon(arrow, color)
 
+    def render_string(self, text: str, color: tuple[int, int, int] = WHITE) -> None:
+        """Draw ``text`` centered and leave it lit until the next display call.
+
+        Text wider than the screen is cropped, and the right-most columns stay
+        when the leftover is odd. Text that fits uses that same centering, so
+        an odd blank column is on the right. An empty string draws a blank screen.
+        This call does not pause. To scroll text, or to show it and then clear
+        the screen, call ``show_string``.
+        """
+        self._acquire()
+        self._render_colmajor(_center_window(str(text)), 0, color)
+
+    def render_number(self, n: int, color: tuple[int, int, int] = WHITE) -> None:
+        """Draw ``str(n)`` centered and leave it lit. Same placement as ``render_string``."""
+        self.render_string(str(n), color)
+
     def clear_screen(self) -> None:
         """Turn off all pixels. Cancels any ongoing animation."""
         self._acquire()
@@ -1111,19 +1159,16 @@ class Display:
         the string has left the screen: the display is left fully blank.
 
         For text that fits on the display without scrolling (total width <= WIDTH),
-        we do not scroll. The text is centered and held in place.
-        The hold duration is up to ``interval_ms * WIDTH`` when ``interval_ms > 0``,
-        so a held text and a scrolled text of comparable width provide comparable time
-        to read. If ``loop=True``, the string is held indefinitely until cancelled by
-        another display operation. When ``interval_ms`` is 0 and ``loop`` is
-        false, we show the text, let other tasks that are ready run once, and return
-        with the text left on the screen until updated by another display operation.
-        For ``interval_ms = 0`` ``loop=false``, this `show_string`  behaves
-        essentially like ``show_pattern(pattern, interval_ms=0)``.
+        the text is centered and held for ``interval_ms * WIDTH`` milliseconds,
+        the same per-column time a scroll spends across one screen width, and the
+        screen is then cleared. ``loop=True`` holds that picture until another
+        display operation cancels the call, and leaves whatever that operation drew.
+        ``interval_ms=0`` shows the text, lets other tasks that are ready run once,
+        and then clears the screen. For a letter or a number that stays lit, call
+        ``render_string`` or ``render_number``.
 
-        An empty string follows the same
-        convention as text fitting on screen without scrolling: we just show a blank
-        screen and hold it according to the definition of above
+        An empty string takes that same fit-on-screen path: a blank screen, held
+        for ``interval_ms * WIDTH`` milliseconds, then cleared again.
 
         Raises ``ValueError`` if ``interval_ms < 0``: a negative delay has
         no sensible meaning here (see the class discussion of cold-call-
@@ -1149,23 +1194,23 @@ class Display:
             if len(fit_buf) > WIDTH:
                 break
 
-        # Fit-on-screen path: text is no wider than WIDTH glyph-columns, so there's nothing to scroll. Center text
-        # once and hold: indefinitely iff `loop == true`. For `loop == false`, we hold for an `interval_ms * WIDTH`
-        # duration. When that duration is 0, `_sleep_pollable` pauses once (`asyncio.sleep_ms(0)`) so other
-        # coroutines can run, then returns.
-        # Note: An empty string has zero columns and takes this same path: the frame is all OFF (the empty string drawn).
+        # Fit-on-screen path: width <= WIDTH. Draw the centered window (same helper
+        # as render_string) and hold. loop=True holds until another operation cancels
+        # this call. Otherwise hold for interval_ms * WIDTH milliseconds; 0 ms still
+        # yields once so other ready coroutines can run. If this token is still
+        # current, draw an all-off frame without taking the display, so the token
+        # stays the one minted above.
+        # An empty string has zero columns and takes this path.
         if len(fit_buf) <= WIDTH:
-            pad = (WIDTH - len(fit_buf)) // 2
-            padded = bytearray(WIDTH)
-            for i in range(len(fit_buf)):
-                padded[pad + i] = fit_buf[i]
             if token.is_expired:
                 return token
-            self._render_colmajor(padded, 0, color)
+            self._render_colmajor(_center_window(text), 0, color)
             if loop:
                 await _sleep_until_cancelled(token)
                 return token
             await _sleep_pollable(token, interval_ms * WIDTH)
+            if not token.is_expired:
+                self._render_colmajor(bytearray(WIDTH), 0, color)
             return token
 
         # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop does no float math.
@@ -1217,12 +1262,11 @@ class Display:
         interval_ms: int = 150,
         loop: bool = False,
     ) -> Token:
-        """Display a number via ``show_string(str(n))``.
+        """Show ``str(n)`` the same way as ``show_string``: the call blocks, takes time, and ends on a blank screen.
 
-        Fit-on-screen numbers (total glyph width <= WIDTH — typically
-        one digit in the bundled font) are centered and held;
-        longer numbers scroll. See ``show_string`` for the full behavior
-        including ``loop=True``.
+        A number that fits is held for ``interval_ms * WIDTH`` milliseconds, then the screen is cleared.
+        A wider number scrolls. ``loop=True`` runs until another display operation cancels the call.
+        For a number that stays lit, call ``render_number``.
         """
         # Implementation note: ``n`` is specified as a number. A str or a bool is unspecified. This body
         # passes ``str(n)`` through unchanged. Booleans will therefore render as "True" or "False" for example.
