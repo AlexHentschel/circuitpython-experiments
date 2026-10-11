@@ -61,8 +61,8 @@ NeoPixel buffer; no ``await``):
 - `forever(callback, sleep_between_ms=10)` — an `async` helper that calls
   `callback` again and again and never stops. `callback` is a function with
   no arguments, either a normal `def` or an `async def` (it is awaited).
-  After each round it rests `sleep_between_ms` milliseconds so your other
-  tasks, such as button handlers, get a turn. Start it with
+  After each callback execution it rests `sleep_between_ms` milliseconds so your other
+  tasks get a turn, such as button handlers. Start it with
   `asyncio.run(display.forever(my_function))` at the top of your program, or
   `await display.forever(my_function)` inside another `async def`.
   A negative `sleep_between_ms` raises `ValueError`.
@@ -122,7 +122,7 @@ follow-up).
 does not either; see the cancellation-policy exceptions above). It also
 redraws the frame that is already on the LEDs: logical colors are copied
 out through the old LUT, the LUT is rebuilt, and those colors are written
-back through the new LUT, then `show()` once. The copy uses a list allocated
+back through the new LUT, then `show()` once. The copy uses a pre-list allocated
 in `Display.__init__`. There is no `await` in that rewrite, so it finishes
 between two frames of an in-flight scroll. The scroll's next frame is drawn
 with the new LUT as well.

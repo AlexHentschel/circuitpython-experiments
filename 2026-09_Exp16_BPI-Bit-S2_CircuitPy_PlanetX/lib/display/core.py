@@ -291,9 +291,9 @@ class Image:
         """Internal implementation backing ``Display.show_image``.
 
         Show a ``WIDTH``-column window of this image, then wait up to ``interval_ms`` milliseconds before
-        returning. If a subsequent operation acquires the display before the wait
-        elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
-        tell whether that happened.
+        returning. If a subsequent operation acquires the display before the wait elapses, this method
+        returns immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether the
+        wait was cut short by another task.
 
         ``disp`` is the ``Display`` instance to render to.
         ``offset`` is the image column placed at display column 0. It may
@@ -317,7 +317,8 @@ class Image:
         Negative ``step`` is not yet supported.
 
         If a subsequent operation acquires the display before the scroll completes, this method returns after the
-        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
+        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether
+        the wait was cut short by another task.
 
         ``disp`` is the ``Display`` instance to render to.
 
@@ -335,7 +336,8 @@ class Image:
         # A last step might need to pad with empty columns after that column.
         image_columns_to_scroll_in = max(0, self._width - WIDTH)
         columns_scrolled = 0
-        # Once. ``int`` truncates a float; ``sleep_ms`` clamps a negative to 0.
+        # Once before the loop we do a potential type conversion, e.g. if a float is passed
+        # then ``int`` truncates decimal places (for example, 0.9 becomes 0).
         interval_ms = int(interval_ms)
         sleep_ms = asyncio.sleep_ms
         while True:
@@ -618,10 +620,11 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
     before this function returns. If no pause is desired, please use a synchronous Tier 1 method, which
     returns in the same call, so those other coroutines must wait until the caller itself pauses.
     """
-    # Once. ``int`` truncates a float (0.9 becomes 0). ``<= 0`` still yields once.
+    # Once before the loop we do a potential type conversion, e.g. if a float is passed
+    # then ``int`` truncates decimal places (for example, 0.9 becomes 0).
     total_ms = int(total_ms)
     if total_ms <= 0:
-        await asyncio.sleep_ms(0)
+        await asyncio.sleep_ms(0)  # passing a negative value is safe and behaves exactly like 0 and still yields once.
         return
     deadline = ticks_add(ticks_ms(), total_ms)
     while True:
@@ -639,8 +642,8 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
 async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
     """Sleep in ``poll_ms``-sized chunks until ``token.is_expired``.
 
-    A negative ``poll_ms`` waits 0 ms per chunk. Each chunk still lets other
-    tasks that are ready run once.
+    A negative ``poll_ms`` waits 0 ms per chunk but still yields once.
+    Each chunk still lets other tasks that are ready run once.
     """
     poll_ms = int(poll_ms)
     while not token.is_expired:
@@ -1017,10 +1020,10 @@ class Display:
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
         interval_ms: int = 0,
     ) -> Token:
-        """Render a pattern, then wait up to ``interval_ms`` milliseconds before returning. A wait of 0 ms
+        """Show a pattern, then wait up to ``interval_ms`` milliseconds before returning. A wait of 0 ms
         still lets other tasks that are ready run once, then this call returns. If a subsequent operation
-        acquires the display before the wait elapses, this method returns
-        immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
+        acquires the display before the wait elapses, this method returns immediately instead; check the
+        returned ``Token``'s ``is_expired`` to tell whether the wait was cut short by another task.
 
         color: RGB tuple (mono '#'/'.' mode) or dict (palette).
         Same pattern rules as ``render_pattern``.
@@ -1038,7 +1041,7 @@ class Display:
         """Render an ``Icon`` (e.g. ``Emojis.HEART``), then wait up to ``interval_ms`` milliseconds before
         returning. If a subsequent operation acquires the display before the wait elapses, this method
         returns immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether that
-        happened.
+        the wait was cut short by another task.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
@@ -1053,7 +1056,7 @@ class Display:
         """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``), then wait up to ``interval_ms``
         milliseconds before returning. If a subsequent operation acquires the display before the wait
         elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
-        tell whether that happened.
+        tell whether the wait was cut short by another task.
 
         Raises ``ValueError`` if ``interval_ms < 0``.
         """
@@ -1064,7 +1067,7 @@ class Display:
         """Show a ``WIDTH``-column window of ``img``, then wait up to ``interval_ms`` milliseconds before
         returning. If a subsequent operation acquires the display before the wait
         elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
-        tell whether that happened.
+        tell whether the wait was cut short by another task.
 
         ``offset`` is the image column placed at display column 0. It may be negative
         or positive and may push the image partially or fully out of the display area.
@@ -1083,7 +1086,8 @@ class Display:
         Negative ``step`` is not yet supported.
 
         If a subsequent operation acquires the display before the scroll completes, this method returns after the
-        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether that happened.
+        current frame's ``interval_ms`` sleep; check the returned ``Token``'s ``is_expired`` to tell whether
+        tell whether the wait was cut short by another task.
 
         Raises ``ValueError`` if ``step <= 0``. Reverse scrolling (negative ``step``) is not yet supported.
         A negative ``interval_ms`` waits 0 ms between frames, the same as ``interval_ms=0``.
@@ -1100,12 +1104,9 @@ class Display:
     ) -> Token:
         """Scroll text across the display.
 
-        The typical case where text is wider than ``WIDTH`` glyph-columns:
-        we scroll one column every ``interval_ms`` time step. A one-column
-        blank sits between characters, so adjacent glyphs do not merge.
-        If ``loop`` is ``True``, keep scrolling indefinitely (or, for fit-on-screen
-        text, hold indefinitely) until cancelled by another display
-        operation.
+        The typical case where text is wider than ``WIDTH`` glyph-columns: we
+        scroll one column every ``interval_ms`` time step. If ``loop`` is ``True``,
+        keep scrolling indefinitely until cancelled by another display operation.
         A non-looping scroll ends exactly when the last non-empty column of
         the string has left the screen: the display is left fully blank.
 
@@ -1115,10 +1116,12 @@ class Display:
         so a held text and a scrolled text of comparable width provide comparable time
         to read. If ``loop=True``, the string is held indefinitely until cancelled by
         another display operation. When ``interval_ms`` is 0 and ``loop`` is
-        false, we show the text, let other tasks that are ready run once, and
-        return (the short-text counterpart to ``show_pattern(pattern, interval_ms=0)``).
+        false, we show the text, let other tasks that are ready run once, and return
+        with the text left on the screen until updated by another display operation.
+        For ``interval_ms = 0`` ``loop=false``, this `show_string`  behaves
+        essentially like ``show_pattern(pattern, interval_ms=0)``.
 
-        The call replaces the matrix with ``text``. An empty string follows the same
+        An empty string follows the same
         convention as text fitting on screen without scrolling: we just show a blank
         screen and hold it according to the definition of above
 
@@ -1166,7 +1169,7 @@ class Display:
             return token
 
         # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop does no float math.
-        sleep_ms = asyncio.sleep_ms
+        sleep_ms = asyncio.sleep_ms  # passing a negative value is safe and behaves exactly like 0 and still yields once.
         while True:
             # Scroll loop memory: rather than materialising the whole scrolled
             # bitmap, columns are fed one at a time from `feeder` into a
@@ -1228,7 +1231,7 @@ class Display:
     async def pause(self, ms: int) -> Token:
         """Wait up to ``ms`` milliseconds before returning. If a subsequent operation acquires the display
         before the wait elapses, this method returns immediately instead; check the returned ``Token``'s
-        ``is_expired`` to tell whether that happened.
+        ``is_expired`` to tell whether the wait was cut short by another task.
 
         Raises ``ValueError`` if ``ms < 0``.
         """
@@ -1295,8 +1298,11 @@ class Display:
         """
         if sleep_between_ms < 0:
             raise ValueError(f"sleep_between_ms must be >= 0, got {sleep_between_ms}")
-        # Once. ``sleep_ms`` leaves a positive float as a float deadline; the C task queue asserts a small int.
-        # ``int`` truncates (25.9 becomes 25). A negative already raised above.
+        # `sleep_between_ms` is annotated `int`, but a caller can still pass a float(for example `1000 / 3` or `10.0`). `asyncio.sleep_ms` adds
+        # its argument to a tick count and hands the sum to the scheduler as the wake-up time. The C task queue (`_asyncio`) reads that time as
+        # a small int and only asserts it, so a float wake-up time could silently mis-order tasks (inferred from the 10.3.0 source, not tried on
+        # the board). `int()` makes sure we always pass whole milliseconds. It truncates, it does not round (25.9 becomes 25). Run it once as
+        # preprocessing of the loop.
         rest_ms = int(sleep_between_ms)
         while True:
             result = callback()
