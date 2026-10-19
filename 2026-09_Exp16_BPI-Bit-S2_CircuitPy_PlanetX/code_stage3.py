@@ -152,7 +152,7 @@ async def _display_loop() -> None:
         cycle += 1
         # Each cycle starts from the same empty screen with reset rotation and brightness, independent
         # of what the previous cycle's animation or a press left on screen (matching Stage 0-2).
-        d.clear_screen()
+        d.clear()
         d.set_rotation(0)
         d.set_brightness(0.10)  # dimmer than the library default 0.20
         print(f"\n=== cycle {cycle} ===")
@@ -182,7 +182,7 @@ async def _display_loop() -> None:
         #    A press draws an arrow and expires the scroll token. pause leaves those
         #    pixels up. A later press expires that pause, and the loop starts the hold
         #    over, so the status line waits for a 800ms gap without any button presses.
-        d.clear_screen()
+        d.clear()
         _big_image.recolor(display.CYAN)
         token = await d.scroll_image(_big_image, step=1, interval_ms=300)
         while token.is_expired:

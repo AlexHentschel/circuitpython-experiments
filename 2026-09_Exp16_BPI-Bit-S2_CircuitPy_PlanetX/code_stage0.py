@@ -20,7 +20,7 @@ behaves as described:
   - ``import display`` succeeds on-device (board/neopixel/rainbowio present,
     library's own hardware-import branch fires, LUT builds, NeoPixel
     buffer allocates).
-  - ``fill`` / ``clear_screen`` / ``set_pixel`` / ``render_icon`` /
+  - ``render_filled`` / ``clear`` / ``set_pixel`` / ``render_icon`` /
     ``set_brightness`` / ``set_rotation`` (Tier 1) write real pixels.
   - Logical origin (0, 0) is visually top-left, per the documented wiring
     LUT (``row + 20 - column * 5``) -- confirmed on-device 2026-09-11.
@@ -53,19 +53,19 @@ while True:
     d.set_brightness(0.20)
     print(f"=== cycle {cycle} ===")
 
-    # 1) fill -- confirms NeoPixel init + fill() writes all 25 pixels the same color.
-    d.fill(display.RED)
-    print("1/6: fill(RED) -- whole 5x5 should be solid red")
+    # 1) render_filled -- confirms NeoPixel init + render_filled() writes all 25 pixels the same color.
+    d.render_filled(display.RED)
+    print("1/6: render_filled(RED) -- whole 5x5 should be solid red")
     time.sleep(2)
 
     # 2) set_pixel -- confirms logical origin is top-left, as documented.
-    d.clear_screen()
+    d.clear()
     d.set_pixel(0, 0, display.WHITE)
     print("2/6: set_pixel(0, 0, WHITE) -- exactly one LED lit, top-left corner")
     time.sleep(2)
 
     # 3) render_icon -- confirms icon-table lookup + column-major bitmap decode.
-    d.clear_screen()
+    d.clear()
     d.render_icon(Emojis.HEART, color=display.RED)
     print("3/6: render_icon(Emojis.HEART) -- recognizable heart shape")
     time.sleep(2)
@@ -80,9 +80,9 @@ while True:
 
     # 5) done with the main sequence -- reset rotation before the brightness-floor edge
     #    case below so a rotated heart doesn't confuse a test that's only about brightness.
-    d.clear_screen()
+    d.clear()
     d.set_rotation(0)
-    print("5/6: clear_screen -- main sequence done. Cycle continues into the brightness-floor check.")
+    print("5/6: clear -- main sequence done. Cycle continues into the brightness-floor check.")
     time.sleep(1)
 
     # 6) EDGE CASE -- brightness floor. Brightness 0.01 and below is visually indistinguishable
@@ -92,12 +92,12 @@ while True:
     #    each new level on its own (verified against lib/display/core.py: the setter calls
     #    _pixels.show() itself), so no need to re-fill per level -- isolates brightness as the
     #    only changing variable.
-    d.fill(display.BLUE)
+    d.render_filled(display.BLUE)
     for _level in (0.05, 0.04, 0.03, 0.02, 0.01, 0.005, 0.0):
         d.set_brightness(_level)
         print(f"6/6: set_brightness({_level}) -- solid blue fill, watch for the visual floor")
         time.sleep(2)
-    d.clear_screen()
+    d.clear()
     print("6/6: brightness-floor check done. Cycle complete (Tier 1 sync only, no asyncio).")
 
     time.sleep(1)

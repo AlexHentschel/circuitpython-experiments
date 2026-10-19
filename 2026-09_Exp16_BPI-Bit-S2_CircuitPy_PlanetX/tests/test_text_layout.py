@@ -1,5 +1,5 @@
 """
-Spaced glyph-column feeder (host, no board / no core.py).
+ScreenText and column readers (host, no board / no core.py).
 """
 
 import pytest
@@ -7,7 +7,7 @@ import pytest
 from display._constants import WIDTH
 from display.font_makecode_5.ink import FONT
 from display.font_makecode_5.ink import Font
-from display.text_layout import SpacedGlyphColumnFeeder
+from display.text_layout import ScreenText, _ColumnReader, _FixedColumnReader, centered
 
 
 class _TableFont(Font):
@@ -39,10 +39,10 @@ class _SameGlyph(Font):
 def _drain(text: str, font: Font | None = None) -> list[int]:
     """Feed until ``None``; does not invent a scroll-out tail."""
     kwargs = {} if font is None else {"font": font}
-    feeder = SpacedGlyphColumnFeeder(text, **kwargs)
+    reader = _ColumnReader(text, **kwargs)
     cols: list[int] = []
     while True:
-        col = feeder.next_column()
+        col = reader.next_column()
         if col is None:
             break
         cols.append(col)
@@ -125,7 +125,7 @@ def test_no_trailing_spacer_after_last_glyph():
     """
     cols = _drain("Z", font=_SameGlyph(b"\xff"))
     assert cols == [0xFF]
-    extra = SpacedGlyphColumnFeeder("Z", font=_SameGlyph(b"\xff"))
+    extra = _ColumnReader("Z", font=_SameGlyph(b"\xff"))
     for _ in cols:
         extra.next_column()
     assert extra.next_column() is None
@@ -172,13 +172,14 @@ def test_stand_in_font_count_matches_its_drain():
     - How: ``"AB"`` with 2-column then 1-column ink. The count matches the drain, and the cursor stays at the first column.
     """
     font = _TableFont({"A": b"\x0a\x0b", "B": b"\x0c"})
-    feeder = SpacedGlyphColumnFeeder("AB", font=font)
+    prepared = ScreenText("AB", font=font)
+    reader = prepared._reader()
     drained = _drain("AB", font=font)
     assert drained == [0x0A, 0x0B, 0, 0x0C]
-    assert feeder.column_count() == len(drained)
-    assert feeder.column_count_wider_than(len(drained)) is False
-    assert feeder.column_count_wider_than(len(drained) - 1) is True
-    assert feeder.next_column() == drained[0]
+    assert prepared.width == len(drained)
+    assert prepared.column_count_wider_than(len(drained)) is False
+    assert prepared.column_count_wider_than(len(drained) - 1) is True
+    assert reader.next_column() == drained[0]
     assert _drain("") == []
 
 
@@ -189,7 +190,7 @@ def test_reset_replays_from_the_first_column():
     - How: drain ``"AB"`` on a stand-in font, reset, drain again. After one column, reset, that column repeats.
     """
     font = _TableFont({"A": b"\x0a\x0b", "B": b"\x0c"})
-    feeder = SpacedGlyphColumnFeeder("AB", font=font)
+    feeder = _ColumnReader("AB", font=font)
     first = []
     while True:
         col = feeder.next_column()
@@ -217,8 +218,9 @@ def test_column_count_matches_a_full_drain():
     - Covers: the length-byte path disagreeing with the ink path.
     - How: ``""``, ``"!"``, ``"7"``, ``"Hallo"``, and a character outside ASCII.
     """
-    for text in ("", "!", "7", "Hallo", "☃"):
-        assert SpacedGlyphColumnFeeder(text).column_count() == len(_drain(text))
+    for text in ("", "A", "AB", "A B", "HELLO", "!", "7", "Hallo", "☃"):
+        assert ScreenText(text).width == len(_drain(text))
+    assert ScreenText(" ").width == 3
 
 
 def test_column_count_wider_than_matches_a_drain():
@@ -229,13 +231,14 @@ def test_column_count_wider_than_matches_a_drain():
       Each is compared to its own drain length and to ``WIDTH``. The feeder's first column is still unread.
     """
     for text in ("", "!", "7", "0!", "Hallo"):
-        feeder = SpacedGlyphColumnFeeder(text)
+        prepared = ScreenText(text)
+        reader = prepared._reader()
         width = len(_drain(text))
-        assert feeder.column_count_wider_than(width) is False
+        assert prepared.column_count_wider_than(width) is False
         if width:
-            assert feeder.column_count_wider_than(width - 1) is True
-        assert feeder.column_count_wider_than(WIDTH) is (width > WIDTH)
-        assert feeder.next_column() == (_drain(text)[0] if width else None)
+            assert prepared.column_count_wider_than(width - 1) is True
+        assert prepared.column_count_wider_than(WIDTH) is (width > WIDTH)
+        assert reader.next_column() == (_drain(text)[0] if width else None)
 
 
 def test_column_count_wider_than_rejects_a_negative_limit():
@@ -244,9 +247,131 @@ def test_column_count_wider_than_rejects_a_negative_limit():
     - Covers: treating an empty string as wider than a negative column count, or accepting the limit.
     - How: empty text and ``"A"``, each with ``limit=-1``. ``limit=0`` on empty text is false.
     """
-    empty = SpacedGlyphColumnFeeder("")
+    empty = ScreenText("")
     with pytest.raises(ValueError, match="limit must be >= 0"):
         empty.column_count_wider_than(-1)
     assert empty.column_count_wider_than(0) is False
     with pytest.raises(ValueError, match="limit must be >= 0"):
-        SpacedGlyphColumnFeeder("A").column_count_wider_than(-1)
+        ScreenText("A").column_count_wider_than(-1)
+
+
+class _CountingFont(Font):
+    """Counts ``glyph`` and ``width`` calls. Forwards to an inner font."""
+
+    def __init__(self, inner: Font) -> None:
+        self._inner = inner
+        self.glyph_calls = 0
+        self.width_calls = 0
+
+    def glyph(self, ch: str) -> bytes:
+        self.glyph_calls += 1
+        return self._inner.glyph(ch)
+
+    def width(self, ch: str) -> int:
+        self.width_calls += 1
+        return self._inner.width(ch)
+
+
+def test_width_is_cached():
+    """``.width`` measures the string once.
+
+    - Covers: a second ``.width`` walking the font again.
+    - How: a counting font; two ``.width`` reads; the second adds no ``width`` calls.
+    """
+    font = _CountingFont(_TableFont({"A": b"\x01\x02", "B": b"\x03"}))
+    prepared = ScreenText("AB", font=font)
+    assert prepared.width == 4
+    calls = font.width_calls
+    assert prepared.width == 4
+    assert font.width_calls == calls
+
+
+def test_next_column_stays_none_after_the_end():
+    """``next_column`` keeps returning ``None`` after the text is finished.
+
+    - Covers: a later call raising, or restarting the string.
+    - How: drain ``"A"`` on a one-byte font, then two more calls.
+    """
+    reader = _ColumnReader("A", font=_SameGlyph(b"\x11"))
+    assert reader.next_column() == 0x11
+    assert reader.next_column() is None
+    assert reader.next_column() is None
+
+
+def test_skip_whole_first_glyph_does_not_call_glyph():
+    """Skipping a whole first glyph uses ``width`` only.
+
+    - Covers: ``glyph`` being called for a character the skip does not cut.
+    - How: ``"AB"``, skip 2 (all of ``A``). ``glyph`` calls stay 0. The drain is the tail.
+    """
+    font = _CountingFont(_TableFont({"A": b"\x0a\x0b", "B": b"\x0c"}))
+    reader = _ColumnReader("AB", font=font)
+    reader.skip(2)
+    assert font.glyph_calls == 0
+    assert _drain_from(reader) == [0, 0x0C]
+
+
+def test_skip_into_the_next_glyph_stays_in_sync():
+    """A skip that ends inside the next glyph, or on its spacer, calls ``glyph`` once.
+
+    - Covers: a width-only stop on the spacer leaving the next ``next_column`` one column ahead.
+    - How: skip 3 of ``"AB"`` (``A`` plus the spacer) and skip 4 (through ``B``'s first column is the whole string's 4).
+      Also skip 0 and a negative count, which leave the reader at the start.
+    """
+    font = _CountingFont(_TableFont({"A": b"\x0a\x0b", "B": b"\x0c"}))
+    reader = _ColumnReader("AB", font=font)
+    reader.skip(3)
+    assert font.glyph_calls == 1
+    assert _drain_from(reader) == [0x0C]
+
+    font2 = _CountingFont(_TableFont({"A": b"\x0a\x0b", "B": b"\x0c"}))
+    on_spacer = _ColumnReader("AB", font=font2)
+    on_spacer.skip(2)
+    assert font2.glyph_calls == 0
+    assert on_spacer.next_column() == 0
+    assert font2.glyph_calls == 1
+    assert on_spacer.next_column() == 0x0C
+
+    untouched = _ColumnReader("AB", font=_TableFont({"A": b"\x0a\x0b", "B": b"\x0c"}))
+    untouched.skip(0)
+    untouched.skip(-3)
+    assert _drain_from(untouched) == [0x0A, 0x0B, 0, 0x0C]
+
+
+def test_fixed_column_reader_skip():
+    """``_FixedColumnReader.skip`` advances an index into the prepared bytes.
+
+    - Covers: a skip past the end raising, or ``n <= 0`` moving the index.
+    - How: bytes ``1, 2, 3``. Skip 1, then the rest. A fresh reader skips 0 and a negative count.
+    """
+    reader = _FixedColumnReader(b"\x01\x02\x03")
+    reader.skip(1)
+    assert _drain_from(reader) == [2, 3]
+    reader.reset()
+    reader.skip(0)
+    reader.skip(-1)
+    assert reader.next_column() == 1
+    reader.skip(10)
+    assert reader.next_column() is None
+
+
+def test_centered_width_and_inputs():
+    """``centered`` is ``WIDTH`` columns wide for a string, an int, and a ``ScreenText``, and repeating it is a no-op.
+
+    - Covers: a result whose width is the source width, or a second ``centered`` shifting the picture.
+    - How: ``"!"``, ``7``, and ``ScreenText("A")``. Compare column bytes of one call and two.
+    """
+    for content in ("!", 7, ScreenText("A")):
+        once = centered(content)
+        twice = centered(once)
+        assert once.width == WIDTH
+        assert _drain_from(twice._reader()) == _drain_from(once._reader())
+
+
+def _drain_from(reader) -> list[int]:
+    cols = []
+    while True:
+        col = reader.next_column()
+        if col is None:
+            return cols
+        cols.append(col)

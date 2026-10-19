@@ -31,13 +31,12 @@ NeoPixel buffer; no ``await``):
   `#`/`.` grid string or palette dict.
 - `render_icon(icon, color=WHITE)` — render an `Icon` (e.g. `Emojis.HEART`). `Icon` carries no color of its own; `color` is the render color, not an override.
 - `render_arrow(arrow, color=WHITE)` — alias of `render_icon` for an `Icon` from the arrow catalog (e.g. `Arrows.NORTH`), kept as a separate public method name.
-- `render_string(text, color=WHITE)` — draw text centered and leave it lit.
-  Text wider than the screen is cropped; when the leftover is odd, the
-  extra column is dropped on the right. An empty string draws a blank screen. The call
-  does not pause.
+- `render_string(text, color=WHITE)` — draw text starting at the left-most LED and leave it lit.
+  Text wider than the screen shows the beginning and crops the end. An empty string draws a blank screen.
+  `centered(text)` centers text. The call does not pause.
 - `render_number(n, color=WHITE)` — `render_string(str(n))`.
-- `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
-  `clear()` / `get_pixel(x, y)`.
+- `set_pixel(x, y, color)` / `render_filled(color)` / `clear()` /
+  `get_pixel(x, y)`.
 - `set_brightness(value)` / `set_rotation(degrees)`.
 
 **Lifecycle:**
@@ -51,12 +50,12 @@ NeoPixel buffer; no ``await``):
 **Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_pattern` / `show_icon(icon, color=WHITE, interval_ms=0)` / `show_arrow` (alias of `show_icon`) — render, then wait up to `interval_ms` before returning, returning early if a later display call supersedes this one first.
-- `show_image(img, offset=0, interval_ms=0)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image` / scroll through one. Thin wrappers delegating to `Image._show_image` / `_scroll_image` (internal — call the `Display` methods, not these).
+- `show_pattern` / `show_icon(icon, color=WHITE, *, duration_ms)` / `show_arrow` / `show_filled(color, *, duration_ms)` — draw, hold for `duration_ms`, then blank. `duration_ms` is required and keyword-only. A later display call during the hold leaves that call's picture up.
+- `show_image(img, offset=0, *, duration_ms)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image`, hold, then blank / scroll through one. `scroll_image` delegates to `Image._scroll_image` (internal — call the `Display` method, not that).
 - `show_string(text, color=WHITE, interval_ms=150, loop=False)` — the call
   blocks, takes time, and ends on a blank screen. Text wider than the
   display scrolls one column every `interval_ms` and finishes blank.
-  Text that fits is centered for `interval_ms * WIDTH` milliseconds, then
+  Text that fits is drawn from the left for `interval_ms * WIDTH` milliseconds, then
   the screen is cleared. `loop=True` keeps scrolling or holding until
   another display call cancels it, and leaves the screen as that call drew
   it. `interval_ms=0` shows fitting text, lets other ready tasks run once,
@@ -65,15 +64,16 @@ NeoPixel buffer; no ``await``):
   50 ms, not only after the full hold.
 - `show_number(n, color=WHITE, interval_ms=150, loop=False)` — `show_string(str(n))`,
   same contract. For a number that stays lit, call `render_number`.
-- `pause(ms)` — cancellable async sleep; returns early if a later
+- `pause(duration_ms)` — cancellable async sleep; returns early if a later
   display call supersedes this one first.
-- `forever(callback, sleep_between_ms=10)` — an `async` helper that calls
-  `callback` again and again and never stops. `callback` is a function with
+- `repeat_until_cancelled(callback, sleep_between_ms=10)` — an `async` helper that calls
+  `callback` again and again. It ends only when its task is cancelled; display takeover does not stop it.
+  `callback` is a function with
   no arguments, either a normal `def` or an `async def` (it is awaited).
   After each callback execution it rests `sleep_between_ms` milliseconds so your other
   tasks get a turn, such as button handlers. Start it with
-  `asyncio.run(display.forever(my_function))` at the top of your program, or
-  `await display.forever(my_function)` inside another `async def`.
+  `asyncio.run(display.repeat_until_cancelled(my_function))` at the top of your program, or
+  `await display.repeat_until_cancelled(my_function)` inside another `async def`.
   A negative `sleep_between_ms` raises `ValueError`.
 
 A fixed letter, a scrolling string, and a picture that stays up:
@@ -81,7 +81,7 @@ A fixed letter, a scrolling string, and a picture that stays up:
 ```python
 display.render_string("A")
 await display.show_string("Hello")
-token = await display.show_icon(Emojis.HEART, interval_ms=2000)
+token = await display.show_icon(Emojis.HEART, duration_ms=2000)
 if token.is_expired:
     display.render_string("!")
 ```
@@ -114,12 +114,13 @@ simply returns early, returning the (now-expired) token, so the caller
 can tell the two cases apart.
 
 **Holds** (`pause`, the single-render waits after `show_pattern` /
-`show_icon` / `show_arrow` / `show_image`, and `show_string`'s
+`show_icon` / `show_arrow` / `show_image` / `show_filled`, and `show_string`'s
 fit-on-screen wait) use `core.py`'s `_sleep_pollable(token, total_ms)` /
 `_sleep_until_cancelled(token)` instead of a single bare
 `await asyncio.sleep_ms(...)`. A fitting `show_string` / `show_number`
 ends that wait by clearing the screen. `show_pattern`, `show_icon`,
-`show_arrow`, and `show_image` leave their picture up. Both sleep helpers
+`show_arrow`, `show_image`, and `show_filled` do the same: hold, then blank,
+unless a later call took the display. Both sleep helpers
 are free functions — they take a
 `Token` and have no dependency on any `Display` instance's state — that
 chunk the wait into 50 ms pieces and
@@ -234,11 +235,11 @@ parameter tweak.
 
 ## `Image` rendering: no fixed display of its own
 
-`Image._show_image` / `_scroll_image` / `_render_window` — the internal
-implementations behind the public `Display.show_image` / `scroll_image`
-methods — take the acting `Display` instance as an explicit parameter
-(`disp`). An `Image` has no display of its own; it renders to whichever
-`Display` calls it (`Display.show_image`/`scroll_image` pass `self`).
+`Image._scroll_image` / `_render_window` — the internal implementations
+behind `Display.scroll_image` and the window `Display.show_image` draws —
+take the acting `Display` instance as an explicit parameter (`disp`). An
+`Image` has no display of its own; it renders to whichever `Display` calls
+it (`Display.show_image` / `scroll_image` pass `self`).
 This keeps `Image` lean (`__slots__` with four fields, no `Display`
 reference to keep in sync) while still supporting more than one live
 `Display` instance.

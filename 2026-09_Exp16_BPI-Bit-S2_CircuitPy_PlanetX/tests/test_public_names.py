@@ -173,6 +173,22 @@ def test_fused_scan_is_wired_in_render_pattern():
     assert "_write_pattern_on_the_fly" in calls
 
 
+def test_default_text_path_has_no_column_buffer():
+    """``render_string`` does not build a ``bytearray``, and ``_center_window`` is gone.
+
+    - Covers: the centered window buffer coming back on the default text path.
+    - How: AST of ``core.py``. No module-level ``_center_window``. ``render_string`` has no ``bytearray`` name.
+    """
+    tree = _module_ast(CORE)
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == "_center_window":
+            raise AssertionError("_center_window is still defined")
+    render = _display_method("render_string")
+    for inner in ast.walk(render):
+        if isinstance(inner, ast.Name) and inner.id == "bytearray":
+            raise AssertionError("render_string references bytearray")
+
+
 def _display_method(name):
     tree = _module_ast(CORE)
     for node in tree.body:

@@ -42,7 +42,7 @@ _HOLD_S = 3
 
 print("Default: HEART icon, color cycle, 3s hold per color, indefinitely")
 
-d.clear_screen()
+d.clear()
 _i = 0
 while True:
     _name, _color = _COLORS[_i % len(_COLORS)]

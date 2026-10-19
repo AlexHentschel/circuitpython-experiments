@@ -39,6 +39,7 @@ from ._constants import (
     OFF,
 )
 from .icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
+from .text_layout import ScreenText, centered
 
 # core.py requires board/neopixel/rainbowio/adafruit_bitmap_font. On
 # CPython (e.g. pytest hosts) those are absent; skip the re-export so

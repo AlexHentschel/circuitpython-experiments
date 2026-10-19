@@ -9,9 +9,9 @@ buffer and coordinate Look-Up Table [LUT] (populated via
 
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number,
-                   set_pixel, fill, set_rotation, set_brightness, get_pixel, clear_screen.
+                   set_pixel, render_filled, set_rotation, set_brightness, get_pixel, clear.
   Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
-                   show_string, show_number, pause.  Require ``await`` from
+                   show_string, show_number, pause, repeat_until_cancelled.  Require ``await`` from
                    asyncio code.
   Lifecycle:      deinit — releases the data pin / RMT peripheral; *this instance*
                    is unusable afterwards (no re-init path on it), but the pin is
@@ -31,7 +31,7 @@ Cancellation policy:
   - ``show_string`` scrolls the string across the display, one column at a time, replacing
     whatever was showing. A scroll leaves the screen blank unless it got cancelled (in
     which case the cancelling operation specifies the display's new content). A string
-    short enough to fit is centered and held (no scrolling for convenience of reading),
+    short enough to fit is drawn from the left and held (no scrolling for convenience of reading),
     and very roughly held for a similar time as if the text was scrolled and thereafter
     cleared. An empty string shows that blank frame. ``loop=True`` keeps scrolling (or
     holding a short string) until another display operation cancels the call.
@@ -74,7 +74,7 @@ from rainbowio import colorwheel  # noqa: F401 — re-export for user convenienc
 
 from ._constants import WIDTH, HEIGHT, NUM_PIXELS, WHITE, OFF
 from .geometry import build_lut
-from .text_layout import SpacedGlyphColumnFeeder
+from .text_layout import ScreenText, _reader_for, _wider_than
 from .icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
 
 
@@ -132,8 +132,8 @@ def _iter_pattern_rows(pattern_str: str):
 # ---------------------------------------------------------------------------
 # Image class
 #
-# Implementation note: ``Image``'s Tier 2 internals (``_show_image`` /
-# ``_scroll_image`` / ``_render_window``) take the acting ``Display``
+# Implementation note: ``Image``'s internals (``_scroll_image`` /
+# ``_render_window``) take the acting ``Display``
 # instance as an explicit parameter. An ``Image`` has no fixed display of
 # its own; it renders to whichever ``Display`` calls it.
 # ---------------------------------------------------------------------------
@@ -289,26 +289,6 @@ class Image:
         ``create`` again.
         """
         return Image(self._data, self._width, self._multi, self._color)
-
-    async def _show_image(self, disp: Display, offset: int = 0, interval_ms: int = 0) -> Token:
-        """Internal implementation backing ``Display.show_image``.
-
-        Show a ``WIDTH``-column window of this image, then wait up to ``interval_ms`` milliseconds before
-        returning. If a subsequent operation acquires the display before the wait elapses, this method
-        returns immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether the
-        wait was cut short by another task.
-
-        ``disp`` is the ``Display`` instance to render to.
-        ``offset`` is the image column placed at display column 0. It may
-        be negative or past the right edge; uncovered display columns are
-        ``OFF``. Cancels any prior Tier 2 animation.
-        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0``.
-        That 0 ms wait still lets other tasks that are ready run once, then this call returns.
-        """
-        token = disp._acquire()
-        self._render_window(disp, offset)
-        await _sleep_pollable(token, interval_ms)
-        return token
 
     async def _scroll_image(self, disp: Display, step: int = 1, interval_ms: int = 200) -> Token:
         """Internal implementation backing ``Display.scroll_image``.
@@ -611,6 +591,16 @@ class Token:
 # ---------------------------------------------------------------------------
 
 
+def _check_ms(name: str, value: int) -> int:
+    """Reject a negative duration, then truncate to whole milliseconds.
+
+    Runs before the display is taken over. A float is truncated (``1.9`` becomes ``1``).
+    """
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0, got {value}")
+    return int(value)
+
+
 async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> None:
     """Sleep up to ``total_ms`` milliseconds, returning early once ``token.is_expired``.
 
@@ -653,43 +643,10 @@ async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
         await asyncio.sleep_ms(poll_ms)
 
 
-def _center_window(text: str) -> bytearray:
-    """Return ``WIDTH`` column bytes with ``text`` centered (truncated to display width).
-
-    Let ``overflow = w - WIDTH`` denote the number of columns that don't fit the display, where
-    ``w`` is the number of columns the text encompasses.
-    • For text that fits we have ``overflow ≤ 0``, and the text's left-most column is placed at
-    ``start = (WIDTH - w) // 2 ≥ 0``. So if there are an odd number of spare blank columns needed
-    to fill the display, the text is centered with the one extra filler column on the right.
-    • For text wider than the screen, we drop the left-most ``overflow // 2 ≥ 0`` columns. So for
-    an odd number of overflow columns (left and right columns combined that are outside the display),
-    there is one more column dropped on the right than the left.
-
-    So intuitively, the text is always appropriately centered, but in case of an asymetry
-    "more left-aligned". This is done utilizing the fact that integer division always rounds
-    towards −∞ in python (floor division). For example:``(-3) // 2 = -2`` while
-    ``-(3 // 2) = -1``. Wide text uses the second form, which skips fewer leading columns.
-    """
-    feeder = SpacedGlyphColumnFeeder(text)
-    w = feeder.column_count()
-    # we re-use _x as a local first to represent `overflow` and then the number of columns that still have to
-    # be filled into the display
-    _x = w - WIDTH  # _x ≡ overflow = w - WIDTH
-    if _x <= 0:  # _x ≡ overflow = w - WIDTH ≤ 0  =>  text fits display
-        start = (-_x) // 2  # non-negative value
-        _x = w  # now we change the convention: _x ≡ w = number of columns that still have to be filled into the display
-    else:  # _x ≡ overflow > 0  =>  text wider than display WIDTH
-        # _x // 2 ≡ overflow // 2 ≥ 0 gives the number of comumns to be truncated on the left (this always rounds down)
-        for _ in range(_x // 2):
-            feeder.next_column()
-        start = 0
-        _x = WIDTH  # now we change the convention: _x ≡ WIDTH = number of columns that still have to be filled into the display
-    out = bytearray(WIDTH)
-    for i in range(start, start + _x):
-        # Caution: we need to ensure we never read the ``feeder`` until it returns None, because assigning ``out[i] = None`` would raise TypeError.
-        # Reading none is impossible here, because we read ``_x`` columns where ``_x ≤ w`` in both cases (text fits or wider than display).
-        out[i] = feeder.next_column()
-    return out
+def _write_column(pixels, lut, x_base: int, col_byte: int, color: tuple[int, int, int], off: tuple[int, int, int]) -> None:
+    """Write one column byte at logical column ``x_base // HEIGHT``. Bit 0 is the top row."""
+    for y in range(HEIGHT):
+        pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
 
 
 # ---------------------------------------------------------------------------
@@ -879,10 +836,34 @@ class Display:
         off = OFF
         x_base = 0  # invariant at top of loop: x_base == x * HEIGHT (`geometry.build_lut` slot convention)
         for x in range(WIDTH):
-            col_byte = data[offset + x]
-            for y in range(HEIGHT):
-                pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
+            _write_column(pixels, lut, x_base, data[offset + x], color, off)
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
+        pixels.show()
+
+    def _draw_text(self, reader, x: int, color: tuple[int, int, int]) -> None:
+        """Draw ``reader`` with its first column at display column ``x``. One ``show()``.
+
+        ``x < 0`` skips ``-x`` content columns and starts at display column 0.
+        Columns before the start, and columns after the reader ends, are off.
+        ``next_column`` returning ``None`` is a blank column; later calls stay ``None``.
+        """
+        pixels = self._pixels
+        lut = self._lut
+        off = OFF
+        if x < 0:
+            reader.skip(-x)
+            start = 0
+        else:
+            start = WIDTH if x > WIDTH else x
+        x_base = 0
+        for col in range(WIDTH):
+            if col < start:
+                col_byte = 0
+            else:
+                nxt = reader.next_column()
+                col_byte = 0 if nxt is None else nxt
+            _write_column(pixels, lut, x_base, col_byte, color, off)
+            x_base += HEIGHT
         pixels.show()
 
     def _render_ring_window(
@@ -960,40 +941,33 @@ class Display:
         """
         self.render_icon(arrow, color)
 
-    def render_string(self, text: str, color: tuple[int, int, int] = WHITE) -> None:
-        """Draw ``text`` centered and leave it lit until some other call
+    def render_string(self, text: str | ScreenText, color: tuple[int, int, int] = WHITE) -> None:
+        """Draw ``text`` starting at the left-most LED and leave it lit until some other call
         overwrites the display.
 
-        Text wider than the screen is cropped. An empty string draws a blank screen.
-        To scroll longer text, call ``show_string``.
+        ``text`` may be a ``str`` or a ``ScreenText``. Anything else is drawn as ``str(text)``.
+        Text wider than the screen shows its first columns and crops the rest. An empty string
+        draws a blank screen. To scroll longer text, call ``show_string``. Pass ``centered(text)``
+        when the text should sit in the middle.
         """
         self._acquire()
-        text = str(text)
-        if not text:
-            # No columns to place. fill does not allocate a column buffer.
-            self._pixels.fill(OFF)
-            self._pixels.show()
-            return
-        self._render_colmajor(_center_window(text), 0, color)
+        self._draw_text(_reader_for(text), 0, color)
 
     def render_number(self, n: int, color: tuple[int, int, int] = WHITE) -> None:
         """Converts number ``n`` into a string (via python's ``str(n)``) and displays it
-        centered and leave it lit until some other call overwrites the display.
+        starting at the left-most LED, and leaves it lit until some other call overwrites the display.
 
-        A number wider than the screen is cropped. To scroll longer numbers, call ``show_string``.
+        A number wider than the screen shows its first columns and crops the rest.
+        To scroll longer numbers, call ``show_string``.
         """
 
         self.render_string(str(n), color)
 
-    def clear_screen(self) -> None:
-        """Turn off all pixels. Cancels any ongoing animation."""
+    def clear(self) -> None:
+        """Turn off all pixels. Takes over the display."""
         self._acquire()
         self._pixels.fill(OFF)
         self._pixels.show()
-
-    def clear(self) -> None:
-        """Alias for clear_screen()."""
-        self.clear_screen()
 
     def set_pixel(self, x: int, y: int, color: tuple[int, int, int] = WHITE) -> None:
         """Set one pixel. Cancels any in-progress Tier 2 operation.
@@ -1007,8 +981,8 @@ class Display:
             self._pixels[self._lut[x * HEIGHT + y]] = color
             self._pixels.show()
 
-    def fill(self, color: tuple[int, int, int] = WHITE) -> None:
-        """Fill all pixels. Cancels ongoing animations."""
+    def render_filled(self, color: tuple[int, int, int] = WHITE) -> None:
+        """Fill all pixels with ``color``. Takes over the display."""
         self._acquire()
         self._pixels.fill(color)
         self._pixels.show()
@@ -1080,68 +1054,83 @@ class Display:
 
     # — Tier 2: Async MakeCode-compatible methods ---------------------------
 
+    async def _hold_then_blank(self, token: Token, duration_ms: int) -> Token:
+        """Wait ``duration_ms``, then turn every LED off if this call still owns the display.
+
+        The blank does not take over the display. A call that superseded this one
+        leaves its own picture up.
+        """
+        await _sleep_pollable(token, duration_ms)
+        if not token.is_expired:
+            self._pixels.fill(OFF)
+            self._pixels.show()
+        return token
+
     async def show_pattern(
         self,
         pattern: str,
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
-        interval_ms: int = 0,
+        *,
+        duration_ms: int,
     ) -> Token:
-        """Show a pattern, then wait up to ``interval_ms`` milliseconds before returning. A wait of 0 ms
-        still lets other tasks that are ready run once, then this call returns. If a subsequent operation
-        acquires the display before the wait elapses, this method returns immediately instead; check the
-        returned ``Token``'s ``is_expired`` to tell whether the wait was cut short by another task.
+        """Draw a pattern, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        color: RGB tuple (mono '#'/'.' mode) or dict (palette).
+        ``duration_ms`` is required and keyword-only. A later display call during the hold
+        leaves that call's picture up and this call's token expired. ``duration_ms=0`` draws
+        the pattern, lets other ready tasks run once, then blanks.
         Same pattern rules as ``render_pattern``.
 
-        Raises ``ValueError`` if ``interval_ms < 0``.
+        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        if interval_ms < 0:
-            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
+        duration_ms = _check_ms("duration_ms", duration_ms)
         self.render_pattern(pattern, color)
-        token = self._token  # render_pattern's internal _acquire() just minted this
-        await _sleep_pollable(token, interval_ms)
-        return token
+        return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
-        """Render an ``Icon`` (e.g. ``Emojis.HEART``), then wait up to ``interval_ms`` milliseconds before
-        returning. If a subsequent operation acquires the display before the wait elapses, this method
-        returns immediately instead; check the returned ``Token``'s ``is_expired`` to tell whether that
-        the wait was cut short by another task.
+    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+        """Draw an ``Icon`` (e.g. ``Emojis.HEART``), hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        Raises ``ValueError`` if ``interval_ms < 0``.
+        ``duration_ms`` is required and keyword-only. A later display call during the hold
+        leaves that call's picture up. ``duration_ms=0`` draws the icon, lets other ready
+        tasks run once, then blanks.
+
+        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        if interval_ms < 0:
-            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
+        duration_ms = _check_ms("duration_ms", duration_ms)
         self.render_icon(icon, color)
-        token = self._token  # render_icon's internal _acquire() just minted this
-        await _sleep_pollable(token, interval_ms)
-        return token
+        return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, interval_ms: int = 0) -> Token:
-        """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``), then wait up to ``interval_ms``
-        milliseconds before returning. If a subsequent operation acquires the display before the wait
-        elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
-        tell whether the wait was cut short by another task.
+    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+        """Draw an arrow ``Icon`` (e.g. ``Arrows.NORTH``), hold it, then turn the LEDs off.
 
-        Raises ``ValueError`` if ``interval_ms < 0``.
+        Same contract as ``show_icon``. ``duration_ms`` is required and keyword-only.
         """
-        # Functionally this method is an alias of ``show_icon``, kept as a separate public method name.
-        return await self.show_icon(arrow, color=color, interval_ms=interval_ms)
+        return await self.show_icon(arrow, color=color, duration_ms=duration_ms)
 
-    async def show_image(self, image: Image, offset: int = 0, interval_ms: int = 0) -> Token:
-        """Show a ``WIDTH``-column window of ``img``, then wait up to ``interval_ms`` milliseconds before
-        returning. If a subsequent operation acquires the display before the wait
-        elapses, this method returns immediately instead; check the returned ``Token``'s ``is_expired`` to
-        tell whether the wait was cut short by another task.
+    async def show_filled(self, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+        """Fill the display with ``color``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        ``offset`` is the image column placed at display column 0. It may be negative
-        or positive and may push the image partially or fully out of the display area.
-        Display columns outside the Image are ``OFF``. Cancels any prior Tier 2 animation.
-        A negative ``interval_ms`` waits 0 ms, the same as ``interval_ms=0``.
-        That 0 ms wait still lets other tasks that are ready run once, then this call returns.
+        ``duration_ms`` is required and keyword-only. A later display call during the hold
+        leaves that call's picture up.
+
+        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        return await image._show_image(self, offset, interval_ms)
+        duration_ms = _check_ms("duration_ms", duration_ms)
+        self.render_filled(color)
+        return await self._hold_then_blank(self._token, duration_ms)
+
+    async def show_image(self, image: Image, offset: int = 0, *, duration_ms: int) -> Token:
+        """Show a ``WIDTH``-column window of ``image``, hold it, then turn the LEDs off.
+
+        ``duration_ms`` is required and keyword-only. ``offset`` is the image column placed at
+        display column 0. It may be negative or past the right edge; uncovered columns are off.
+        A later display call during the hold leaves that call's picture up.
+
+        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
+        """
+        duration_ms = _check_ms("duration_ms", duration_ms)
+        token = self._acquire()
+        image._render_window(self, offset)
+        return await self._hold_then_blank(token, duration_ms)
 
     async def scroll_image(self, image: Image, step: int = 1, interval_ms: int = 200) -> Token:
         """Scroll through ``image``, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
@@ -1163,7 +1152,7 @@ class Display:
 
     async def show_string(
         self,
-        text: str,
+        text: str | ScreenText,
         color: tuple[int, int, int] = WHITE,
         interval_ms: int = 150,
         loop: bool = False,
@@ -1177,13 +1166,13 @@ class Display:
         column of the string has left the screen: the display is left fully blank.
 
         For text that fits on the display without scrolling (total width <= WIDTH),
-        the text is centered and held for ``interval_ms * WIDTH`` milliseconds and the
+        the text is drawn from the left-most LED and held for ``interval_ms * WIDTH`` milliseconds and the
         screen is then cleared. So a held text and a scrolled text of comparable width
         provide comparable time to read.
         ``interval_ms=0`` puts the text on the display and then immediately lets other
         tasks that are ready run once, and then clears the screen. How long the text stays
         up is however long those tasks take to run. That is often only a short flash.
-        ``loop=True`` holds that centered picture until another display operation
+        ``loop=True`` holds that picture until another display operation
         cancels the call, not interfeering with whatever that operation drew. The hold
         is the same for every ``interval_ms``.
 
@@ -1205,10 +1194,12 @@ class Display:
             raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
         interval_ms = int(interval_ms)
         token = self._acquire()
-        text = str(text)
-        feeder = SpacedGlyphColumnFeeder(text)
+        if isinstance(text, ScreenText):
+            source: str | ScreenText = text
+        else:
+            source = str(text)
 
-        # Text fits screen: width <= WIDTH (covers also empty string of zero columns). Draw the centered window, the same helper as render_string.
+        # Text fits screen: width <= WIDTH (covers also empty string of zero columns). Draw from the left, the same helper as render_string.
         # Hold for interval_ms * WIDTH milliseconds, which is roughly similar to the hypothetical scroll time of the text; then clear the screen.
         # That all-off frame does not call _acquire, so this call's token stays the one minted above and is_expired stays false when nobody cancelled
         # the holding time. For interval_ms=0, the implementation behaves the same: _sleep_pollable awaits sleep_ms(0) once, other ready tasks each get
@@ -1217,10 +1208,10 @@ class Display:
         # If loop=True, we hold for a constant short time, check for expiry and wait again if not expired, which is all done by
         # _sleep_until_cancelled(token).  This is deliberate, so interval_ms=0 with loop=True does not create a busy expirely polling loop.
         # Length bytes only, same spacer rule as the scroll. Stop once the text is wider than the screen.
-        if not feeder.column_count_wider_than(WIDTH):
+        if not _wider_than(source, WIDTH):
             if token.is_expired:
                 return token
-            self._render_colmajor(_center_window(text), 0, color)
+            self._draw_text(_reader_for(source), 0, color)
             if loop:
                 await _sleep_until_cancelled(token)
                 return token
@@ -1232,9 +1223,10 @@ class Display:
 
         # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop does no float math.
         sleep_ms = asyncio.sleep_ms  # passing a negative value is safe and behaves exactly like 0 and still yields once.
+        reader = _reader_for(source)
         while True:
-            feeder.reset()  # loop=True scrolls this same feeder again from the first column
-            # Scroll loop memory: rather than materialising the whole scrolled bitmap, columns are fed one at a time from `feeder` into a WIDTH-byte ring buffer.
+            reader.reset()  # loop=True scrolls this same reader again from the first column
+            # Scroll loop memory: rather than materialising the whole scrolled bitmap, columns are fed one at a time from `reader` into a WIDTH-byte ring buffer.
             # The visible window is exactly WIDTH columns, so a ring that size is sufficient regardless of how long `text` is:
             # each newly arriving column overwrites the slot that just scrolled off the left edge. The initial all-zero ring is the scroll-in padding,
             # so the first frame renders as a fully blank display with the first column arriving from the right, rather than jumping straight to a partially-filled window.
@@ -1249,7 +1241,7 @@ class Display:
                 await sleep_ms(interval_ms)
                 if token.is_expired:
                     return token
-                col = feeder.next_column()
+                col = reader.next_column()
                 if col is None:
                     col = 0  # empty column
                     trailing_blanks += 1
@@ -1257,7 +1249,7 @@ class Display:
                 read_head += 1
                 if read_head == WIDTH:
                     read_head = 0
-                # Scroll-out: once the feeder drains, keep feeding blank columns
+                # Scroll-out: once the reader drains, keep feeding blank columns
                 # until WIDTH + 1 of them have gone by. `> WIDTH` (not `>=`) so the
                 # final fully-blank frame is actually rendered; with `>=` the loop
                 # would break while the last meaningful column is still at x=0,
@@ -1285,61 +1277,60 @@ class Display:
         # passes ``str(n)`` through unchanged. Booleans will therefore render as "True" or "False" for example.
         return await self.show_string(str(n), color, interval_ms, loop)
 
-    async def pause(self, ms: int) -> Token:
-        """Wait up to ``ms`` milliseconds before returning. If a subsequent operation acquires the display
+    async def pause(self, duration_ms: int) -> Token:
+        """Wait up to ``duration_ms`` milliseconds before returning. If a subsequent operation acquires the display
         before the wait elapses, this method returns immediately instead; check the returned ``Token``'s
         ``is_expired`` to tell whether the wait was cut short by another task.
 
-        Raises ``ValueError`` if ``ms < 0``.
+        Raises ``ValueError`` if ``duration_ms < 0``.
         """
-        if ms < 0:
-            raise ValueError(f"ms must be >= 0, got {ms}")
+        if duration_ms < 0:
+            raise ValueError(f"duration_ms must be >= 0, got {duration_ms}")
         token = self._acquire()
-        await _sleep_pollable(token, ms)
+        await _sleep_pollable(token, duration_ms)
         return token
 
     @staticmethod
-    async def forever(callback: Callable[[], object], sleep_between_ms: int = 10) -> NoReturn:
-        """Run ``callback`` again and again, without ever stopping.
+    async def repeat_until_cancelled(callback: Callable[[], object], sleep_between_ms: int = 10) -> NoReturn:
+        """Run ``callback`` again and again. Ends only when its task is cancelled; display takeover does not stop it. Use ``loop=True`` on ``scroll_*`` for that.
 
-        Use this when you want to do a certain task forever, for example scrolling
-        a message over and over. You give ``forever`` a function that takes no
+        Use this when you want to repeat a task, for example scrolling
+        a message over and over. You give ``repeat_until_cancelled`` a function that takes no
         arguments. It calls that function, waits for it to finish, rests for
         ``sleep_between_ms`` milliseconds, and then calls it again.
 
         The ``callback`` can be a normal ``def`` function or an ``async def`` (a function that
-        uses ``await``). If it is an ``async def`` function, ``forever`` waits until it is done.
+        uses ``await``). If it is an ``async def`` function, ``repeat_until_cancelled`` waits until it is done.
 
-        Here is a function to repeat. Give ``forever`` its name without parentheses
-        (``say_hello``, not ``say_hello()``), because ``forever`` calls it for you:
+        Here is a function to repeat. Give ``repeat_until_cancelled`` its name without parentheses
+        (``say_hello``, not ``say_hello()``), because ``repeat_until_cancelled`` calls it for you:
 
             async def say_hello():
                 await display.show_string("Hello")
 
-        ``forever`` is itself ``async`` and it never ends. So the code you write after it, in the same
-        place, never runs, unless you start ``forever`` as a task (way 3 below). There are three ways:
+        ``repeat_until_cancelled`` is itself ``async`` and it never returns on its own. So the code you write after it, in the same
+        place, never runs, unless you start ``repeat_until_cancelled`` as a task (way 3 below). There are three ways:
 
             # 1. In the main part of your program, outside any async function, as its last line. No
             #    code after this line will ever run, so use it only when repeating is the whole program:
-            asyncio.run(display.forever(say_hello))
+            asyncio.run(display.repeat_until_cancelled(say_hello))
 
             # 2. Inside an async function. The rest of this function will never run, but your
             #    other tasks (for example button handlers) keep running:
-            await display.forever(say_hello)
+            await display.repeat_until_cancelled(say_hello)
 
-            # 3. Inside an async function, as a task. The function carries on while ``forever``
-            #    repeats, and you can stop it later:
-            task = asyncio.create_task(display.forever(say_hello))
+            # 3. Inside an async function, as a task. The function carries on while
+            #    ``repeat_until_cancelled`` repeats, and you can stop it later:
+            task = asyncio.create_task(display.repeat_until_cancelled(say_hello))
             await asyncio.sleep(10)  # ...do other things, for example wait for a button press
-            task.cancel()            # stops ``forever`` at its next ``await``
+            task.cancel()            # stops ``repeat_until_cancelled`` at its next ``await``
 
-        A cancelled ``forever`` leaves the last picture on the LEDs. Call ``display.clear_screen()``
+        A cancelled ``repeat_until_cancelled`` leaves the last picture on the LEDs. Call ``display.clear()``
         afterwards if you want them dark.
 
-        After each round, ``forever`` rests for ``sleep_between_ms`` milliseconds. This rest keeps the
+        After each round, ``repeat_until_cancelled`` rests for ``sleep_between_ms`` milliseconds. This rest keeps the
         board calm and lets your other tasks (for example button handlers) run, even when ``callback``
-        finishes instantly (``show_icon`` does by default, unless you configure it to sleep by setting
-        ``interval_ms``). If your callback already waits (for example ``show_string`` or ``pause``),
+        finishes quickly. If your callback already waits (for example ``show_string`` or ``pause``),
         the rest is not needed, but by default the rest is so short (10 ms) that you will probably not
         notice. Set ``sleep_between_ms=0`` only if you need the timing of your own callback to be exact,
         for example a repeat every 1000 ms, or a very fast repeat.
@@ -1349,7 +1340,7 @@ class Display:
         reaches its next ``await``. So keep your callback short and let it ``await`` often, or
         other tasks (such as button handlers) will react late.
 
-        Raises ``ValueError`` if ``sleep_between_ms`` is negative. Because ``forever``
+        Raises ``ValueError`` if ``sleep_between_ms`` is negative. Because ``repeat_until_cancelled``
         never returns, the only ways out are an exception in ``callback`` or cancelling
         the task that is running it.
         """
