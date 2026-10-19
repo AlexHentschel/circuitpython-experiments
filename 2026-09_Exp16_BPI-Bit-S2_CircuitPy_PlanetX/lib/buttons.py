@@ -74,10 +74,10 @@ except ImportError:
     pass
 
 
-# `run()`'s poll interval: see `_pump` for why this is not `0`. Half
-# of keypad.Keys' own default scan `interval` (0.02s / 20ms), so no event
-# can be missed for longer than one hardware scan cycle would already impose.
-_POLL_INTERVAL_S = 0.01
+# Poll interval for ``_pump``, in whole milliseconds. A 0 ms wait busy-spins
+# the bundle scheduler (see ``_pump``). 10 ms is half of keypad.Keys' default
+# scan interval (20 ms).
+_POLL_MS = 10
 
 # Per-switch queue cap. keypad.EventQueue defaults to 64 for the whole scanner.
 # Each switch keeps its own bounded list so a handler that awaits for a long
@@ -188,21 +188,17 @@ async def _pump(queue, route) -> None:
     Host CPython ``asyncio`` here is the test stand-in; the CIRCUITPY bundle
     ``asyncio`` is a different library.
 
-    Poll interval is ``_POLL_INTERVAL_S`` (10 ms), not ``0``. On the bundle
-    ``asyncio`` this loop runs on device, ``asyncio.sleep(0)`` re-queues this
-    task with a ready time of *now*, so whenever it is the only ready task
-    (whenever the display task is itself mid-sleep between frames) the
-    scheduler's `run_until_complete` loop never takes its blocking-poll
-    fallback (``dt == 0`` skips ``_io_queue.wait_io_event(dt)``): a genuine
-    100%-CPU busy-spin, not merely "polls a bit more than needed". A positive
-    interval lets the scheduler actually block until it elapses.
+    Each lap waits ``_POLL_MS`` milliseconds via ``asyncio.sleep_ms``. On the
+    bundle scheduler a wait of 0 ms re-queues
+    this task as ready now. When it is the only ready task (the display task
+    is mid-sleep between frames), ``run_until_complete`` skips its blocking
+    poll (``dt == 0`` skips ``_io_queue.wait_io_event(dt)``) and the loop
+    spins at 100% CPU. A 10 ms wait lets the scheduler block until it elapses.
 
-    10 ms costs nothing in responsiveness: ``keypad.Keys``' own hardware
-    scan/debounce runs in the background at its own ``interval`` (default
-    20 ms, independent of when Python calls ``.get()``). New events cannot
-    physically appear faster than that regardless of how often this loop
-    polls, so polling faster than ~20 ms only spins the CPU checking an
-    EventQueue that cannot have changed yet.
+    10 ms is half of ``keypad.Keys``' own scan interval (default 20 ms). That
+    scan runs in the background, independent of when Python calls ``.get()``.
+    Events cannot appear faster than the scan, so a shorter poll only rechecks
+    an EventQueue that has not changed.
 
     ``route`` only appends to a lane. The drain loop does not await handlers,
     so a burst already sitting in the keypad queue is handed off before this
@@ -210,12 +206,13 @@ async def _pump(queue, route) -> None:
     """
     import asyncio
 
+    # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop builds no float.
     while True:
         event = queue.get()
         while event is not None:
             route(event)
             event = queue.get()
-        await asyncio.sleep(_POLL_INTERVAL_S)
+        await asyncio.sleep_ms(_POLL_MS)
 
 
 async def _serve(queue, lanes, route) -> None:

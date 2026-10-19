@@ -13,6 +13,8 @@ import pytest
 from buttons import Button, OnboardButtons, PushButtonBase, _LANE_MAX, _SwitchLane
 from planetx import PlanetXButtonSensor
 
+pytestmark = pytest.mark.usefixtures("sleep_ms_shim")
+
 
 class FakeEvent:
     def __init__(self, key_number, pressed):

@@ -264,6 +264,7 @@ def test_firmware_tenths_round_and_speed_formula():
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("sleep_ms_shim")
 async def test_crash_press_fires():
     """A press on the crash sensor runs the handler.
 
