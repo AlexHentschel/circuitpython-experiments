@@ -22,11 +22,11 @@ What runs:
   7. ``render_string("A")`` — four columns, so one dark column on the right.
      The letter stays lit.
   8. ``render_string("7")`` — exactly ``WIDTH`` columns, no crop. Stays lit.
-  9. ``render_string("HELLO")`` — wider than the screen. The window is the
-     first ``L`` plus a dark column on its right. ``H``, ``E``, the second
-     ``L``, and ``O`` are off the screen. Stays lit.
+  9. ``render_string("HELLO")`` — wider than the screen. The window is a
+     dark column, then the first ``L``. ``H``, ``E``, the second ``L``, and
+     ``O`` are off the screen. Stays lit.
   10. ``render_string("")`` — a red fill goes blank and stays blank.
-  11. ``render_number(42)`` — cropped toward the right, and it stays lit.
+  11. ``render_number(42)`` — the extra lost column is on the right, and it stays lit.
       Stage 2's ``show_number(42)`` scrolls and ends blank.
 
 Each cycle starts at rotation 0 and brightness 0.20 (the library default).
@@ -131,12 +131,12 @@ while True:
     print("8/11: render_string('7') -- digit fills the screen and stays lit")
     time.sleep(2)
 
-    # 9) "HELLO" is wider than the screen. The lit window is the first L,
-    #    with a dark column on its right. H, E, the second L, and O are
-    #    off the screen. Stays lit.
+    # 9) "HELLO" is wider than the screen. The lit window is a dark column,
+    #    then the first L. H, E, the second L, and O are off the screen.
+    #    Stays lit.
     d.clear_screen()
     d.render_string("HELLO")
-    print("9/11: render_string('HELLO') -- first L stays lit, dark column on the right")
+    print("9/11: render_string('HELLO') -- dark column, then the first L")
     time.sleep(2)
 
     # 10) An empty string draws a blank screen and leaves it blank.
@@ -145,8 +145,9 @@ while True:
     print("10/11: render_string('') -- red goes blank and stays blank")
     time.sleep(2)
 
-    # 11) render_number(42) is render_string("42"). Cropped toward the right,
-    #     and it stays lit. Stage 2's show_number(42) scrolls and ends blank.
+    # 11) render_number(42) is render_string("42"). The extra lost column is
+    #     on the right, and the number stays lit. Stage 2's show_number(42)
+    #     scrolls and ends blank.
     d.clear_screen()
     d.render_number(42)
     print("11/11: render_number(42) -- cropped number stays lit")

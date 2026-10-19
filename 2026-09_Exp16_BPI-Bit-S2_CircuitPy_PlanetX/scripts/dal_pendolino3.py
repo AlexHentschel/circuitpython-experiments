@@ -91,9 +91,7 @@ def row_bytes_to_column_major(row_bytes: bytes, width: int = FONT_WIDTH) -> byte
 
         if (row_byte >> (width - 1 - c)) & 1:  col_bytes[c] |= 1 << r
 
-    With ``width == 5`` this is ``(row_byte >> (4 - c)) & 1``, matching
-    ``font_makecode_5/glyphs.py``'s documented mapping and
-    ``concepts/fonts.md`` § DAL pendolino3.
+    With ``width == 5`` this is ``(row_byte >> (4 - c)) & 1``.
     """
     if width < 1 or width > 8:
         raise ValueError(f"width must be 1..8 (fits in one column byte); got {width}")

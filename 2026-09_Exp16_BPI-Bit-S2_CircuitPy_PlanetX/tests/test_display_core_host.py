@@ -534,15 +534,53 @@ def test_render_string_exactly_width_has_no_pad(host):
     assert host.logical() == _frame_of(columns)
 
 
-def test_render_string_wider_than_width_keeps_the_right(host):
-    """Wider text keeps a centered window whose leftover column stays on the right.
+def test_center_window_covers_empty_through_long(host):
+    """``_center_window`` at empty, one column, one short, exact, one over, and long text.
 
-    - Covers: dropping the right side, or keeping a different slice than columns 1..5 / 2..6.
-    - How: feeder bytes, then a pinned slice. Widths 6 and 8 are where right-priority and left-priority differ; width 7 matches either way.
+    - Covers: a spare blank on the left, keeping the tail of a wide string, or a window whose length is not ``WIDTH``.
+    - How: feeder bytes placed at a pinned origin; compare the helper's bytes and the rendered frame.
+    """
+    # (text, width, origin). origin is the display column where source column 0 lands.
+    # The origins are literals. ``"0!"`` and ``"HELLO"`` are odd overflows: the other
+    # floor would move those windows one column to the left.
+    cases = (
+        ("", 0, 0),
+        ("!", 1, 2),
+        ("A", 4, 0),
+        ("7", 5, 0),
+        ("0!", 6, 0),
+        ("Hallo", 23, -9),
+        ("HELLO", 24, -9),
+    )
+    for text, width, origin in cases:
+        columns = _feeder_column_bytes(text)
+        assert len(columns) == width, text
+        window = [0] * WIDTH
+        for src, col in enumerate(columns):
+            dest = origin + src
+            if 0 <= dest < WIDTH:
+                window[dest] = col
+        assert list(host.core._center_window(text)) == window, text
+        host.disp.render_string(text)
+        assert host.logical() == _frame_of(window), text
+
+    bang = _feeder_column_bytes("!")
+    assert list(host.core._center_window("!")) == [0, 0, bang[0], 0, 0]
+    assert list(host.core._center_window("A")) == _feeder_column_bytes("A") + [0]
+    wide = _feeder_column_bytes("0!")
+    assert list(host.core._center_window("0!")) == wide[:WIDTH]
+    assert wide[WIDTH] == 0x17
+
+
+def test_render_string_wider_than_width_drops_the_extra_on_the_right(host):
+    """Wider text drops an odd leftover column on the right.
+
+    - Covers: keeping the right-most columns, or a slice other than 0..4 / 1..5.
+    - How: feeder bytes, then a pinned slice. Widths 6 and 8 are the odd overflows; width 7 is even and matches either bias.
     """
     disp = host.disp
     # (text, feeder width, index of the first kept column). Slices are pinned, not computed.
-    cases = (("0!", 6, 1), ("11", 7, 1), ("01", 8, 2))
+    cases = (("0!", 6, 0), ("11", 7, 1), ("01", 8, 1))
     for text, width, first in cases:
         columns = _feeder_column_bytes(text)
         assert len(columns) == width

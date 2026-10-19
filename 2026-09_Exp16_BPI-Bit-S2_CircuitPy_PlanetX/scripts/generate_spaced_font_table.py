@@ -17,9 +17,9 @@ width 3; a following inter-glyph spacer, if any, supplies the fourth column.
 Unknown/out-of-range characters are not in this table; the accessor draws
 tofu (``ink._TOFU_INK``).
 
-Source is the pinned DAL fetch (``dal_pendolino3.load_column_major``), not
-``glyphs._COLUMN_MAJOR``. While that saved table is still live, agreement with
-it is ``verify_dal_font_conversion.py``'s job.
+Source is the pinned DAL fetch (``dal_pendolino3.load_column_major``).
+``verify_dal_font_conversion.py`` checks a fresh pack against the committed
+``spaced_glyphs.py``.
 
 Usage (from this experiment's folder):
 
@@ -48,7 +48,7 @@ SPACE_AUTHORED_WIDTH = 3
 SPACE_ORD = 32
 ASCII_START = 32
 ASCII_END = 126  # inclusive
-HEX_LINE_BYTES = 34  # matches glyphs.py's wrap (~68 hex chars)
+HEX_LINE_BYTES = 34  # ~68 hex chars per source line
 
 
 def authored_ink(col_bytes: bytes, code: int) -> bytes:
@@ -134,9 +134,8 @@ def build_spaced_table(column_major: bytes, width: int = dal_pendolino3.FONT_WID
 def _hex_literal(data: bytes) -> str:
     """Format ``data`` as concatenated quoted hex strings, one per source line.
 
-    Wrap width is ``HEX_LINE_BYTES`` payload bytes (~68 hex chars per line, matching
-    ``glyphs.py``). The result is the argument body of ``bytes.fromhex(...)`` in the
-    generated module.
+    Wrap width is ``HEX_LINE_BYTES`` payload bytes (~68 hex chars per line).
+    The result is the argument body of ``bytes.fromhex(...)`` in the generated module.
     """
     hex_str = data.hex()
     chunk = HEX_LINE_BYTES * 2

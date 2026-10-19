@@ -8,8 +8,8 @@ buffer and coordinate Look-Up Table [LUT] (populated via
 ``geometry.build_lut``).
 
 Two-tier API:
-  Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number, clear_screen,
-                   set_pixel, fill, set_rotation, set_brightness, get_pixel.
+  Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number,
+                   set_pixel, fill, set_rotation, set_brightness, get_pixel, clear_screen.
   Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
                    show_string, show_number, pause.  Require ``await`` from
                    asyncio code.
@@ -18,22 +18,23 @@ Two-tier API:
                    now free for a newly-constructed ``Display()``.
 
 Cancellation policy:
-* any display-mutating method cancels an in-progress
-  Tier 2 animation, and starting a new Tier 2 animation cancels any earlier
-  one. The exceptions are ``get_pixel`` (pure read), ``set_brightness``, and
-  ``set_rotation``; in other words running animation is not disturbed when the
-  user dims the matrix or rotates the frame.
+* any display-mutating method cancels an in-progress Tier 2 animation, and starting a new
+  Tier 2 animation cancels any earlier one. The exceptions are ``get_pixel`` (pure read),
+  ``set_brightness``, and ``set_rotation``; in other words running animation is not disturbed
+  when the user dims the matrix or rotates the frame.
 * Consistent with the general rule of in-progress Tier 2 animation being cancelled
-  by any display-mutating method, ``set_pixel`` and ``show_string`` also cancels a
+  by any display-mutating method, ``set_pixel`` and ``show_string`` also cancel a
   Tier 2 operation:
   - ``set_pixel`` leaves the display on the most recent frame only with the set pixel
     being updated. If the coordinate is outside the LED matrix, the latest frame is
     left unchanged and kept on the display.
-  - ``show_string`` always replaces the matrix with the given string; an empty string
-    presents the blank frame on the display, the same fit-on-screen path
-    as any other short string. A call that runs to the end then clears the
-    screen. ``loop=True`` keeps the picture until another display operation
-    cancels the call.
+  - ``show_string`` scrolls the string across the display, one column at a time, replacing
+    whatever was showing. A scroll leaves the screen blank unless it got cancelled (in
+    which case the cancelling operation specifies the display's new content). A string
+    short enough to fit is centered and held (no scrolling for convenience of reading),
+    and very roughly held for a similar time as if the text was scrolled and thereafter
+    cleared. An empty string shows that blank frame. ``loop=True`` keeps scrolling (or
+    holding a short string) until another display operation cancels the call.
 * Every Tier 2 method returns a ``Token``; check ``token.is_expired`` to see
   whether a later display operation has since superseded it. Tier 1
   methods (and ``deinit``) do not return a token — there is nothing to
@@ -653,33 +654,42 @@ async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
 
 
 def _center_window(text: str) -> bytearray:
-    """Return ``WIDTH`` column bytes with ``text`` centered.
+    """Return ``WIDTH`` column bytes with ``text`` centered (truncated to display width).
 
-    ``start = (WIDTH - w) // 2`` (floor division). A negative ``start`` skips
-    that many leading columns, so an odd leftover keeps the right-most columns.
-    Text that fits uses the same ``start``, so an odd blank column is on the
-    right. The first pass counts columns. The second pass writes into one
-    ``bytearray(WIDTH)``.
+    Let ``overflow = w - WIDTH`` denote the number of columns that don't fit the display, where
+    ``w`` is the number of columns the text encompasses.
+    • For text that fits we have ``overflow ≤ 0``, and the text's left-most column is placed at
+    ``start = (WIDTH - w) // 2 ≥ 0``. So if there are an odd number of spare blank columns needed
+    to fill the display, the text is centered with the one extra filler column on the right.
+    • For text wider than the screen, we drop the left-most ``overflow // 2 ≥ 0`` columns. So for
+    an odd number of overflow columns (left and right columns combined that are outside the display),
+    there is one more column dropped on the right than the left.
+
+    So intuitively, the text is always appropriately centered, but in case of an asymetry
+    "more left-aligned". This is done utilizing the fact that integer division always rounds
+    towards −∞ in python (floor division). For example:``(-3) // 2 = -2`` while
+    ``-(3 // 2) = -1``. Wide text uses the second form, which skips fewer leading columns.
     """
     feeder = SpacedGlyphColumnFeeder(text)
-    w = 0
-    while feeder.next_column() is not None:
-        w += 1
-    # Floor division: a negative start drops the extra column on the left.
-    start = (WIDTH - w) // 2
+    w = feeder.column_count()
+    # we re-use _x as a local first to represent `overflow` and then the number of columns that still have to
+    # be filled into the display
+    _x = w - WIDTH  # _x ≡ overflow = w - WIDTH
+    if _x <= 0:  # _x ≡ overflow = w - WIDTH ≤ 0  =>  text fits display
+        start = (-_x) // 2  # non-negative value
+        _x = w  # now we change the convention: _x ≡ w = number of columns that still have to be filled into the display
+    else:  # _x ≡ overflow > 0  =>  text wider than display WIDTH
+        # _x // 2 ≡ overflow // 2 ≥ 0 gives the number of comumns to be truncated on the left (this always rounds down)
+        for _ in range(_x // 2):
+            feeder.next_column()
+        start = 0
+        _x = WIDTH  # now we change the convention: _x ≡ WIDTH = number of columns that still have to be filled into the display
     out = bytearray(WIDTH)
-    feeder = SpacedGlyphColumnFeeder(text)
-    i = 0
-    while True:
-        col = feeder.next_column()
-        if col is None:
-            return out
-        dest = start + i
-        i += 1
-        if dest >= WIDTH:
-            return out
-        if dest >= 0:
-            out[dest] = col
+    for i in range(start, start + _x):
+        # Caution: we need to ensure we never read the ``feeder`` until it returns None, because assigning ``out[i] = None`` would raise TypeError.
+        # Reading none is impossible here, because we read ``_x`` columns where ``_x ≤ w`` in both cases (text fits or wider than display).
+        out[i] = feeder.next_column()
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -843,7 +853,7 @@ class Display:
         offset: int,
         color: tuple[int, int, int],
     ) -> None:
-        """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to this instance's buffer.
+        """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to this instance's ``self._pixels``.
 
         Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
         one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
@@ -946,25 +956,33 @@ class Display:
 
     def render_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE) -> None:
         """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs.
-
-        Alias of ``render_icon``, kept as a separate public method name.
+        Alias of ``render_icon``.
         """
         self.render_icon(arrow, color)
 
     def render_string(self, text: str, color: tuple[int, int, int] = WHITE) -> None:
-        """Draw ``text`` centered and leave it lit until the next display call.
+        """Draw ``text`` centered and leave it lit until some other call
+        overwrites the display.
 
-        Text wider than the screen is cropped, and the right-most columns stay
-        when the leftover is odd. Text that fits uses that same centering, so
-        an odd blank column is on the right. An empty string draws a blank screen.
-        This call does not pause. To scroll text, or to show it and then clear
-        the screen, call ``show_string``.
+        Text wider than the screen is cropped. An empty string draws a blank screen.
+        To scroll longer text, call ``show_string``.
         """
         self._acquire()
-        self._render_colmajor(_center_window(str(text)), 0, color)
+        text = str(text)
+        if not text:
+            # No columns to place. fill does not allocate a column buffer.
+            self._pixels.fill(OFF)
+            self._pixels.show()
+            return
+        self._render_colmajor(_center_window(text), 0, color)
 
     def render_number(self, n: int, color: tuple[int, int, int] = WHITE) -> None:
-        """Draw ``str(n)`` centered and leave it lit. Same placement as ``render_string``."""
+        """Converts number ``n`` into a string (via python's ``str(n)``) and displays it
+        centered and leave it lit until some other call overwrites the display.
+
+        A number wider than the screen is cropped. To scroll longer numbers, call ``show_string``.
+        """
+
         self.render_string(str(n), color)
 
     def clear_screen(self) -> None:
@@ -1152,23 +1170,30 @@ class Display:
     ) -> Token:
         """Scroll text across the display.
 
-        The typical case where text is wider than ``WIDTH`` glyph-columns: we
-        scroll one column every ``interval_ms`` time step. If ``loop`` is ``True``,
-        keep scrolling indefinitely until cancelled by another display operation.
-        A non-looping scroll ends exactly when the last non-empty column of
-        the string has left the screen: the display is left fully blank.
+        The typical case where text is wider than ``WIDTH`` glyph-columns: we scroll
+        one column every ``interval_ms`` (time duration measured in milliseconds). If
+        ``loop`` is ``True``, keep scrolling indefinitely until cancelled by another
+        display operation. A non-looping scroll ends exactly when the last non-empty
+        column of the string has left the screen: the display is left fully blank.
 
         For text that fits on the display without scrolling (total width <= WIDTH),
-        the text is centered and held for ``interval_ms * WIDTH`` milliseconds,
-        the same per-column time a scroll spends across one screen width, and the
-        screen is then cleared. ``loop=True`` holds that picture until another
-        display operation cancels the call, and leaves whatever that operation drew.
-        ``interval_ms=0`` shows the text, lets other tasks that are ready run once,
-        and then clears the screen. For a letter or a number that stays lit, call
-        ``render_string`` or ``render_number``.
+        the text is centered and held for ``interval_ms * WIDTH`` milliseconds and the
+        screen is then cleared. So a held text and a scrolled text of comparable width
+        provide comparable time to read.
+        ``interval_ms=0`` puts the text on the display and then immediately lets other
+        tasks that are ready run once, and then clears the screen. How long the text stays
+        up is however long those tasks take to run. That is often only a short flash.
+        ``loop=True`` holds that centered picture until another display operation
+        cancels the call, not interfeering with whatever that operation drew. The hold
+        is the same for every ``interval_ms``.
 
-        An empty string takes that same fit-on-screen path: a blank screen, held
-        for ``interval_ms * WIDTH`` milliseconds, then cleared again.
+        An empty string follows the same convention as text fitting on screen without
+        scrolling: we just show a blank screen and hold it according to the definition of above
+
+        If you want to display a letter or a number that stays on the screen indefinitely
+        until overwritten call ``render_string`` or ``render_number``. In comparision,
+        ``show_string`` is primarily focused on scrolling text across the display, with
+        short text ommitting the scrolling just as a readability improvement.
 
         Raises ``ValueError`` if ``interval_ms < 0``: a negative delay has
         no sensible meaning here (see the class discussion of cold-call-
@@ -1181,27 +1206,18 @@ class Display:
         interval_ms = int(interval_ms)
         token = self._acquire()
         text = str(text)
+        feeder = SpacedGlyphColumnFeeder(text)
 
-        # Probe with the same feeder the scroll path uses, so spacer / tofu /
-        # space-width rules cannot drift between "fits?" and the actual render.
-        probe = SpacedGlyphColumnFeeder(text)
-        fit_buf = bytearray()
-        while True:
-            col = probe.next_column()
-            if col is None:
-                break
-            fit_buf.append(col)
-            if len(fit_buf) > WIDTH:
-                break
-
-        # Fit-on-screen path: width <= WIDTH. Draw the centered window (same helper
-        # as render_string) and hold. loop=True holds until another operation cancels
-        # this call. Otherwise hold for interval_ms * WIDTH milliseconds; 0 ms still
-        # yields once so other ready coroutines can run. If this token is still
-        # current, draw an all-off frame without taking the display, so the token
-        # stays the one minted above.
-        # An empty string has zero columns and takes this path.
-        if len(fit_buf) <= WIDTH:
+        # Text fits screen: width <= WIDTH (covers also empty string of zero columns). Draw the centered window, the same helper as render_string.
+        # Hold for interval_ms * WIDTH milliseconds, which is roughly similar to the hypothetical scroll time of the text; then clear the screen.
+        # That all-off frame does not call _acquire, so this call's token stays the one minted above and is_expired stays false when nobody cancelled
+        # the holding time. For interval_ms=0, the implementation behaves the same: _sleep_pollable awaits sleep_ms(0) once, other ready tasks each get
+        # one turn to run (fifo scheduling), and when those other tasks are done running (i.e. `_sleep_pollable` returns) then the screen is cleared
+        # immediately.
+        # If loop=True, we hold for a constant short time, check for expiry and wait again if not expired, which is all done by
+        # _sleep_until_cancelled(token).  This is deliberate, so interval_ms=0 with loop=True does not create a busy expirely polling loop.
+        # Length bytes only, same spacer rule as the scroll. Stop once the text is wider than the screen.
+        if not feeder.column_count_wider_than(WIDTH):
             if token.is_expired:
                 return token
             self._render_colmajor(_center_window(text), 0, color)
@@ -1209,23 +1225,20 @@ class Display:
                 await _sleep_until_cancelled(token)
                 return token
             await _sleep_pollable(token, interval_ms * WIDTH)
-            if not token.is_expired:
-                self._render_colmajor(bytearray(WIDTH), 0, color)
+            if not token.is_expired:  # Every LED off
+                self._pixels.fill(OFF)
+                self._pixels.show()
             return token
 
         # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop does no float math.
         sleep_ms = asyncio.sleep_ms  # passing a negative value is safe and behaves exactly like 0 and still yields once.
         while True:
-            # Scroll loop memory: rather than materialising the whole scrolled
-            # bitmap, columns are fed one at a time from `feeder` into a
-            # WIDTH-byte ring buffer. The visible window is exactly WIDTH
-            # columns, so a ring that size is sufficient regardless of how
-            # long `text` is: each newly arriving column overwrites the slot
-            # that just scrolled off the left edge. The initial all-zero ring
-            # is the scroll-in padding, so the first frame renders as a fully
-            # blank display with the first column arriving from the right,
-            # rather than jumping straight to a partially-filled window.
-            feeder = SpacedGlyphColumnFeeder(text)
+            feeder.reset()  # loop=True scrolls this same feeder again from the first column
+            # Scroll loop memory: rather than materialising the whole scrolled bitmap, columns are fed one at a time from `feeder` into a WIDTH-byte ring buffer.
+            # The visible window is exactly WIDTH columns, so a ring that size is sufficient regardless of how long `text` is:
+            # each newly arriving column overwrites the slot that just scrolled off the left edge. The initial all-zero ring is the scroll-in padding,
+            # so the first frame renders as a fully blank display with the first column arriving from the right, rather than jumping straight to a partially-filled window.
+
             ring = bytearray(WIDTH)
             read_head = 0
             trailing_blanks = 0

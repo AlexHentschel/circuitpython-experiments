@@ -1,6 +1,5 @@
-"""MakeCode-style 5×5 font (DAL ``pendolino3``, MIT). See ``LICENSE``."""
+"""MakeCode-style 5x5 font (DAL ``pendolino3``, MIT). See ``LICENSE``."""
 
-from .glyphs import glyph_columns
-from .ink import glyph_ink
+from .ink import FONT
 
-__all__ = ["glyph_columns", "glyph_ink"]
+__all__ = ["FONT"]

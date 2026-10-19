@@ -33,7 +33,7 @@ NeoPixel buffer; no ``await``):
 - `render_arrow(arrow, color=WHITE)` — alias of `render_icon` for an `Icon` from the arrow catalog (e.g. `Arrows.NORTH`), kept as a separate public method name.
 - `render_string(text, color=WHITE)` — draw text centered and leave it lit.
   Text wider than the screen is cropped; when the leftover is odd, the
-  right-most columns stay. An empty string draws a blank screen. The call
+  extra column is dropped on the right. An empty string draws a blank screen. The call
   does not pause.
 - `render_number(n, color=WHITE)` — `render_string(str(n))`.
 - `set_pixel(x, y, color)` / `fill(color)` / `clear_screen()` /
@@ -294,7 +294,7 @@ flowchart LR
   geom[geometry.py]
   icons[icons.py]
   core[core.py]
-  font[font_makecode_5/glyphs.py]
+  font[font_makecode_5/ink.py]
   codec --> const
   geom --> const
   icons --> const

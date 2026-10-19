@@ -92,7 +92,7 @@ _big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
 def _scroll_sleep_s(text: str, interval_ms: int) -> float:
     """Seconds that ``Display.show_string(text)`` spends waiting, with no cancellation.
 
-    ``c`` is how many columns ``SpacedGlyphColumnFeeder`` yields for ``text``.
+    ``c`` is how many columns ``SpacedGlyphColumnFeeder(text).column_count()`` reports.
     Each frame is held for ``interval_ms`` milliseconds. An uninterrupted
     scroll of text wider than the display waits three groups of frames:
 
@@ -108,10 +108,7 @@ def _scroll_sleep_s(text: str, interval_ms: int) -> float:
     With ``loop=True``, the call runs until cancelled: text that fits stays
     up, and wider text keeps scrolling.
     """
-    feeder = SpacedGlyphColumnFeeder(str(text))
-    columns = 0
-    while feeder.next_column() is not None:
-        columns += 1
+    columns = SpacedGlyphColumnFeeder(str(text)).column_count()
     if columns <= display.WIDTH:
         return interval_ms * display.WIDTH / 1000
     return (1 + columns + display.WIDTH) * interval_ms / 1000
