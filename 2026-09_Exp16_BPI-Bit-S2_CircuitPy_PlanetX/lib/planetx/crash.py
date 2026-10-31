@@ -1,14 +1,17 @@
-"""PlanetX crash sensor: one switch on a Nezha2 jack.
+"""PlanetX crash sensor: one switch on a Nezha2 GPIO interface port.
 
-The switch is the jack's second wire (J1 → P8, J2 → P12, J3 → P14, J4 → P16).
+The switch is the port's second wire (J1 → P8, J2 → P12, J3 → P14, J4 → P16).
 Pressed means the contacts are closed.
 
     import asyncio
     from planetx import J3, PlanetXCrashSensor
 
+    def on_hit():
+        print("hit")
+
     async def main():
         crash = PlanetXCrashSensor(port=J3)
-        crash.on_pressed(lambda: print("hit"))
+        crash.on_pressed(on_hit)
         await crash.run()
 
     asyncio.run(main())
@@ -21,39 +24,16 @@ from buttons import Button
 from .ports import Port
 
 
-class PlanetXCrashSensor:
+class PlanetXCrashSensor(Button):
     """One PlanetX crash sensor.
 
-    Register ``on_pressed`` / ``on_released``, then ``await crash.run()``
-    (usually inside ``asyncio.gather`` with the rest of the program).
+    This is a ``Button``. Register ``on_pressed`` / ``on_released``, then
+    ``await crash.run()`` (usually inside ``asyncio.gather`` with the rest
+    of the program). ``port=`` selects the GPIO interface port; the sensor uses that port's
+    second wire.
     """
 
-    def __init__(self, *, port: Port | None = None, event_queue=None) -> None:
-        # ``event_queue`` is a test hook, same as ``buttons.Button``. Not part
-        # of the student-facing construction API.
-        if event_queue is not None:
-            self._button = Button(event_queue=event_queue)
-            return
-        if port is None:
-            raise ValueError("port= is required")
+    def __init__(self, *, port: Port) -> None:
+        # Tests build a sensor with ``PlanetXCrashSensor._from_queue(queue)``, inherited from ``buttons``.
         # Second RJ11 wire. Same pin a button uses for one switch.
-        self._button = Button(port.pins[1])
-
-    def on_pressed(self, handler) -> None:
-        """Call ``handler()`` every time the sensor is pressed."""
-        self._button.on_pressed(handler)
-
-    def on_released(self, handler) -> None:
-        """Call ``handler()`` every time the sensor is released."""
-        self._button.on_released(handler)
-
-    def clear(self) -> None:
-        """Drop all registered handlers."""
-        self._button.clear()
-
-    async def run(self) -> None:
-        """Never-ending task that delivers press and release events.
-
-        Typically ``await asyncio.gather(crash.run(), other_work())``.
-        """
-        await self._button.run()
+        super().__init__(port.pins[1])

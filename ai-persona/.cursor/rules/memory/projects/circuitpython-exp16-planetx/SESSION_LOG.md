@@ -4,7 +4,7 @@ Per-project session memory for **exp16** (BPI-Bit-S2 CircuitPython + PlanetX, Li
 
 ## Current state (2026-10-10)
 
-Display and button work since the 2026-09-13 on-device confirm is still not re-run on the board. Text API commits `f0612ac` and `0a14ba0` (2026-10-10, local, not pushed): sync `render_string` / `render_number`, and `show_string` / `show_number` end blank. Host pytest **237 passed** (2026-10-10; still the last full run). On 2026-10-17 the venv was healthy, but `pytest -q` from the experiment root did not reach the suite. On-device crop and blank are `unverified`. Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0. Where to resume: `CONTEXT.md` § Resumption point.
+Display and button work since the 2026-09-13 on-device confirm is still not re-run on the board. Text API commits `f0612ac` and `0a14ba0` (2026-10-10, local, not pushed): sync `render_string` / `render_number`, and `show_string` / `show_number` end blank. Host `pytest -q` from the experiment root: **283 passed** (2026-10-31). Use the `pytest` entry point; `python3 -m pytest` puts the root on `sys.path`, and `code.py` there shadows the stdlib `code` that `pdb` imports (INTERNALERROR). On-device crop and blank are `unverified`. Board anchor: UID `0740D10F1BE9`, CircuitPython 10.3.0. Where to resume: `CONTEXT.md` § Resumption point.
 
 | Work item | End state | Still open |
 |-----------|-----------|------------|
@@ -13,6 +13,38 @@ Display and button work since the 2026-09-13 on-device confirm is still not re-r
 | Button API | `OnboardButtons().button_a.on_pressed(...)`; `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. `ButtonPair` removed. | Re-run `code_stage3.py`. The 2026-09-13 confirm used `Buttons` / `on_*_pressed`. |
 | Rotation during scroll | Stage 2 steps 12 and 13 (`show_string("ROTATE")` with `set_rotation(270)`, `scroll_image` with `set_rotation(180)`). | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
+
+## 2026-10-31 — button refactor committed
+
+The staged button API (one handler per press and per release, one scanner and `_run` per switch, overflow warned on the first queued event then `clear()` after the drain, cancel deinits) plus the persona notes for it are committed on `display-verb-grid`. Host `pytest -q` from the exp16 root: **283 passed**. On-device `unverified` (UID `0740D10F1BE9`). The 2026-10-20 entries below were written before that commit.
+
+## 2026-10-20 — `run()` docstrings
+
+`OnboardButtons.run` (`lib/buttons.py`) now matches `PlanetXButtonSensor.run`: `await buttons.run()` or `gather`, handlers only fire while it runs, call once, A/B independent, a handler error is printed and the buttons keep running, pins released when the task ends, and the object cannot run again. The old `display_loop()` example name is gone. `Button.run` and `PlanetXButtonSensor.run` also gained the handler-error sentence and "call once". Host `pytest -q`: **283 passed**. Not committed.
+
+## 2026-10-20 — Nezha connector naming
+
+Alex changed `lib/planetx/button.py` line 3 to "GPIO interface ports (J1 to J4)". The vendor diagram backs that wording; see `concepts/nezha.md` § Vendor names for the Nezha Pro connectors. WebFetch of `wiki.elecfreaks.com` fails TLS ("unable to verify the first certificate"), while `curl` works. The connector labels are only in `nezha-v2-interface-diagram.png`, which is a CMYK JPEG: convert it with `sips` to view it. With Alex's go-ahead, "jack" is replaced in `lib/` and `README.md`: J1–J4 are "GPIO interface port(s)" (or just "port" after the first mention), the I2C ones "IIC interface ports". Files: `lib/buttons.py`, `lib/planetx/{__init__,button,crash,neopixel,ports}.py`, `README.md`. Test names and test docstrings still say "jack". Host `pytest -q`: **283 passed**. Not committed.
+
+## 2026-10-20 — `planetx/button.py` student docs
+
+`lib/planetx/button.py`: module docstring has a complete `asyncio.run(main())` example (C press, D release, named functions). It restates the handler basics (normal vs `async def`, queue order, keep it short / `create_task`, `await` lets the other button run) and has a short A/B + C/D `gather` example, while noting that it works the same as `buttons`. `PlanetXButtonSensor` class, new `__init__` docstring (`port=` first; `c_pin`/`d_pin` are board pin objects; `ValueError` cases), `deinit`, `button_c`/`button_d`, `run` reworded for teenage learners, mirroring `OnboardButtons`. Host `pytest -q`: **283 passed**. Not committed.
+
+## 2026-10-20 — a button is used once
+
+Alex: buttons are throw-away objects; once cancelled they are done. `_Switch.run`'s `finally` calls `self._deinit()`, so however `run()` ends (cancelled task, deinit, unexpected error) the pin is released and the state is final (2). The "already running" and "deinitialized" checks stay before the `try`, so a refused second `run()` does not deinit the running one. Docstrings: `_Switch.run`, `OnboardButtons.run`, `PlanetXButtonSensor.run` (`lib/planetx/button.py`) say the pins are released when the task ends. New host test `test_cancelled_run_releases_the_pin_and_cannot_start_again`. Host `pytest -q`: **283 passed**. On-device `unverified`. Not committed.
+
+## 2026-10-20 — overflow warning at first sight, `clear()` after the drain
+
+Agreed with Alex. `Button.run` reads `overflowed` after each `get()` that returns an event, before the handler, and prints the warning once (local `warned`). The old order printed only after the drain, which re-runs the stalling handler for up to ~64 queued events (minutes late if each run takes seconds). After the drain, `clear()`, then `print` only if not yet warned, then fall through to `sleep_ms`. The extra `get()` before `clear()` and the held `event` + `continue` are gone: they only trimmed the one-event gap by microseconds. New host test `test_overflow_warns_before_queued_events_and_keeps_them` (fails on the old order). Host `pytest -q` from the exp16 root: **282 passed** (`python3 -m pytest` fails there: `code.py` shadows the stdlib `code` that `pdb` imports). Mechanism: `concepts/circuitpython-runtime.md` § Keypad scan vs `EventQueue.clear`. On-device `unverified`. Not committed.
+
+## 2026-10-20 — `mpy-cross` and long comments
+
+`#` comments and docstrings do not land in a CircuitPython 10.3.0 `.mpy`. Used string literals do. Exp16 `lib/**/*.py` is 163963 source bytes, 24496 compiled bytes (`-O0`, short `-s`). Mechanism: `concepts/circuitpython-runtime.md` § `#` comments and docstrings are absent from CircuitPython `.mpy` files. No sources compiled into `lib/`.
+
+## 2026-10-20 — README "Port mapping" section
+
+Alex found `PlanetXButtonSensor.__init__`'s P-number note (`lib/planetx/button.py`) too condensed for a human reader. Added a "Port mapping" subsection to `README.md` (after the Hardware table): embeds the existing `Notes/bpi_bit_v2_goldfinger.jpg` figure plus a small table (J1–J4, IIC → P-number → `board.IOn`), restating what `lib/planetx/ports.py` already hard-codes. `button.py`'s docstring now points there instead of just at `planetx.ports`. Not committed.
 
 ## 2026-10-18 — untrimmed `glyphs.py` removed
 
@@ -68,9 +100,21 @@ Applied. `GlyphFont.ink` / `GlyphFont.width` in `lib/display/font_makecode_5/ink
 
 Public docstrings for the two count methods state the column count, the spacer, and that the cursor does not move. The length-byte read and "shipped font / `lookup` is not consulted" sit in a maintainer comment above `column_count`. Applied, then moved back onto the feeder the same night. `SpacedGlyphColumnFeeder.column_count` and `.column_count_wider_than(limit)` read `self._text` and call `glyph_width`. No `width_of=` and no `is glyph_ink` branch. They do not call `lookup` and do not move the cursor. A stand-in font's width is still `len` of a `next_column` drain. Call sites: `_center_window` (one feeder measures, then draws), the `show_string` fit check, `code_stage2.py` `_scroll_sleep_s`. Host pytest **242 passed**. Supersedes the 2026-10-11 note that the count copied ink.
 
+## 2026-10-20 — `const()` vs a plain int name
+
+`_STATE_DEINIT = const(2)` compiles to the same bytecode as writing `2`. `_STATE_DEINIT = 2` stays a `LOAD_GLOBAL` per compare. On `Button.run` that lookup is once per 10 ms wake, noise next to the sleep. Not timed on the board. Concept: `concepts/circuitpython-runtime.md` § `const()`.
+
+## 2026-10-19 — empty handler stays `None`
+
+Alex asked why `_pressed` / `_released` are not a no-op. A release often has no handler. `if handler is None: return` skips the call. A no-op would run `handler()`, then `hasattr` on `None`, on every such event. Left as `None`.
+
+## 2026-10-19 — buttons refactor steps 2–7 done (not committed)
+
+Single handler slot per event. One scanner, queue, and pump per `Button`. `OnboardButtons` / `PlanetXButtonSensor` are pair containers (`run` = `gather`); test seam `_from_buttons`. `PlanetXCrashSensor(Button)`. `clear*` / `PushButtonBase` / lanes gone. Host `"$VENV/bin/pytest" -q`: **278 passed** (was 240 before this rewrite; the count includes the other workstream's display tree). On-device `unverified`. Step 8 (`code_stage3.py` on UID `0740D10F1BE9`) is Alex's. No commit: staged display work must stay out. Files listed in the execution chat's proposed path-limited commit.
+
 ## 2026-10-19 — buttons refactor step 1 done (not committed)
 
-A4 only. `lib/buttons.py` pump waits `asyncio.sleep_ms(_POLL_MS)` with `_POLL_MS = 10`, bound once outside the loop. Docstring no longer says `asyncio.sleep(0)` or `_POLL_INTERVAL_S`. Opt-in `sleep_ms_shim` in `tests/conftest.py` (not autouse). Requested by `tests/test_buttons.py` and by `test_crash_press_fires` in `tests/test_planetx_drivers.py` (that test also starts the pump). `"$VENV/bin/pytest" -q`: **240 passed**. Not committed (staged display work must stay out). On-device still `unverified`. Waiting on Alex before step 2. Alex, same day: a poll shorter than the 20 ms `keypad` scan does not create events; after an event is queued, a uniform phase waits `_POLL_MS / 2` (5 ms) on average, up to `_POLL_MS` (10 ms).
+A4 only. `lib/buttons.py` pump waits `asyncio.sleep_ms(_POLL_MS)` with `_POLL_MS = 10`, bound once outside the loop. Docstring no longer says `asyncio.sleep(0)` or `_POLL_INTERVAL_S`. Opt-in `sleep_ms_shim` in `tests/conftest.py` (not autouse). Requested by `tests/test_buttons.py` and by `test_crash_press_fires` in `tests/test_planetx_drivers.py` (that test also starts the pump). `"$VENV/bin/pytest" -q`: **240 passed**. Not committed (staged display work must stay out). On-device still `unverified`. Steps 2–7 followed the same day (entry above). Same day, later: the module docstring is written for a student. It says to pass the function name without parentheses. A handler is a normal function or an ``async def`` that uses ``await``. The return-a-coroutine cases are a comment on ``Button._deliver``, not in the student text.
 
 ## 2026-10-19 — buttons refactor handed to an execution chat (plan v3 ready, not started)
 
@@ -440,7 +484,7 @@ Alex asked whether to fix two script findings from the 2026-09-21 review. Recomm
 
 ## 2026-09-27 — recap of the review against `ec5a780`
 
-Clock at the file listing: 2026-09-27 09:50 PDT. Review chat birth: 2026-09-21 19:01 PDT (5 days 15 hours earlier). Composer 2.5 readers read the Exp16 transcripts in full; prompts and digests: exp16 `ai-notes/2026-09-27_review-followup/`. Greentech chats from that window were skipped (roster in that folder).
+Clock at the file listing: 2026-09-27 09:50 PDT. Review chat birth: 2026-09-21 19:01 PDT (5 days 15 hours earlier). Composer 2.5 readers read the Exp16 transcripts in full; prompts and digests: exp16 `ai-notes/2026-09-27_review-followup/`. Chats from unrelated projects in that window were skipped (roster in that folder).
 
 Score, checked against source the same morning: scroll flush is once per frame; holds poll a `Token`; `pause` is cancellable; empty `show_string` draws a blank; out-of-range `set_pixel` cancels and leaves the frame (Alex's rule); scroll stays on the step lattice; fit hold is `interval_ms * WIDTH`; `_scroll_sleep_s` includes that fit case (Alex, chat `fb400144`, last turn 2026-09-27 09:35, commit `ec5a780` 09:37). Still open after that recap: Stage 3 arrow hold, async button handlers, `show_number` docstring vs `bool`. **Same day, 10:52 PDT:** Alex closed the negative-interval question for the image methods — `show_image` and `scroll_image` treat `interval_ms < 0` as 0. Not run on UID `0740D10F1BE9`.
 
@@ -594,3 +638,15 @@ Alex proposed making Tier 1 / Tier 2 symmetric (P1–P10: `scroll_string/number`
 
 **2026-10-19 later — plan consolidated as v1.1, no code.** Alex agreed: left-aligned default (`x=0`), `ScreenText` + separate reader, and asked for opt-in centering by functional composition. Recommendation adopted in plan: `centered(str | number | ScreenText) -> ScreenText` that materializes a literal `WIDTH`-column text (≤ 5 bytes) — rejected a pure `center_x()` helper (no help for `scroll_*`, no composition) and a lazy restricted reader (branching cost per column for ≤ 5 bytes saved). Existing pinned centered windows carry over as `centered()` tests. `x` treated as accepted (Alex did not object). Plan `05_execution_plan_v1.1.md` supersedes `04`: commits C1 renames, C2 text layer (`ScreenText`, `_ColumnReader` + `skip`, `centered`, direct `_draw_text`, `_center_window` removed), C3 `show_*`, C4 `x` + `render_image`, C5 text split, C6 `scroll_image`, C7 docs/G3, C8 stage scripts (Stage 2 extended to ≈ 25 steps), C9 device pass. The separate note `ai-notes/2026-10-19_centered-text-frame/` is superseded in effect (only `skip` + buffer-free drawing survive); asked Alex to mark it. Open: confirm `x`, `column_count_wider_than` fate, `centered` as function vs method, Phase 0 commit.
 
+**2026-10-19 later still — Alex settled the five open items (plan 05 now D1–D19, no code yet).** `x` confirmed (D12); `column_count_wider_than` **kept** as student-facing "does it fit?" probe to choose `show_*` vs `scroll_*` (D17); `centered` free function only (D18); `centered-text-frame` note marked superseded (D19; only `skip` + `_draw_text` survive, folded into plan §§ 2.6–2.7; INDEX.md files updated); **git (D16): the agent commits in coarse milestones** — M0 baseline (staged display work only; unrelated files listed first), M1 = C1–C3, M2 = C4–C6, M3 = C7–C8; never push / rewrite / `git add -A`. His message is not an explicit execution go-ahead → waiting for it. Directive recorded: coarse commits at milestones `[project:circuitpython-exp16-planetx]`, goal = reviewable history without per-step noise; first reinforcement = 0 (experimental).
+
+execution authorized 2026-10-19 by Alex
+
+**2026-10-19 — M1 committed `415340a` on `display-verb-grid` (C1–C3). Host pytest 275 passed (baseline on `894a733` was 240; no M0 commit).** C1 renames. C2 `ScreenText` / `centered()` / left-aligned text; `code_stage2.py` feeder call sites retargeted so the deleted class is not imported. C3 keyword-only `duration_ms` + blank for pattern/icon/arrow/image/filled. `x` and the text `scroll_*` split are M2. Stage scripts still pass `interval_ms` until C8. Not on UID `0740D10F1BE9`. Unverified: narrow-glyph look, marquee vs pan, `centered` / explicit-`x` cost, keyword-only error wording on CP 10.3.0. Progress: `ai-notes/2026-10-17_display-api-uniformity/PROGRESS.md`. `lib/buttons.py` left uncommitted.
+
+
+## 2026-10-20 — per-switch `run` made private (Alex's call)
+
+`_Switch.run` → `_Switch._run`; public `Button.run()` wraps it (same pattern as `deinit` / `_deinit`). `OnboardButtons.run` and `PlanetXButtonSensor.run` gather `_run()`. Reason: `_run`'s `finally` deinitializes its switch, so `buttons.button_a.run()` alone could leave a pair half deinitialized, and running a switch twice would raise inside the pair's `gather`. Docstrings: A/B and C/D now "no `run` or `deinit`". `tests/test_public_names.py` asserts `_Switch` has `_run` and no `run`. Host pytest 283 passed (from `tests/`). Uncommitted, not on the board. Files: exp16 `lib/buttons.py`, `lib/planetx/button.py`, `tests/test_public_names.py`.
+
+**Same day — `event_queue=` off the public signatures.** `_Switch.__init__(pin)` (pin required); test seam is `_Switch._from_queue(queue)` (`cls.__new__` + `_init_state`, so a subclass `__init__` is skipped), matching `_from_buttons` on the pairs. `PlanetXCrashSensor.__init__(*, port: Port)` (required; was `ValueError("port= is required")`, now Python's `TypeError`). Tests: call sites → `._from_queue(...)`; `test_button_requires_pin` expects `TypeError` and that `Button(event_queue=…)` is rejected. Host pytest 283 passed. Applies CODING_PRINCIPLES *A test substitution stays off the user-facing signature* (2nd application). Flagged to Alex, not changed: `Button.deinit` docstring says "Both pins … `buttons.deinit()`" (pair wording on a single button).

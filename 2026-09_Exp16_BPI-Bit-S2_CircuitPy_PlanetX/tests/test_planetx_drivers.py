@@ -27,6 +27,7 @@ from planetx import (
 from planetx.light import _counts_to_lux, _u16_to_counts
 from planetx.motor import _fill, _path_byte, firmware_degrees_from, laps_per_sec
 from planetx.neopixel import RING_PIXELS, hsl
+from buttons import Button
 from planetx.ports import M2, M3, MotorPort
 
 
@@ -39,6 +40,7 @@ class FakeEvent:
 class FakeEventQueue:
     def __init__(self):
         self._pending = []
+        self.overflowed = False
 
     def send(self, event):
         self._pending.append(event)
@@ -272,7 +274,7 @@ async def test_crash_press_fires():
     - How: fake event queue; one press; handler appends ``"hit"``.
     """
     queue = FakeEventQueue()
-    crash = PlanetXCrashSensor(event_queue=queue)
+    crash = PlanetXCrashSensor._from_queue(queue)
     fired = []
     crash.on_pressed(lambda: fired.append("hit"))
     queue.send(FakeEvent(0, pressed=True))
@@ -284,22 +286,46 @@ async def test_crash_press_fires():
     assert fired == ["hit"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("sleep_ms_shim")
+async def test_crash_on_pressed_replaces():
+    """A second ``on_pressed`` replaces the first. The sensor is a ``Button``.
+
+    - Covers: a handler list, or a wrapper that is not a ``Button``.
+    - How: ``isinstance``; register two press handlers; ``_on_event(True)``; only the second ran.
+    """
+    crash = PlanetXCrashSensor._from_queue(FakeEventQueue())
+    assert isinstance(crash, Button)
+    fired = []
+    crash.on_pressed(lambda: fired.append("old"))
+    crash.on_pressed(lambda: fired.append("new"))
+    await crash._on_event(True)
+    assert fired == ["new"]
+
+
 def test_crash_sensor_source_uses_second_wire():
-    """The crash sensor passes ``port.pins[1]`` to ``Button``.
+    """The crash sensor is a ``Button`` and constructs with ``port.pins[1]``.
 
     - Covers: binding the analog wire, or a ``digitalio`` poller.
-    - How: AST of ``crash.py``; a ``Button`` call whose argument is ``port.pins`` subscript 1.
+    - How: AST of ``crash.py``; base ``Button``; ``super().__init__(port.pins[1])``.
       J3's second P-number is 14.
     """
     path = pathlib.Path(__file__).resolve().parent.parent / "lib" / "planetx" / "crash.py"
     tree = ast.parse(path.read_text())
+    crash_class = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "PlanetXCrashSensor"
+    )
+    assert any(isinstance(base, ast.Name) and base.id == "Button" for base in crash_class.bases)
     found = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Button":
-            if node.args and isinstance(node.args[0], ast.Subscript):
-                sl = node.args[0].slice
-                value = sl.value if isinstance(sl, ast.Constant) else None
-                if value == 1:
-                    found = True
+    for node in ast.walk(crash_class):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        arg = node.args[0]
+        if not isinstance(arg, ast.Subscript) or not isinstance(arg.slice, ast.Constant):
+            continue
+        if arg.slice.value != 1 or not isinstance(arg.value, ast.Attribute):
+            continue
+        if arg.value.attr == "pins" and isinstance(arg.value.value, ast.Name) and arg.value.value.id == "port":
+            found = True
     assert found
     assert J3.p_numbers[1] == 14

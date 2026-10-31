@@ -44,7 +44,7 @@ def test_button_rejects_port_and_pins_together():
     """``port=`` and ``c_pin``/``d_pin`` together raise.
 
     - Covers: silently ignoring one of the two wiring sources.
-    - How: ``event_queue`` omitted so the check runs; dummy pins; ``ValueError``.
+    - How: dummy pins plus ``port=``; ``ValueError`` before any scanner is built.
     """
     with pytest.raises(ValueError, match="not both"):
         PlanetXButtonSensor(c_pin=object(), d_pin=object(), port=J3)

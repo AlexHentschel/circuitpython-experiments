@@ -19,8 +19,30 @@ Display architecture: [`lib/display/README.md`](lib/display/README.md).
 | LEDs | Onboard 5×5 WS2812 (25 NeoPixels), `board.NEOPIXEL` (GPIO18), brightness cap 0.20 |
 | Wiring | Column-major, right-to-left. Logical (0,0) = top-left. Strip index `row + 20 - column * 5` |
 | Buttons A/B | Onboard, `board.BUTTON_A` / `board.BUTTON_B` (active-low) |
-| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) on Nezha2 **J3** (P13/P14) = `board.IO13` / `board.IO14`. Jack map: `planetx.J1`–`J4`. |
-| Nezha2 I2C | All IIC jacks share one bus: silk **P19 = SCL**, **P20 = SDA** (`board.SCL` / `board.SDA`). `planetx.I2C`. |
+| Buttons C/D | [ElecFreaks PlanetX Push Button Module](https://wiki.elecfreaks.com/en/microbit/sensor/planet-x-sensors/Plant_X_EF05017/) on Nezha2 **J3** (P13/P14) = `board.IO13` / `board.IO14`. Port map: `planetx.J1`–`J4`. |
+| Nezha2 I2C | All IIC interface ports share one bus: silk **P19 = SCL**, **P20 = SDA** (`board.SCL` / `board.SDA`). `planetx.I2C`. |
+
+### Port mapping from Nezha2 interfaces → `board.IOn` (the BPI-Bit-S2's CircuitPython name for goldfinger pin)
+
+![Goldfinger edge-connector pinout, with the micro:bit-style P-numbers](Notes/bpi_bit_v2_goldfinger.jpg)
+
+<sub>BananaPi BPI-Bit-S2 goldfinger pinout; unmodified source: [BananaPi docs](https://docs.banana-pi.org/en/BPI-Bit-S2/BananaPi_BPI-Bit-S2), available under Creative Commons Attribution-ShareAlike License, by BananaPi. (local [license file](Notes/bpi_bit_v2_goldfinger.jpg.license))</sub>
+
+The figure above shows the edge-connector pins by their silk **P-number** (the BBC micro:bit edge-connector
+standard this board's connector, "goldfinger", implements). Nezha2 wires its RJ11 ports to those same
+P-numbers; `lib/planetx/ports.py` carries that same wiring as code (`J1`–`J4`, `I2C`) and binds each P-number
+to its `board.IOn` object:
+
+| Nezha2 port | Edge-connector pins (P-number) | CircuitPython pin |
+|-------------|---------------------------------|--------------------|
+| J1 (GPIO) | P1, P8 | `board.IO1`, `board.IO8` |
+| J2 (GPIO) | P2, P12 | `board.IO2`, `board.IO12` |
+| J3 (GPIO) | P13, P14 | `board.IO13`, `board.IO14` |
+| J4 (GPIO) | P15, P16 | `board.IO15`, `board.IO16` |
+| IIC (any of the 4 ports — shared bus) | P19 (SCL), P20 (SDA) | `board.IO19` / `board.SCL`, `board.IO20` / `board.SDA` |
+
+`board.IOn` names the goldfinger pad P*n*, **not** the raw ESP32-S2 wire number — see the comment block
+at the top of `lib/planetx/ports.py` if you need that extra layer.
 
 ## This experiment's setup
 
@@ -57,7 +79,7 @@ Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at
 
 ## Status
 
-**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–2 steps 1–10, and Stage 3 on the button API of that day). **Button API (current):** `OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)` (`c_pin` / `d_pin` still work). Host pytest **178 passed** (2026-09-21; suite does not import `board` / `display.core`). `code_stage3.py` matches this API. The 2026-09-13 confirm used `on_*_pressed`, so re-run this script before treating the new call shape as confirmed. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–2 steps 1–10, and Stage 3 on the button API of that day). **Button API (current):** one handler for press and one for release. `OnboardButtons().button_a.on_pressed(...)` replaces any previous press handler; `on_pressed(None)` clears it. `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)` (`c_pin` / `d_pin` still work). `PlanetXCrashSensor` is a `Button`. Host pytest **278 passed** (2026-10-19). `code_stage3.py` matches this API. The 2026-09-13 confirm used an older call shape, so re-run this script before treating the current one as confirmed on the board. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
 
 Separate, still-open thread: font-spacing Phase 5 is Alex's on-device re-confirm.
 `"STAGE2"` and `"42"` scroll and end blank; `"!!"` fits, holds for `interval_ms * WIDTH`, then blanks.
@@ -69,8 +91,8 @@ Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portabil
 
 ```
 lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
-lib/buttons.py      Async onboard button dispatchers (`PushButtonBase`, `Button`, `OnboardButtons`)
-lib/planetx/        PlanetX modules (`J1`–`J4` GPIO jacks; shared `I2C` bus; `PlanetXButtonSensor` C/D)
+lib/buttons.py      Async onboard buttons (`Button`, `OnboardButtons`): one handler per press and per release
+lib/planetx/        PlanetX modules (`J1`–`J4` GPIO interface ports; shared `I2C` bus; `PlanetXButtonSensor` C/D)
 code_stage0-3.py    Stage scripts (replay via cpfiles.txt). 0/1 and stage-2 steps 1–10 confirmed on-device; stage-2 steps 11/12 and the current stage-3 button API are not.
 scripts/            Human-run deploy + font-build scripts (see § Deploy)
 .vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt
