@@ -1,72 +1,141 @@
-"""Asynchronous library for physical buttons. One Python object per physical
-button module, each registering press/release handlers directly (no polling).
+"""Buttons for this board and for PlanetX.
 
-Register handlers, then run the object's ``run()`` forever as a background task.
-``log_button_press`` is a normal function that simply prints a log message. In
-contrast, ``announce_and_wait`` is an asynchronous function (``async def``), which
-prints, then waits one second during which other coroutines can run.
+A handler is called when the event happens: either a button is pressed or released.
+You provide the handler function and when the button is pressed, your handler is called.
+Presses and releases (events) of that same button are processed one at a time, in the order
+they happened. If the button events happen faster than your handler can process them, the
+events are queued up and processed in order.
+
+In the following example, ``log_button_press`` is a normal function. It runs to the
+end before anything else runs. So keep your handlers short; never call ``time.sleep``
+in a handler. If you want actions to be delayed or timed, then schedule them from within
+the handler with ``asyncio.create_task(...)`` and return quickly from the handler itself.
 
     import asyncio
+    import display
     from buttons import OnboardButtons
 
     def log_button_press():
         print("A pressed")
 
-    async def announce_and_wait():
-        print("start waiting")
-        await asyncio.sleep(1) # during this sleep, other coroutines can run
-        print("done waiting")
-
     async def main():
         buttons = OnboardButtons()
         buttons.button_a.on_pressed(log_button_press)
+        await buttons.run()
+
+    asyncio.run(main())
+
+The following ``announce_and_wait`` is an ``async def``. The button library waits until
+it is done. While it is paused at ``await``, the display and the other button keep running.
+The next press or release of this button has to wait until the prior call of
+``announce_and_wait`` returns:
+
+    import asyncio
+    import display
+    from buttons import OnboardButtons
+
+    async def announce_and_wait():
+        await display.display.show_string("A")
+
+    async def main():
+        buttons = OnboardButtons()
         buttons.button_a.on_pressed(announce_and_wait)
         await buttons.run()
 
     asyncio.run(main())
 
-``log_button_press`` and ``announce_and_wait`` are both handlers for A, registered
-in that order. Handlers on one switch run one after another, so ``log_button_press``
-runs to the end before ``announce_and_wait`` starts. Because ``log_button_press`` is
-a synchronous function, it runs straight through until it returns; no other coroutines
-are interleaved during its execution.
-In contrast, ``announce_and_wait`` is an asynchronous function: during its ``asyncio.sleep(1)``
-other coroutines (incl. handlers for other buttons) can run.
+Function ``scroll_hello`` below starts a scroll and returns, so the next press can be processed
+immediately without waiting for the scroll to finish. ``create_task`` only schedules that work.
+The scroll starts after your function has returned. Registering a different handler later does
+not stop a scroll you already started. An error inside that scroll just ends the task, but
+is not visible to the ``scroll_hello`` handler.
 
-When both the buttons on the board and an external button module should deliver
-presses at the same time, each module is its own object with its own ``run()``.
-For example, ``buttons_ab`` is an ``OnboardButtons``: buttons A and B, built onto
-this board. ``buttons_cd`` is a ``PlanetXButtonSensor``: an external PlanetX button
-module, buttons C and D. There are two options for running both:
-1. ``gather`` waits on each ``run()`` it is given. Those ``run()`` calls run forever, so
-   any lines after that ``gather`` do not run.
+    import asyncio
+    import display
+    from buttons import OnboardButtons
 
-        await asyncio.gather(buttons_ab.run(), buttons_cd.run())
-        # any code lines after this `gather` do not run
+    def scroll_hello():
+        asyncio.create_task(display.display.show_string("HELLO", loop=True))
 
-2. ``create_task`` starts ``run()`` in its own coroutine and then returns right away, so this coroutine can continue:
+    async def main():
+        buttons = OnboardButtons()
+        buttons.button_a.on_pressed(scroll_hello)
+        await buttons.run()
 
-        ab_task = asyncio.create_task(buttons_ab.run())  # returns immediately
-        cd_task = asyncio.create_task(buttons_cd.run())  # returns immediately
-        buttons_ab.button_a.on_pressed(log_button_press) # register handler, also runs immediately
-        await asyncio.sleep(60)                          # returns after awaiting the completion of the sleep (60 seconds)
+    asyncio.run(main())
 
-        # ⋮ other code here will be reached after the 60 seconds sleep, and after the `create_task` calls have returned
+For a handler, implement a normal function or an ``async def``. A normal function ``f`` is run as ``f()``.
+A function ``a`` defined as ``async def`` is run as ``await a()``. Inside an ``async def``, ``await``
+the work you want to finish. Do not return a coroutine from either kind of handler.
 
-   Each ``asyncio.create_task`` creates a background task for executing ``run()``.
-   It is possible to register handlers after the ``run`` methods have been called.
-   In our example, ``log_button_press`` is registered after ``create_task`` and is
-   called on the next press of A. When ``main`` returns, ``asyncio.run`` finishes
-   and background tasks executing ``run()`` stop (no explicit termination needed).
+To make your own kind of button, write a class that extends ``Button``. For example,
+``PlanetXCrashSensor``.
 
-GPIO pins are constructor arguments. It is currently not possible to change the physical
-pin a button is connected to after construction or unassign a pin used by a button.
+To watch this board's A/B buttons and a PlanetX module at the same time, make one object
+for each and run both. ``buttons_ab`` is an ``OnboardButtons`` object for reacting
+to the A and B buttons on this board. ``buttons_cd`` is a ``PlanetXButtonSensor``
+(buttons C and D on the external module).
 
-``Button`` is one GPIO pin. ``OnboardButtons`` (A/B) is this board's native
-button pair. PlanetX sensor modules (C/D, etc.) live in the ``planetx`` package.
+1. ``gather`` waits on each ``run()``. Those calls run forever, so any lines
+   after ``gather`` are never reached.
+
+        import asyncio
+        from buttons import OnboardButtons
+        from planetx import J3, PlanetXButtonSensor
+
+        async def main():
+            buttons_ab = OnboardButtons()
+            buttons_cd = PlanetXButtonSensor(port=J3)
+            await asyncio.gather(buttons_ab.run(), buttons_cd.run())
+
+        asyncio.run(main())
+
+2. ``create_task`` starts ``run()`` in the background and returns right away, so your
+   function can continue. You can register a handler after ``run()`` has started.
+   ``log_button_press`` below runs on the next press of A after it was registered as
+   handler. When ``main`` returns, ``asyncio.run`` finishes and those background
+   tasks (``buttons_ab.run`` and ``buttons_cd.run``) stop.
+
+        import asyncio
+        from buttons import OnboardButtons
+        from planetx import J3, PlanetXButtonSensor
+
+        def log_button_press():
+            print("A pressed")
+
+        async def main():
+            buttons_ab = OnboardButtons()
+            buttons_cd = PlanetXButtonSensor(port=J3)
+            asyncio.create_task(buttons_ab.run())
+            asyncio.create_task(buttons_cd.run())
+            buttons_ab.button_a.on_pressed(log_button_press) # you can register the handler on ``buttons_ab`` before or after ``run()`` has been called
+            await asyncio.sleep(60)
+
+        asyncio.run(main())
+
+``Button`` is one physical switch you construct yourself, specifying which GPIO pin it is
+connected to. ``OnboardButtons`` is this board's A and B. ``OnboardButtons.deinit()`` releases
+both pins. PlanetX modules (C/D, and the crash sensor) are in the ``planetx`` package. The
+crash sensor is a ``Button``. You choose their port with ``port=`` in the constructor.
+
+If you don't need a button anymore, you can deinitialize it by calling ``button.deinit()``.
+Deinitialization releases the GPIO pin(s) the button was connected to right away, so you can
+reuse the GPIO pin(s) for something right after ``button.deinit()`` returns. A ``run()`` task
+that is going stops by itself: the handler already running finishes, then ``run()`` raises
+``RuntimeError``.
 """
 
 from __future__ import annotations
+
+import asyncio  # once; ``_on_event`` runs on every event
+
+try:  # CircuitPython provides ``micropython.const``.
+    from micropython import const
+except ImportError:
+
+    def const(x):
+        return x
+
 
 try:
     from typing import Callable
@@ -74,15 +143,18 @@ except ImportError:
     pass
 
 
-# Poll interval for ``_pump``, in whole milliseconds. A 0 ms wait busy-spins
-# the bundle scheduler (see ``_pump``). 10 ms is half of keypad.Keys' default
-# scan interval (20 ms).
+# Milliseconds ``Button.run`` waits between scans when the queue is empty.
+# 10 ms is half of keypad.Keys' default scan interval (20 ms). After an event
+# is already queued, the average extra wait is ``_POLL_MS / 2`` (5 ms).
+# So on average, this library increases the latency by 5 ms.
 _POLL_MS = 10
 
-# Per-switch queue cap. keypad.EventQueue defaults to 64 for the whole scanner.
-# Each switch keeps its own bounded list so a handler that awaits for a long
-# time cannot grow memory without limit when that switch is pressed again.
-_LANE_MAX = 64
+_OVERFLOW_WARNING = "button event queue overflowed; events were dropped"
+
+# Button._state. 2 is final: deinit() and the end of run() both release the pin and enter 2.
+_STATE_READY = const(0)  # constructed; run() has not started
+_STATE_RUNNING = const(1)  # run() is inside its loop
+_STATE_DEINIT = const(2)  # the pin is released; run() must raise and must not start
 
 
 def _bind_scanner(owner, pins) -> None:
@@ -90,275 +162,239 @@ def _bind_scanner(owner, pins) -> None:
 
     Device path: ``keypad.Keys`` (active-low, pull-up) → native EventQueue on
     ``owner``. ``import keypad`` lives here so a host ``import buttons`` does
-    not load it (tests pass ``event_queue=`` and never call this). Each
-    device-path construct runs the statement; after the first it is a
-    ``sys.modules`` lookup. Bind is once per physical module at construct time,
-    not per event.
+    not load it (tests build buttons with ``_from_queue`` and never call
+    ``_bind_scanner``). Each button binds once, at construction time, not per event.
     """
     import keypad  # CircuitPython-only; not Blinka-on-CPython
 
-    owner._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)  # unread on purpose: owns the scanner; EventQueue does not keep Keys alive
+    # ``_keys`` is the scanner that watches the pin. ``_queue`` is that scanner's event list.
+    # We retain a reference to ``_keys`` so we can ``deinit`` the button to pin pairing later.
+    owner._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)
     owner._queue = owner._keys.events
 
 
-def _report_handler_error(exc) -> None:
-    """Print ``exc`` on the serial console and return. The switch keeps running."""
+def _report_handler_error(e) -> None:
+    """Print exception ``e`` on the serial console and return. The button keeps running."""
     try:
         import sys
 
-        sys.print_exception(exc)  # CircuitPython / MicroPython
+        sys.print_exception(e)  # CircuitPython / MicroPython
     except AttributeError:
         import traceback
 
-        traceback.print_exception(exc)
+        traceback.print_exception(e)
 
 
-class _SwitchLane:
-    """One switch's event list and the task that runs its handlers in order.
-
-    ``offer`` appends from the keypad pump and returns immediately. ``run``
-    awaits each handler before taking the next event for this switch. A second
-    lane's ``run`` is another task, so the other switch proceeds at an
-    ``await``. The list stops growing at ``_LANE_MAX``; a further ``offer``
-    drops that event.
-    """
-
-    def __init__(self, switch) -> None:
-        self.switch = switch
-        self.pending = []
-        self.wake = None
-
-    def offer(self, pressed) -> None:
-        if len(self.pending) >= _LANE_MAX:
-            return
-        self.pending.append(pressed)
-        if self.wake is not None:
-            self.wake.set()
-
-    async def run(self) -> None:
-        import asyncio
-
-        self.wake = asyncio.Event()
-        while True:
-            while self.pending:
-                pressed = self.pending.pop(0)
-                try:
-                    await self.switch._handle(pressed)
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:
-                    _report_handler_error(exc)
-            # Clear only while empty, then look again: an offer between the
-            # empty check and wait() must still be seen.
-            self.wake.clear()
-            if self.pending:
-                continue
-            await self.wake.wait()
-
-
-def _route_one(lane):
-    """Every event on a one-pin scanner belongs to ``lane``."""
-
-    def route(event) -> None:
-        lane.offer(event.pressed)
-
-    return route
-
-
-def _route_pair(first, second):
-    """Key 0 → ``first``, key 1 → ``second``. Any other key number is ignored.
-
-    Equality is ``==``, so a boolean ``True`` selects ``second`` (``True == 1``).
-    ``keypad.Event.key_number`` is an int. A negative number does not wrap.
-    """
-
-    def route(event) -> None:
-        index = event.key_number
-        if index == 0:
-            first.offer(event.pressed)
-        elif index == 1:
-            second.offer(event.pressed)
-
-    return route
-
-
-async def _pump(queue, route) -> None:
-    """Move keypad events onto switch lanes until cancelled.
-
-    Host CPython ``asyncio`` here is the test stand-in; the CIRCUITPY bundle
-    ``asyncio`` is a different library.
-
-    Each lap waits ``_POLL_MS`` milliseconds via ``asyncio.sleep_ms``. On the
-    bundle scheduler a wait of 0 ms re-queues
-    this task as ready now. When it is the only ready task (the display task
-    is mid-sleep between frames), ``run_until_complete`` skips its blocking
-    poll (``dt == 0`` skips ``_io_queue.wait_io_event(dt)``) and the loop
-    spins at 100% CPU. A 10 ms wait lets the scheduler block until it elapses.
-
-    10 ms is half of ``keypad.Keys``' own scan interval (default 20 ms). That
-    scan runs in the background, independent of when Python calls ``.get()``.
-    Events cannot appear faster than the scan, so a shorter poll only rechecks
-    an EventQueue that has not changed.
-
-    ``route`` only appends to a lane. The drain loop does not await handlers,
-    so a burst already sitting in the keypad queue is handed off before this
-    task sleeps. Each switch's lane task runs the handlers.
-    """
-    import asyncio
-
-    # Bound once. ``sleep_ms`` takes whole milliseconds, so the loop builds no float.
-    while True:
-        event = queue.get()
-        while event is not None:
-            route(event)
-            event = queue.get()
-        await asyncio.sleep_ms(_POLL_MS)
-
-
-async def _serve(queue, lanes, route) -> None:
-    """Run ``lanes`` beside the keypad pump. Cancel the lanes when the pump ends."""
-    import asyncio
-
-    tasks = [asyncio.create_task(lane.run()) for lane in lanes]
+def _make_buttons(pin_1, pin_2):
+    """Build two ``_Switch`` objects. If the second pin fails, deinit the first."""
+    first = _Switch(pin_1)
     try:
-        await _pump(queue, route)
-
-    # Runs when this task is cancelled (task.cancel(), or CPython's asyncio.run shutdown).
-    # On the board, asyncio.run returns without cancelling leftover tasks, so this does not run when main returns.
-    finally:
-        for task in tasks:
-            task.cancel()
-        for task in tasks:
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        second = _Switch(pin_2)
+    except Exception:
+        first._deinit()
+        raise
+    return first, second
 
 
-class PushButtonBase:
-    """Press and release handlers for one switch.
+class _Switch:
+    """One physical button switch, wired to one GPIO pin. This is a private base class that provides
+    service methods for deinitialization and event handling. ``Button`` adds public ``deinit`` and ``run``."""
 
-    Register with ``on_pressed`` / ``on_released``; ``clear`` (or the finer
-    ``clear_pressed`` / ``clear_released``) removes them again. This object
-    has no ``run()`` of its own — call ``run()`` on the owning button object
-    instead (e.g. ``Button``, ``OnboardButtons``).
-    """
-
-    def __init__(self) -> None:
-        """Start with no handlers registered."""
-        self._pressed = []
-        self._released = []
-
-    def on_pressed(self, handler: Callable[[], object]) -> None:
-        """Call ``handler()`` (no arguments) every time this switch is pressed.
-
-        A normal function, such as ``log_button_press`` in the module example, runs
-        and returns. An ``async def``, such as ``announce_and_wait``, is awaited
-        before the next handler on this switch. A handler on another switch of
-        the same module can run during that ``await``.
+    def __init__(self, pin) -> None:
+        """Bind the button functionality to a GPIO ``pin``.
+        ``pin`` is a board pin object, e.g. ``board.IO13``.
         """
-        self._pressed.append(handler)
+        self._init_state()
+        _bind_scanner(self, (pin,))
 
-    def on_released(self, handler: Callable[[], object]) -> None:
-        """Call ``handler()`` (no arguments) every time this switch is released.
+    @classmethod
+    def _from_queue(cls, event_queue):
+        """For TESTING: a button fed from ``event_queue`` instead of a GPIO pin.
 
-        A normal function, such as ``log_button_press`` in the module example, runs
-        and returns. An ``async def``, such as ``announce_and_wait``, is awaited
-        before the next handler on this switch. A handler on another switch of
-        the same module can run during that ``await``.
+        Tests push events into ``event_queue`` without pressing a physical switch. The button
+        has no ``keypad.Keys`` scanner (object that would watch a pin and queue its events) and
+        no pin; ``__init__`` (also a subclass's) is not called.
         """
-        self._released.append(handler)
+        obj = cls.__new__(cls)
+        obj._init_state()
+        obj._queue = event_queue
+        return obj
 
-    def clear_pressed(self) -> None:
-        """Drop all press handlers; leave release handlers."""
-        self._pressed = []
+    def _init_state(self) -> None:
+        """Set the fields every button starts with: no handlers, no scanner, not running."""
+        self._pressed = None
+        self._released = None
+        self._keys = None
+        self._queue = None
+        self._state = _STATE_READY
 
-    def clear_released(self) -> None:
-        """Drop all release handlers; leave press handlers."""
-        self._released = []
+    def on_pressed(self, handler: Callable[[], object] | None) -> None:
+        """Set the ``handler`` function called when this button is pressed.
 
-    def clear(self) -> None:
-        """Drop all registered handlers for this switch (press and release)."""
-        self._pressed = []
-        self._released = []
+        A normal function and an ``async def`` are both accepted as ``handler``.
+        A normal function ``f`` is run as ``f()``. An ``async`` function ``a`` is run
+        as ``await a()``. Providing ``None`` as a handler means the event is a no-op.
 
-    async def _handle(self, pressed: bool) -> None:
-        # Internal method: only called by sub-classes.
-        # We look at what the call returned. ``log_button_press`` returns None.
-        # ``announce_and_wait`` returns a coroutine, as does any other
-        # ``async def`` (including a method on an instance) and an instance
-        # whose ``__call__`` is async.
-        handlers = self._pressed if pressed else self._released
-        for handler in handlers:
+        ``f()`` runs to the end before anything else runs. While ``await a()``
+        is paused, the other button keeps running. This button's next event (press or
+        release event) waits until the handler returns.
+        """
+        self._pressed = handler
+
+    def on_released(self, handler: Callable[[], object] | None) -> None:
+        """Set the ``handler`` function called when this button is released.
+
+        A normal function and an ``async def`` are both accepted as ``handler``.
+        A normal function ``f`` is run as ``f()``. An ``async`` function ``a`` is run
+        as ``await a()``. Providing ``None`` as a handler means the event is a no-op.
+
+        ``f()`` runs to the end before anything else runs. While ``await a()``
+        is paused, the other button keeps running. This button's next event (press or
+        release event) waits until the handler returns.
+        """
+        self._released = handler
+
+    async def _on_event(self, pressed: bool) -> None:
+        """Call the handler for this press (``True``) or release (``False``)."""
+
+        handler = self._pressed if pressed else self._released
+        if handler is None:
+            return
+        # A normal function runs here. An ``async def`` call returns a coroutine;
+        # awaiting it runs the body. A coroutine that body returns is not awaited.
+        try:
             result = handler()
             if hasattr(result, "__await__"):
                 await result
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            _report_handler_error(exc)
+        # After a handler executed we yield to other ready tasks, before this button's next
+        # queued event is potentially processed. ``sleep_ms(0)`` is a single yield. An unset
+        # handler returns above and does not yield, for efficiency.
+        await asyncio.sleep_ms(0)
+
+    def _deinit(self) -> None:
+        """Release this switch's GPIO pin. Private service method for deinitialization, so
+        individual buttons of multi-button sensors cannot be deinitialized individually,
+        which would leave the multi-button sensor in an inconsistent state.
+        Idempotent: calling ``_deinit()`` on an already deinitialized button is a no-op.
+        """
+        if self._state == _STATE_DEINIT:
+            return
+        self._state = _STATE_DEINIT
+        keys = self._keys
+        if keys is None:  # A button built with ``_from_queue`` has no scanner and no pin to release.
+            return
+        keys.deinit()
+        self._keys = None
+
+    async def _run(self) -> None:
+        """Deliver this switch's press and release events until it is deinitialized or the task is cancelled.
+
+        Private service method, for the same reason as ``_deinit``: its ``finally`` deinitializes this switch,
+        so running one switch of a multi-button sensor on its own could leave the sensor half deinitialized.
+        ``Button.run`` and the multi-button sensors' ``run`` call it to make it publicly available.
+        """
+        if self._state == _STATE_DEINIT:
+            raise RuntimeError("button is deinitialized")
+        if self._state == _STATE_RUNNING:
+            raise RuntimeError("run() is already running")
+        self._state = _STATE_RUNNING
+        # ``_queue.overflowed`` stays true until ``_queue.clear()``, and ``clear()`` also drops queued events. So the
+        # warning is printed as soon as the overflow is seen, but the flag is reset only after the queue is drained.
+        # ``warned`` keeps the warning to once per overflow while the flag stays set.
+        warned = False
+        sleep_ms = asyncio.sleep_ms
+        try:
+            while True:
+                if self._state == _STATE_DEINIT:
+                    raise RuntimeError("button is deinitialized")
+                event = self._queue.get()
+                while event is not None:
+                    # A full queue shows up here, right after the handler or task that kept this loop from draining.
+                    # The get() just before freed a slot, so the queue can take one new event while we print.
+                    if self._queue.overflowed and not warned:
+                        warned = True
+                        print(_OVERFLOW_WARNING)
+                    await self._on_event(event.pressed)  # does asyncio.sleep_ms(0) after executing not-None handler
+                    if self._state == _STATE_DEINIT:
+                        raise RuntimeError("button is deinitialized")
+                    event = self._queue.get()
+                if self._queue.overflowed:
+                    # The queue was just drained. A press that lands between the last get() and clear() is dropped. We can't do
+                    # anything about it, because the board scans the pin on a timer, outside the Python VM (on ESP32-S2: using the
+                    # ESP-IDF timer service). A scan can queue an event between any two statements here, even though this code does
+                    # not await. print() comes after clear(): it can wait on the serial port, and presses during that wait stay queued.
+                    self._queue.clear()
+                    if not warned:
+                        print(_OVERFLOW_WARNING)
+                    warned = False
+                await sleep_ms(_POLL_MS)
+        finally:
+            # However run() ends, for example by a cancelled task, the button is deinitialized: the pin is released and run() cannot start again.
+            self._deinit()
 
 
-class Button(PushButtonBase):
-    """One GPIO pin: press/release handlers (inherited from ``PushButtonBase``) plus ``run()``.
+class Button(_Switch):
+    """One physical button switch you construct yourself, specifying which GPIO pin it is
+    connected to.
 
-    ``run()`` must be running (e.g. via ``asyncio.gather``) for handlers
-    registered with ``on_pressed`` / ``on_released`` to ever fire.
+    ``on_pressed`` sets the press handler. ``on_released`` sets the release handler.
+    Calling those methods again with a new handler replaces the previous handler.
+    Setting the handler to ``None`` means the event is a no-op. ``run()`` must be running
+    (for example via ``asyncio.gather``) for a handler to fire. ``deinit()`` turns the
+    scanner off and releases the GPIO pin.
     """
 
-    def __init__(self, pin=None, *, event_queue=None) -> None:
-        """Bind to ``pin``, or skip GPIO entirely for a hardware-free test.
+    def deinit(self) -> None:
+        """Turn this button's scanner off and release its GPIO pin.
 
-        ``pin`` is a board pin object, e.g. ``board.IO13``. Pass ``event_queue=``
-        instead of ``pin`` to feed pre-built events without touching GPIO — used
-        by tests that run without hardware. Passing neither raises ``ValueError``.
+        The pin is released right away, so you can reuse it for something right after
+        ``button.deinit()`` returns. A ``run()`` task that is going stops by itself: the handler
+        already running finishes, then ``run()`` raises ``RuntimeError``.
         """
-        super().__init__()
-        self._keys = None
-        self._queue = None
-        if event_queue is not None:
-            self._queue = event_queue
-            return
-        if pin is None:
-            raise ValueError("pin is required when event_queue is omitted")
-        _bind_scanner(self, (pin,))
-
-    async def _dispatch(self, event) -> None:
-        # Standalone scanner is a 1-tuple; ignore key_number.
-        await self._handle(event.pressed)
+        self._deinit()
 
     async def run(self) -> None:
-        """Never-ending task that delivers this pin's press and release events.
+        """Never-ending task: deliver this button's presses and releases.
 
-        Typically ``await asyncio.gather(button.run(), display_loop())``.
+        Call it once. A second ``run()`` on the same button raises ``RuntimeError``.
+        When ``run()`` ends, for example because its task was cancelled, the button is done:
+        its GPIO pin is released. To use the pin again, construct a new button.
+        Typically use ``await asyncio.gather(button.run(), ...)`` (blocking).
+        If a handler raises an error, the error is printed and the button keeps running.
+
+        Internally, the logic checks if new events (button presses or releases) have
+        arrived and executes the respective handler. If no events have arrived, it
+        waits for 10 ms before checking again. If events have been queued up, it
+        processes them one at a time in the order they happened.
+
+        After an event has happened and been queued, it takes on average 5 ms
+        and 10 ms at worst for the event to be processed.
         """
-        lane = _SwitchLane(self)
-        await _serve(self._queue, (lane,), _route_one(lane))
+        await self._run()
 
 
 class OnboardButtons:
-    """This board's native buttons: ``button_a`` and ``button_b``.
+    """This board's native buttons A and B, which the code calls ``button_a`` and ``button_b``.
 
-    ``button_a`` / ``button_b`` are the two switches — register handlers with
-    ``.on_pressed(handler)`` / ``.on_released(handler)``; ``.clear()`` removes
-    them again.
+    Each of ``button_a`` and ``button_b`` has ``on_pressed`` and ``on_released`` to specify their
+    respective button event handlers. Specifying ``None`` as a handler means the respective event
+    is a no-op.
+    ``run()`` processes the events from both buttons. IMPORTANT: There is no order between A and B.
+    ``deinit()`` releases the GPIO pins for A and B.
     """
 
-    def __init__(self, a_pin=None, b_pin=None, *, event_queue=None) -> None:
+    def __init__(self, a_pin=None, b_pin=None) -> None:
         """Bind to this board's A and B buttons. Typically requires no arguments:
 
             buttons = OnboardButtons()
 
         ``a_pin`` / ``b_pin`` default to ``board.BUTTON_A`` / ``board.BUTTON_B``;
-        pass them only if you want to wire A/B to different pins instead.
+        pass them only if you want to act on buttons connected to different pins instead.
         """
-        # event_queue is a developer/test-only hook: it replaces a_pin/b_pin
-        # entirely, feeding pre-built events instead of a real keypad.Keys scanner,
-        # so tests can run without hardware (same pattern as Button/PlanetXButtonSensor).
-        # Not part of the student-facing construction API documented above.
-        self._a = PushButtonBase()
-        self._b = PushButtonBase()
-        self._keys = None
-        self._queue = None
-        if event_queue is not None:
-            self._queue = event_queue
-            return
         if a_pin is None or b_pin is None:
             import board  # CircuitPython-only; not imported on the host test path
 
@@ -366,39 +402,50 @@ class OnboardButtons:
                 a_pin = board.BUTTON_A
             if b_pin is None:
                 b_pin = board.BUTTON_B
-        _bind_scanner(self, (a_pin, b_pin))
+        self._a, self._b = _make_buttons(a_pin, b_pin)
+
+    @classmethod
+    def _from_buttons(cls, button_a: _Switch, button_b: _Switch) -> OnboardButtons:
+        """For TESTING: Pair two buttons that already exist.
+
+        ``__init__`` is not called, avoiding the ``board`` import (not available in the testing
+        environment) and binding to physical GPIO pins. Tests typically pass two buttons built
+        with ``Button._from_queue(event_queue)`` and push events into those queues instead of
+        pressing a physical switch.
+        """
+        obj = cls.__new__(cls)
+        obj._a = button_a
+        obj._b = button_b
+        return obj
+
+    def deinit(self) -> None:
+        """Turn the scanners off and release the GPIO pins for buttons A and B.
+
+        Both pins are released right away, so you can reuse them for something right after
+        ``buttons.deinit()`` returns. A ``run()`` task that is going stops by itself: the handler
+        already running finishes, then ``run()`` raises ``RuntimeError``.
+        """
+        self._a._deinit()
+        self._b._deinit()
 
     @property
-    def button_a(self) -> PushButtonBase:
-        """Button A — ``on_pressed`` / ``on_released`` / ``clear``."""
+    def button_a(self) -> _Switch:
+        """Button A."""
         return self._a
 
     @property
-    def button_b(self) -> PushButtonBase:
-        """Button B — ``on_pressed`` / ``on_released`` / ``clear``."""
+    def button_b(self) -> _Switch:
+        """Button B."""
         return self._b
 
-    def clear(self) -> None:
-        """Drop all registered handlers for both buttons."""
-        self._a.clear()
-        self._b.clear()
-
-    async def _dispatch(self, event) -> None:
-        # ``event.key_number`` is a tuple position matching ``(a_pin, b_pin)``:
-        # scanner slot 0 is A, slot 1 is B. Bounds-checked explicitly (not a bare
-        # try/except IndexError) because a negative key_number would otherwise
-        # silently wrap onto a *valid* button instead of being rejected.
-        index = event.key_number
-        if index == 0:
-            await self._a._handle(event.pressed)
-        elif index == 1:
-            await self._b._handle(event.pressed)
-
     async def run(self) -> None:
-        """Never-ending task that delivers both buttons' press and release events.
+        """Never-ending task that delivers the press and release events of buttons A and B.
 
-        Typically ``await asyncio.gather(buttons.run(), display_loop())``.
+        Typically ``await buttons.run()``, or ``await asyncio.gather(buttons.run(), ...)`` to run it
+        together with other tasks. Handlers are only called while this task runs. Call it once; a
+        second ``run()`` raises ``RuntimeError``. A and B each have their own scanner, so a slow
+        handler on one button does not hold up the other. If a handler raises an error, the error
+        is printed and the buttons keep running. When this task ends, for example because it was
+        cancelled, both GPIO pins are released, and this object cannot run again.
         """
-        lane_a = _SwitchLane(self._a)
-        lane_b = _SwitchLane(self._b)
-        await _serve(self._queue, (lane_a, lane_b), _route_pair(lane_a, lane_b))
+        await asyncio.gather(self._a._run(), self._b._run())

@@ -1,5 +1,7 @@
 Conversation with ChatGPT
 
+> Library as of 2026-10-19: one handler for press and one for release. A later `on_pressed` replaces the previous one. `on_pressed(None)` clears that slot. This transcript is the earlier design conversation.
+
 # Prompt Usert [Alex]
 I am looking for a Circuit Python library for illustrating event-based programming in a lessor / tutorial format. Please do not confuse with Micro Python, even though both have the same origin - investigate the source code if in doubt. 
 

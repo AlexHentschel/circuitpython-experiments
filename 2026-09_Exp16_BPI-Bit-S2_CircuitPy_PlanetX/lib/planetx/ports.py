@@ -6,8 +6,8 @@ individual pins on that connector are named after the BBC micro:bit standard
 this board is shaped like: P0, P1, P2, ... P20 ("P" for "pin"). Nezha2 box
 houses the RJ11 sockets that sensors and motors actually plug into:
 
-- Four **IO ports**, J1-J4, on the right side.
-- Four **IIC ports** (blue marking) on the left side — wired together
+- Four **GPIO interface ports**, J1-J4, on the right side.
+- Four **IIC interface ports** (blue marking) on the left side — wired together
   internally as one shared bus, so a sensor works the same in any of the four.
 - Four **motor connectors**, M1-M4 (red marking) at the bottom of the Nezha2.
   ``M1``–``M4`` below name those connectors. They are not GPIO pins.
@@ -26,33 +26,31 @@ as digital ones; J3 and J4 are digital-only (red marking).
 
 from __future__ import annotations
 
-"""
---- Maintainer notes (not needed to use this module) --- 
-
-Two-step translation, hard-coded for the BPI-Bit-S2 + Nezha2 pairing:
-1. Nezha2 port -> P-number (the BBC micro:bit edge-connector standard;
-   ELECFREAKS' Nezha2 jack-figure diagrams document Nezha2's own jack wiring
-   in that same micro:bit namespace).
-2. Same P-number -> BPI-Bit-S2 goldfinger pad -> `board.IOn`
-   (`Notes/bpi_bit_v2_goldfinger.jpg` — "goldfinger" is this board's own
-   implementation of that same edge-connector standard). `board.IOn` is
-   goldfinger Pn, **not** ESP32 GPIO n (`IO13` is GPIO36) — do not conflate
-   those two when extending this file.
-
-All Nezha2 IIC ports are **one** shared I2C bus (P19=SCL, P20=SDA). To
-control all four IIC interfaces on the Nezha2, you only need a single
-`I2CBus` object. Constructors tolerate `import board` failing (host tests
-without hardware) so `J1`-`J4`/`I2C` still exist for tests that only check
-port wiring, not live pins.
-"""
+# --- Maintainer notes (not needed to use this module) ---
+#
+# Two-step translation, hard-coded for the BPI-Bit-S2 + Nezha2 pairing:
+# 1. Nezha2 port -> P-number (the BBC micro:bit edge-connector standard;
+#    ELECFREAKS' Nezha2 interface diagrams document Nezha2's own port wiring
+#    in that same micro:bit namespace).
+# 2. Same P-number -> BPI-Bit-S2 goldfinger pad -> `board.IOn`
+#    (`Notes/bpi_bit_v2_goldfinger.jpg` — "goldfinger" is this board's own
+#    implementation of that same edge-connector standard). `board.IOn` is
+#    goldfinger Pn, **not** ESP32 GPIO n (`IO13` is GPIO36) — do not conflate
+#    those two when extending this file.
+#
+# All Nezha2 IIC ports are **one** shared I2C bus (P19=SCL, P20=SDA). To
+# control all four IIC interfaces on the Nezha2, you only need a single
+# `I2CBus` object. Constructors tolerate `import board` failing (host tests
+# without hardware) so `J1`-`J4`/`I2C` still exist for tests that only check
+# port wiring, not live pins.
 
 
 class Port:
-    """One Nezha2 RJ11 jack: two signal wires, voltage and ground. We only care about the
+    """One Nezha2 GPIO interface port (an RJ11 socket): two signal wires, voltage and ground. We only care about the
     signal wires, identified by their P-numbers on the micro:bit edge connector (wiring per
     ElecFreaks' Nezha v2 documentation; see module docstring).
 
-    The wiring from an RJ11 jack to the edge connector is provided by ElecFreaks in their
+    The wiring from a port to the edge connector is provided by ElecFreaks in their
     Nezha v2 documentation. ``J1``-``J4`` below are ready-made instances. But you can also
     create your own instances by configuring the pair signal wires: the paramter
     ```p_numbers`` has the format ``(p_a, p_b)`` where p_a, p_b are integers corresponding
@@ -99,7 +97,7 @@ J4 = Port("J4", (15, 16))
 class MotorPort:
     """One Nezha2 motor connector, M1–M4.
 
-    These are not jack pins. ``index`` is the motor number the Nezha board
+    These are not GPIO interface ports. ``index`` is the motor number the Nezha board
     expects (1 for M1 … 4 for M4).
 
         from planetx import M4, PlanetXSmartMotor

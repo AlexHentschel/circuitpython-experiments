@@ -1,6 +1,6 @@
-"""NeoPixel strip on a Nezha2 jack, and the 8-pixel PlanetX rainbow ring.
+"""NeoPixel strip on a Nezha2 GPIO interface port, and the 8-pixel PlanetX rainbow ring.
 
-The ring is a strip of 8 pixels. The data wire is the jack's second pin
+The ring is a strip of 8 pixels. The data wire is the port's second pin
 (J1 → P8, J2 → P12, J3 → P14, J4 → P16).
 
     from planetx import J2, PlanetXRainbowRing
@@ -17,7 +17,7 @@ from __future__ import annotations
 from .ports import Port
 
 # Same cap as the onboard matrix: a full-white tuple stays a modest current
-# on the 3.3 V jack. MakeCode's strip default is 50% (about 0.5).
+# on the 3.3 V port. MakeCode's strip default is 50% (about 0.5).
 _DEFAULT_BRIGHTNESS = 0.20
 RING_PIXELS = 8
 
@@ -56,7 +56,7 @@ def hsl(hue: int, saturation: int, luminosity: int) -> tuple:
 
 
 class PlanetXNeoPixel:
-    """A NeoPixel strip plugged into a Nezha2 jack.
+    """A NeoPixel strip plugged into a Nezha2 GPIO interface port.
 
     ``count`` is how many pixels are on the strip. ``fill``, ``set_pixel``,
     and ``clear`` light the pixels immediately.
@@ -133,7 +133,7 @@ class PlanetXNeoPixel:
 
 
 class PlanetXRainbowRing(PlanetXNeoPixel):
-    """The PlanetX rainbow ring: 8 pixels on one jack.
+    """The PlanetX rainbow ring: 8 pixels on one port.
 
         ring = PlanetXRainbowRing(port=J2)
         ring.fill((255, 150, 0))

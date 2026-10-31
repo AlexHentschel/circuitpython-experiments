@@ -6,6 +6,10 @@
 
 ## Concepts
 
+### Vendor names for the Nezha Pro connectors — `evidence-supported` (vendor wiki diagram, read 2026-10-20)
+
+The wiki page `https://wiki.elecfreaks.com/en/microbit/expansion-board/nezha-v2/` titles the board **Nezha Pro Breakout Board (EF05070)**. MakeCode calls it "Nezha Breakout board V2", with extension `nezha2`. Its interface diagram (`nezha-v2-interface-diagram.png`) labels the connectors **"GPIO Interface"** (J1–J4), **"IIC Interface"** (the four blue-labelled I2C connectors), and **"Motor Interface"** (M1–M4). The prose headings say "IO Ports" and "IIC Connections", and the spec table says "Sensors Connectors: 8 Units". All of them are RJ11. **Act:** in student-facing docs, name J1–J4 "GPIO interface ports" and the I2C ones "IIC/I2C interface ports". "Jack" is our word, not the vendor's. Alex's direction (exp16 `lib/planetx/button.py`); the labels were checked against the diagram image. `[domain:nezha]`
+
 ### Nezha V2 smart-motor I2C protocol (8-byte frame @ `0x10`) — decode `evidence-supported`; on-device `unverified`
 
 **Claim.** Nezha V2 intelligent motors (encoder servo-motor hybrids on ports M1–M4) are driven by **8-byte I2C writes** to 7-bit address **`0x10`**, header `0xFF 0xF9`. This is **not** Nezha V1 (`Nezha.py`: 4-byte DC-motor + 0–180° hobby-servo packets at the same address). Mixing V1/V2 frames is undefined.

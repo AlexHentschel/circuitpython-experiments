@@ -9,18 +9,20 @@ Stage 2 walked the async display calls, including a timer-triggered
 cancellation check. We assume that works, and use ``show_string`` /
 ``Display.scroll_image`` here as the background animation.
 
-  (a) Each module owns its scanner. ``run()`` is the coroutine that keeps
-      reading that scanner and calling the handler for the button that was
-      pressed.
+  (a) Each button owns its scanner. That button's ``run()`` keeps reading
+      the scanner and calling the one handler registered for the press or
+      the release. ``OnboardButtons.run()`` runs A and B together.
+      ``PlanetXButtonSensor.run()`` runs C and D together.
       ``OnboardButtons()`` exposes ``button_a`` / ``button_b`` (defaults
       ``board.BUTTON_A`` / ``board.BUTTON_B``). ``PlanetXButtonSensor(port=J3)``
       exposes ``button_c`` / ``button_d`` (J3 is edge-connector P13/P14,
       ``board.IO13`` / ``board.IO14``). Handlers register with ``.on_pressed``.
-      Release handlers are not registered.
+      A second ``on_pressed`` replaces the first. Release handlers are not
+      registered.
 
   (b) ``ab.run()`` (onboard buttons A/B), ``px.run()`` (PlanetX buttons
       C/D on J3), and the display loop are sibling coroutines under one
-      ``asyncio.gather``. A press handler runs inside that module's
+      ``asyncio.gather``. A press handler runs inside that button's
       ``run()`` and writes the same ``display`` object the animation coroutine
       uses. CircuitPython asyncio is single-threaded and cooperative:
       coroutines interleave only at ``await``, so ``Display._acquire`` / the

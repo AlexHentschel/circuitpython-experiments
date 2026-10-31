@@ -31,7 +31,7 @@ This is the **central** session log for the unified persona memory. It holds the
 - `circuitpython-exp15-microbit` — **active (early)**; Milestone 1 blink set up, on-device run pending board connection. See `projects/circuitpython-exp15-microbit/`.
 - `bamboo-lamp` — **active**; standby/sleep-mode design discussion pending; S3-vs-C6 MCU divergence open. See `projects/bamboo-lamp/`.
 - `coding-tutor` — **active (knowledge-gathering)**; family `education`. Build an AI tutor persona (distinct from this assisting persona) teaching CircuitPython on micro:bit+Nezha2+PlanetX to student persona "Alice". Setup + Scheiter transcript ingested; **research loop iteration 1 done 2026-07-15** — 17-source corpus downloaded (`CodingTutor/materials/papers/`, git-ignored) + cataloged/triaged/ranked in `CodingTutor/notes-.../05_research-corpus_iteration-1.md` (with a ranked can't-access list for Alex). Next: iteration-2 deep-read/digest T1/T2, then tutor-design guidelines. Design not started. See `projects/coding-tutor/`.
-- `circuitpython-exp16-planetx` — **first milestone on-device** (K1/K2/K3 for the 2026-09-13 code only). Since then, host-only: per-switch button lanes, zero-hold yield, rotation redraw, async `Display.forever`, `sleep_ms` waits, and (2026-10-10) sync `render_string` / `render_number` plus `show_string` / `show_number` ending blank (`f0612ac`, `0a14ba0`; on-device unverified). Parked 2026-10-10: one pending button event, drop-on-reset — not built. Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md` § Resumption point.
+- `circuitpython-exp16-planetx` — **first milestone on-device** (K1/K2/K3 for the 2026-09-13 code only). Buttons refactor is committed on `display-verb-grid` (one handler slot per button, private `_Switch._run`; host 283 passed 2026-10-31; on-device unverified). Display work since 2026-09-13 is still host-only. Boot at `projects/circuitpython-exp16-planetx/CONTEXT.md` § Resumption point.
 - exp09 / exp11 / exp13 — residue only; no project folder yet (create a `_INDEX.md` row + folder when content surfaces). Exp09 5×5 LUT/icons are prior art consumed by exp16.
 
 ## Source-of-truth map (which file owns which content; pre-empts duplication-and-drift)
@@ -62,6 +62,24 @@ When the same fact must live in two places (rare; only when duplication serves d
 - **Seeded concept-domain roster** — authoritative in `concepts/_INDEX.md` (the domain `### <file>.md` headers). Echoed for distinct consumers in `02-domain-structure.mdc § Domain knowledge` and this living summary's `concepts/` bullet, and (edge-bearing subset) in `concepts/_RELATIONS.md § Edges` header. When seeding/removing a domain, update all four. (Drifted once — `ai-tooling` omitted from the three echoes after its 2026-09-15 seed; resynced 2026-09-15.)
 
 ## Cross-project & tooling sessions
+
+## 2026-10-23: Session — [tooling] (when Cursor agent edits skip the red/green overlay)
+
+- Alex: agent edits sometimes land with no red/green highlight, as if an outside program wrote the file. Git-tracked files usually show the overlay.
+- Mechanism, staff-sourced, in `concepts/ai-tooling.md` § Cursor agent inline diff: overlay tracks native file-edits only; Inline Diffs off, the partial-hunk bug, and shell/script writes each produce a silent apply. Git is not an input.
+- Probe: native append of four comments at the end of `Greentech/AquaEye/2026-10 AquaEye/Cover Letter/text_v0.0.tex`. That tree has no `.git`. Alex has not yet reported whether the lines highlighted. Greentech is not a rostered project.
+
+## 2026-10-21: Session — [user] (human-owned framing: critique, don't rewrite)
+
+- Alex correction on Greentech `Notes/notes.md` line 33 (Flow / Chief Protocol Architect framing): list mechanical issues only; do not change the framing or drop facts.
+- New `[user]` Communication Style row in `universal/WORKING_STYLE.md`. Greentech is not a rostered project (no per-project write).
+
+## 2026-10-20: Session — [tooling] (Claude Code `/wake` boots this persona)
+
+- `~/Development/claude-code/skills/wake` was a symlink to `~/.cursor/skills/wake`, the Cursor high-assurance persona's boot skill (its `00-persona-and-mission.mdc` / `workstreams/` layout). Under Claude Code in this workspace it pointed at files that do not exist here.
+- Fix: symlink moved to `~/Development/claude-code/skills/.trash/wake.symlink-20261020` (restore = move back). New real `claude-code/skills/wake/SKILL.md` uses absolute `ai-persona/.cursor/rules/` paths, defers the read order to `04-multi-project.mdc § M5` (no copy), reports health checks without fixing, writes no memory. Cursor's `~/.cursor/skills/wake` untouched.
+- Watch: other entries in `claude-code/skills/` are symlinks into the Cursor persona tree (`experiment-wrapup-to-memory`, `handoff-exec-prompt`); they may carry the same layout mismatch when run from this workspace. Not checked.
+- Pending, not built (Alex: "don't implement it yet"): load persona files as Claude Code memory. Chosen set: `00-memory-system`, `01-interaction-style`, `04-multi-project`, `projects/_INDEX`, `concepts/_INDEX`, `universal/MONITORING` (~30k tokens; `WORKING_STYLE`/`CODING_PRINCIPLES` stay on demand). Open: location (gitignored `ai-persona/CLAUDE.local.md` recommended vs committed `CLAUDE.md`, which Cursor may also read — unchecked); `@` imports vs `.claude/rules/` symlinks; drop `03`/`06` and read-order step 1 from the SessionStart hook to avoid double injection. Mechanics: `concepts/ai-tooling.md` § *Claude Code memory loading*.
 
 ## 2026-09-27: Session — [tooling] (port `/memory-light` skill)
 

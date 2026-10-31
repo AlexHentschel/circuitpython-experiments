@@ -40,14 +40,17 @@ def sleep_ms_shim():
     itself; an autouse shim would be the object that file saves.
     """
 
+    recorded = []
+
     async def sleep_ms(ms):
+        recorded.append(ms)
         await asyncio.sleep(ms / 1000)
 
     had_sleep_ms = hasattr(asyncio, "sleep_ms")
     previous = getattr(asyncio, "sleep_ms", None)
     asyncio.sleep_ms = sleep_ms
     try:
-        yield sleep_ms
+        yield recorded
     finally:
         if had_sleep_ms:
             asyncio.sleep_ms = previous
