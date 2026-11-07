@@ -41,18 +41,16 @@ from ._constants import (
 from .icons import EMOJIS, ARROWS, EMOJI_NAMES, ARROW_NAMES
 from .text_layout import ScreenText, centered
 
-# core.py requires board/neopixel/rainbowio/adafruit_bitmap_font. On
-# CPython (e.g. pytest hosts) those are absent; skip the re-export so
-# pure sub-modules remain importable for host-side tests. On device the
-# import always succeeds.
+import sys
+
+# core.py requires board/neopixel/rainbowio/adafruit_bitmap_font. They exist only
+# on CircuitPython. In the test environment (CPython) they are absent; we skip the
+# re-export so the pure sub-modules remain importable. Detected by the interpreter
+# name, not by importing ``board``: a working Blinka ``board`` would otherwise make
+# the test environment look like hardware.
 # ``Emojis`` / ``Arrows`` are constructed inside core.py (they are Icon
 # instances), so they ship with the hardware import group too.
-try:
-    import board  # noqa: F401 -- presence check for CircuitPython runtime
-
-    _HAS_HARDWARE = True
-except ImportError:
-    _HAS_HARDWARE = False
+_HAS_HARDWARE = sys.implementation.name == "circuitpython"
 
 if _HAS_HARDWARE:
     from .core import (  # noqa: F401

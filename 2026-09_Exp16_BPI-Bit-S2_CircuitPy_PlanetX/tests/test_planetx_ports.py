@@ -1,9 +1,38 @@
 """Nezha2 jack map (J1–J4 + shared I2C): host-checkable without ``board`` / ``keypad``."""
 
+import types
+
 from planetx.ports import I2C, I2CBus, J1, J2, J3, J4, Port
 from planetx.button import PlanetXButtonSensor
 
 import pytest
+
+
+def test_ports_without_board_are_pinless():
+    """In the test environment ``board`` is ``None``: ``J1``–``J4`` and ``I2C`` exist but have no pin objects.
+
+    - Covers: the module import failing off-device, or a pin attribute being set without ``board``.
+    - How: ``J1`` has neither ``pins`` nor ``analog_pin``; ``I2C`` has no ``scl``. Wiring data is still there.
+    """
+    assert J1.p_numbers == (1, 8)
+    assert not hasattr(J1, "pins") and not hasattr(J1, "analog_pin")
+    assert I2C.p_number_scl == 19 and not hasattr(I2C, "scl")
+
+
+def test_ports_bind_the_board_pins_when_board_is_present(monkeypatch):
+    """With a ``board``, a ``Port`` binds ``board.IO{n}`` for its P-numbers, and ``I2CBus`` binds IO19 / IO20.
+
+    - Covers: the on-device binding branch (untested while ``board`` was never available), analog pin on a
+      digital port, or SCL/SDA swapped.
+    - How: fake ``board`` with ``IO1`` … ``IO20`` as labelled strings; build a J1-like and a J3-like port.
+    """
+    board = types.SimpleNamespace(**{f"IO{n}": f"pin{n}" for n in (1, 8, 13, 14, 19, 20)})
+    monkeypatch.setattr("planetx.ports.board", board)
+    analog = Port("T1", (1, 8), analog_p_number=1)
+    digital = Port("T3", (13, 14))
+    assert analog.pins == ("pin1", "pin8") and analog.analog_pin == "pin1"
+    assert digital.pins == ("pin13", "pin14") and digital.analog_pin is None
+    assert I2CBus().pins == ("pin19", "pin20")
 
 
 def test_j_port_p_numbers_match_nezha_then_goldfinger():

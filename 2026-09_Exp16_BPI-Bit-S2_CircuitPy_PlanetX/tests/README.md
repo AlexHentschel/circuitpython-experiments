@@ -8,6 +8,8 @@ Run from the experiment root, on any desktop CPython with `pytest` and `pytest-a
 
 The suite does not import `board` or `display.core`. Do not pip-install `neopixel` or `adafruit_bitmap_font` into that venv.
 
+In `lib/buttons.py` and `lib/planetx/`, the CircuitPython-only modules (`board`, `keypad`, `busio`, `analogio`, `neopixel`) are module-level names that are `None` outside CircuitPython. A test that needs one replaces it with a fake: `monkeypatch.setattr(buttons, "keypad", fake)` or `monkeypatch.setattr("planetx.light.analogio", fake)`. Forgetting the fake fails with an `AssertionError` that names the missing replacement; `planetx.ports` instead builds pin-less `J1`–`J4` / `I2C` objects (wiring data only).
+
 ## `<path-to-venv>` is machine-specific
 
 Each **experiment checkout** chooses its own CPython virtual environment. Experiments under this workspace are reasonably self-contained; a clone of Exp16 need not share another experiment’s interpreter.

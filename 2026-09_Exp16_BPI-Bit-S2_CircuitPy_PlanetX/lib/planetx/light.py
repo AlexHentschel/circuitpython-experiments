@@ -11,9 +11,16 @@ Plug the sensor into J1 or J2 (the yellow analog ports):
 The lighthouse treats a reading below 100 as dark.
 """
 
-from __future__ import annotations
+import sys
 
 from .ports import Port
+
+# ``analogio`` exists only on CircuitPython. In the test environment it is ``None``, and tests that
+# need it replace it with a fake (see ``buttons.py``).
+if sys.implementation.name == "circuitpython":
+    import analogio
+else:
+    analogio = None
 
 
 def _u16_to_counts(raw: int) -> int:
@@ -50,8 +57,7 @@ class PlanetXLightSensor:
         self._reader = reader
         if reader is not None:
             return
-        import analogio
-
+        assert analogio is not None, "analogio is CircuitPython-only; tests must replace light.analogio"
         self._adc = analogio.AnalogIn(port.analog_pin)
 
     def lux(self) -> int:

@@ -1,11 +1,14 @@
 """Host checks for the light sensor, rainbow ring, smart motor, and crash sensor.
 
-Does not import ``board``, ``neopixel``, ``analogio``, or ``display.core``.
+Does not import ``board``, ``neopixel``, ``analogio``, or ``display.core``. In the test environment the
+driver modules' ``analogio``, ``neopixel`` and ``busio`` are ``None``; tests that need them replace them
+with fakes via ``monkeypatch.setattr("planetx.<module>.<name>", fake)``.
 """
 
 import ast
 import asyncio
 import pathlib
+import types
 
 import pytest
 
@@ -147,6 +150,87 @@ def test_ring_uses_second_wire_and_eight_pixels():
     assert pixels.shows == 1
     ring.off()
     assert pixels.filled == (0, 0, 0)
+
+
+def test_light_sensor_reads_the_analog_pin(monkeypatch):
+    """Without a ``reader``, the sensor opens ``analogio.AnalogIn`` on the port's analog pin and releases it.
+
+    - Covers: the real-hardware read path (untested while ``reader=`` was the only route), or a missing ``deinit``.
+    - How: fake ``analogio`` whose ``AnalogIn`` reports 65535; ``lux()`` is 14000; ``deinit()`` reaches the pin.
+    """
+    opened = []
+
+    class AnalogIn:
+        value = 65535
+        deinited = False
+
+        def __init__(self, pin):
+            opened.append(self)
+            self.pin = pin
+
+        def deinit(self):
+            self.deinited = True
+
+    monkeypatch.setattr("planetx.light.analogio", types.SimpleNamespace(AnalogIn=AnalogIn))
+    light = PlanetXLightSensor(port=types.SimpleNamespace(analog_p_number=1, analog_pin="analog"))
+    assert opened[0].pin == "analog"
+    assert light.lux() == 14000
+    light.deinit()
+    assert opened[0].deinited is True
+
+
+def test_ring_builds_the_firmware_neopixel_on_the_second_wire(monkeypatch):
+    """Without ``pixels=``, the strip is a firmware ``NeoPixel`` on ``port.pins[1]``, 8 pixels, default brightness.
+
+    - Covers: the real-hardware construction path, wrong wire, or auto-writing every pixel change.
+    - How: fake ``neopixel`` module recording its constructor arguments.
+    """
+    seen = []
+
+    class NeoPixel(FakePixels):
+        def __init__(self, pin, count, *, brightness, auto_write):
+            super().__init__()
+            seen.append((pin, count, brightness, auto_write))
+
+    monkeypatch.setattr("planetx.neopixel.neopixel", types.SimpleNamespace(NeoPixel=NeoPixel))
+    PlanetXRainbowRing(port=StubPort())
+    assert seen == [("digital", RING_PIXELS, 0.20, False)]
+
+
+def test_motor_opens_the_shared_i2c_bus_once(monkeypatch):
+    """Without ``bus=``, the first command opens ``busio.I2C`` on the shared SCL/SDA pins at 100 kHz, and reuses it.
+
+    - Covers: the real-hardware bus path, a wrong frequency, or opening a new bus per command.
+    - How: fake ``busio`` and a fake shared ``I2C`` pin pair; two ``start`` calls, one bus, two frames.
+    """
+    opened = []
+
+    class I2C(FakeBus):
+        def __init__(self, scl, sda, *, frequency):
+            super().__init__()
+            opened.append((scl, sda, frequency, self))
+
+    monkeypatch.setattr("planetx.motor.busio", types.SimpleNamespace(I2C=I2C))
+    monkeypatch.setattr("planetx.motor.I2C", types.SimpleNamespace(scl="scl", sda="sda"))
+    motor = PlanetXSmartMotor(port=M4)
+    motor.start(10, CLOCKWISE)
+    motor.start(20, CLOCKWISE)
+    assert [(scl, sda, frequency) for scl, sda, frequency, _bus in opened] == [("scl", "sda", 100000)]
+    assert len(opened[0][3].writes) == 2
+
+
+def test_unreplaced_hardware_modules_fail_with_a_clear_message():
+    """In the test environment ``analogio``, ``neopixel`` and ``busio`` are ``None`` and say so when used.
+
+    - Covers: a test that forgot its fake failing with ``'NoneType' has no attribute ...``.
+    - How: no fakes; each constructor or first bus use raises ``AssertionError`` naming the missing replacement.
+    """
+    with pytest.raises(AssertionError, match="light.analogio"):
+        PlanetXLightSensor(port=types.SimpleNamespace(analog_p_number=1, analog_pin="analog"))
+    with pytest.raises(AssertionError, match="planetx.neopixel.neopixel"):
+        PlanetXRainbowRing(port=StubPort())
+    with pytest.raises(AssertionError, match="motor.busio"):
+        PlanetXSmartMotor(port=M4).start(10, CLOCKWISE)
 
 
 def test_hsl_primary_colors():

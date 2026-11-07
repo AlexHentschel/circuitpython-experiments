@@ -1,18 +1,20 @@
 """
 Async button dispatcher: fake EventQueue events fire the one handler on a Button.
 
-Does not import ``board``, Blinka ``keypad``, or ``display.core``.
+Never imports ``board``, ``keypad`` or ``display.core``. In the test environment ``buttons.board`` and
+``buttons.keypad`` are ``None``; tests that need them replace them with fakes via
+``monkeypatch.setattr(buttons, ...)``.
 Event shape matches CircuitPython ``keypad.Event`` (``.key_number``, ``.pressed``).
 ``key_number`` is ignored: each ``Button`` has its own queue.
 """
 
 import asyncio
-import sys
 import types
 import warnings
 
 import pytest
 
+import buttons
 from buttons import Button, OnboardButtons, _OVERFLOW_WARNING
 from planetx import PlanetXButtonSensor, PlanetXCrashSensor
 
@@ -536,9 +538,7 @@ def test_partial_pair_deinits_the_first_scanner(monkeypatch):
         def deinit(self):
             self.deinited = True
 
-    keypad = types.ModuleType("keypad")
-    keypad.Keys = Keys
-    monkeypatch.setitem(sys.modules, "keypad", keypad)
+    monkeypatch.setattr(buttons, "keypad", types.SimpleNamespace(Keys=Keys))
     with pytest.raises(RuntimeError, match="pin in use"):
         OnboardButtons(a_pin=object(), b_pin=object())
     assert len(created) == 2
@@ -558,9 +558,7 @@ def _install_fake_keypad(monkeypatch):
         def deinit(self):
             self.deinit_calls += 1
 
-    keypad = types.ModuleType("keypad")
-    keypad.Keys = Keys
-    monkeypatch.setitem(sys.modules, "keypad", keypad)
+    monkeypatch.setattr(buttons, "keypad", types.SimpleNamespace(Keys=Keys))
     return created
 
 
@@ -588,6 +586,43 @@ def test_onboard_deinit_releases_both_pins(monkeypatch):
     OnboardButtons(a_pin=object(), b_pin=object()).deinit()
     assert [keys.deinit_calls for keys in created] == [1, 1]
     assert not hasattr(OnboardButtons(a_pin=object(), b_pin=object()).button_a, "deinit")
+
+
+def test_onboard_default_pins_come_from_board(monkeypatch):
+    """``OnboardButtons()`` uses ``board.BUTTON_A`` and ``board.BUTTON_B``; an explicit pin wins.
+
+    - Covers: the default-pin branch, A and B swapped, or an explicit pin being overwritten.
+    - How: fake ``board`` with two sentinel pins and a fake ``keypad``; the scanners saw those pins in A, B order.
+    """
+    created = _install_fake_keypad(monkeypatch)
+    pin_a, pin_b, own = object(), object(), object()
+    monkeypatch.setattr(buttons, "board", types.SimpleNamespace(BUTTON_A=pin_a, BUTTON_B=pin_b))
+    OnboardButtons()
+    OnboardButtons(a_pin=own)
+    OnboardButtons(b_pin=own)
+    assert [keys.pins for keys in created] == [
+        (pin_a,),
+        (pin_b,),
+        (own,),
+        (pin_b,),
+        (pin_a,),
+        (own,),
+    ]
+
+
+def test_unreplaced_keypad_and_board_fail_with_a_clear_message(monkeypatch):
+    """In the test environment ``buttons.keypad`` and ``buttons.board`` are ``None`` and say so when used.
+
+    - Covers: a test that forgot its fake failing with ``'NoneType' has no attribute ...``.
+    - How: no fakes; ``Button(pin)`` raises ``AssertionError`` naming ``buttons.keypad``. With a fake
+      ``keypad`` but no ``board``, ``OnboardButtons()`` raises ``AssertionError`` naming ``buttons.board``.
+    """
+    assert buttons.keypad is None and buttons.board is None
+    with pytest.raises(AssertionError, match="buttons.keypad"):
+        Button(object())
+    _install_fake_keypad(monkeypatch)
+    with pytest.raises(AssertionError, match="buttons.board"):
+        OnboardButtons()
 
 
 @pytest.mark.asyncio
@@ -747,8 +782,6 @@ async def test_overflow_warns_before_queued_events_and_keeps_them(queue, monkeyp
     - Covers: a warning only after the drain, one warning per queued event, or ``clear()`` dropping the queued events.
     - How: three presses queued with ``overflowed`` set; ``print`` and the handler append to one list.
     """
-    import buttons
-
     order = []
     monkeypatch.setattr(buttons, "print", lambda *args: order.append(args[0]), raising=False)
     queue.overflowed = True
@@ -768,26 +801,14 @@ def test_crash_sensor_port_maps_to_the_second_wire(monkeypatch):
     - How: fake ``keypad``; a port whose pins are ``("wire0", "wire1")``; ``Keys`` saw ``("wire1",)``.
       ``PlanetXCrashSensor()`` raises ``TypeError``.
     """
-    seen = []
-
-    class Keys:
-        def __init__(self, pins, value_when_pressed=False, pull=True):
-            seen.append(pins)
-            self.events = FakeEventQueue()
-
-        def deinit(self):
-            pass
-
-    keypad = types.ModuleType("keypad")
-    keypad.Keys = Keys
-    monkeypatch.setitem(sys.modules, "keypad", keypad)
+    created = _install_fake_keypad(monkeypatch)
 
     class _Port:
         pins = ("wire0", "wire1")
 
     crash = PlanetXCrashSensor(port=_Port())
     assert isinstance(crash, Button)
-    assert seen == [("wire1",)]
+    assert [keys.pins for keys in created] == [("wire1",)]
     with pytest.raises(TypeError):
         PlanetXCrashSensor()
 

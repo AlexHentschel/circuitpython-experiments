@@ -5,7 +5,8 @@ Host-test setup: prepend ``lib/`` so ``import display.<submodule>``,
 Most tests exercise pure sub-modules (``_constants``, ``bitmap_codec``,
 ``geometry``, ``icons``, ``font_makecode_5``) plus the button dispatcher
 with a fake EventQueue. ``display.__init__`` guards the core import with a
-``board`` presence check, so package initialisation succeeds on CPython.
+check of the interpreter name (``sys.implementation.name``), so package
+initialisation succeeds on CPython.
 ``test_display_core_host.py`` is the exception: it installs stubs for the
 duration of each test and removes them again, so ``board`` and
 ``display.core`` are not left in ``sys.modules``.

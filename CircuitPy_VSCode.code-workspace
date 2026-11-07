@@ -64,6 +64,9 @@
 		},
 		{
 			"path": "2026-09_Exp16_BPI-Bit-S2_CircuitPy_PlanetX"
+		},
+		{
+			"path": "../../../Temp/Linux-Dualboot"
 		}
 	],
 	"settings": {

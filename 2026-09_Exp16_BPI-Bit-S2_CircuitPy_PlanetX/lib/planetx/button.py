@@ -20,14 +20,14 @@ with ``port=``. Then set a handler for each button event you care about, and run
 
     asyncio.run(main())
 
-As long as the buttons are supposed to be active, the ``run()`` method needs to be running in the
-background. Handlers are only called while ``buttons.run()`` is running, and it runs forever. Handlers
-work the same way as for the board's A and B buttons; the ``buttons`` module has more examples:
+As long as the buttons are supposed to be active, the ``run()`` method needs to keep running.
+Handlers are only called while ``buttons.run()`` is running, and it runs forever. Handlers
+work the same way as for the board's A and B buttons (the ``buttons`` module has more examples):
 
 - A handler is a normal function or an ``async def``. Presses and releases of one button are
   handled one at a time, in the order they happened. If they come faster than your handler
-  finishes, they wait in a queue.
-- A normal function runs to the end before anything else runs. So keep it short and never call
+  finishes, they wait in a queue (if the queue overflows, the oldest events are lost and a warning is printed).
+- A normal function runs to the end before anything else runs, so keep it short and never call
   ``time.sleep`` in it. For something that takes time, start it with ``asyncio.create_task(...)``
   and return right away.
 - While an ``async def`` handler is paused at ``await``, the other button and the rest of your
@@ -51,9 +51,10 @@ Each module you plug in is its own ``PlanetXButtonSensor``. With two modules on 
 construct two objects, and each one has its own ``button_c`` and ``button_d``.
 """
 
-from __future__ import annotations
+import asyncio
 
 from buttons import _Switch, _make_buttons
+
 from .ports import Port
 
 
@@ -63,31 +64,31 @@ class PlanetXButtonSensor:
 
     Each of ``button_c`` and ``button_d`` has ``on_pressed`` and ``on_released`` to set its handlers.
     Setting a handler to ``None`` means that event does nothing. ``run()`` processes the events of
-    both buttons, and ``deinit()`` releases the GPIO interface port. ``button_c`` and ``button_d`` have no
+    both buttons, and ``deinit()`` releases the two GPIO pins. ``button_c`` and ``button_d`` have no
     ``run`` or ``deinit`` of their own; use the ones on this object.
     """
 
     def __init__(self, c_pin=None, d_pin=None, *, port: Port | None = None) -> None:
-        """Construct the logic for a PlanetXButtonSensor plugged into the GPIO interface ``port`` (J1 to J4). Example:
+        """Create a PlanetXButtonSensor for a module plugged into the GPIO interface ``port`` (J1 to J4). Example:
 
             buttons = PlanetXButtonSensor(port=J3)
 
         If the module is wired to other pins, pass ``c_pin`` and ``d_pin`` instead of ``port``.
-        These are board pin objects such as ``board.IO13``, not the P-numbers printed on the
-        board; see the project README's "Port mapping" section for the J1-J4/IIC table, or
+        Pass board pin objects such as ``board.IO13``, not the integer 13;
+        see the project README's "Port mapping" section for the J1-J4/IIC table, or
         ``planetx.ports`` for the same mapping in code. Passing both ``port`` and pins, or
         neither, raises ``ValueError``.
         """
         if port is not None:
             if c_pin is not None or d_pin is not None:
-                raise ValueError("provide either parameter `port` or the pair `(c_pin and d_pin)`, not both")
+                raise ValueError("provide either parameter `port` or the pair `c_pin` and `d_pin`, not both")
             c_pin, d_pin = port.pins
         elif c_pin is None or d_pin is None:
             raise ValueError("port= or c_pin and d_pin are required")
         self._c, self._d = _make_buttons(c_pin, d_pin)
 
     @classmethod
-    def _from_buttons(cls, button_c: _Switch, button_d: _Switch) -> PlanetXButtonSensor:
+    def _from_buttons(cls, button_c: _Switch, button_d: _Switch) -> "PlanetXButtonSensor":
         """For TESTING: Pair two buttons that already exist."""
         obj = cls.__new__(cls)
         obj._c = button_c
@@ -98,7 +99,7 @@ class PlanetXButtonSensor:
         """Turn the scanners off and release the GPIO pins for buttons C and D.
 
         Both pins are released right away, so you can reuse them for something right after
-        ``buttons.deinit()`` returns. A ``run()`` task that is going stops by itself: the handler
+        ``buttons.deinit()`` returns. A ``run()`` task that is running stops by itself: the handler
         already running finishes, then ``run()`` raises ``RuntimeError``.
         """
         self._c._deinit()
@@ -124,6 +125,4 @@ class PlanetXButtonSensor:
         is printed and the buttons keep running. When this task ends, for example because it was
         cancelled, both GPIO pins are released, and this object cannot run again.
         """
-        import asyncio
-
         await asyncio.gather(self._c._run(), self._d._run())

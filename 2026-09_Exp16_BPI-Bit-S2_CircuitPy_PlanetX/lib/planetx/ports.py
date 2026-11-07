@@ -24,8 +24,6 @@ J1 and J2 accept analog sensors (yellow marking — e.g. light, sound) as well
 as digital ones; J3 and J4 are digital-only (red marking).
 """
 
-from __future__ import annotations
-
 # --- Maintainer notes (not needed to use this module) ---
 #
 # Two-step translation, hard-coded for the BPI-Bit-S2 + Nezha2 pairing:
@@ -40,9 +38,16 @@ from __future__ import annotations
 #
 # All Nezha2 IIC ports are **one** shared I2C bus (P19=SCL, P20=SDA). To
 # control all four IIC interfaces on the Nezha2, you only need a single
-# `I2CBus` object. Constructors tolerate `import board` failing (host tests
-# without hardware) so `J1`-`J4`/`I2C` still exist for tests that only check
-# port wiring, not live pins.
+# `I2CBus` object. `board` exists only on CircuitPython; in the test environment
+# it is `None` and the constructors skip binding pins, so `J1`-`J4`/`I2C` still
+# exist for tests that only check port wiring, not live pins.
+
+import sys
+
+if sys.implementation.name == "circuitpython":
+    import board
+else:
+    board = None
 
 
 class Port:
@@ -52,9 +57,9 @@ class Port:
 
     The wiring from a port to the edge connector is provided by ElecFreaks in their
     Nezha v2 documentation. ``J1``-``J4`` below are ready-made instances. But you can also
-    create your own instances by configuring the pair signal wires: the paramter
-    ```p_numbers`` has the format ``(p_a, p_b)`` where p_a, p_b are integers corresponding
-    to the P-numbers in the ElecFreaks documentation. The parameter `analog_p_number`` is
+    create your own instances by configuring the pair of signal wires: the parameter
+    ``p_numbers`` has the format ``(p_a, p_b)`` where p_a, p_b are integers corresponding
+    to the P-numbers in the ElecFreaks documentation. The parameter ``analog_p_number`` is
     the analog-capable P-number on J1/J2, or None on J3/J4.
     """
 
@@ -66,13 +71,11 @@ class Port:
         self.name = name
         self.p_numbers = p_numbers
         self.analog_p_number = analog_p_number
-        try:
-            import board
-        except ImportError:
-            # Host pytest: Blinka ``board`` raises ImportError (pkg_resources). CircuitPython firmware
-            # always provides ``board``, so this return is never taken on the device. Construction still
-            # succeeds so the module-level ``J1``–``J4`` objects can exist; ``p_numbers``/``analog_p_number``
-            # attrs remain; pin objects stay unbound.
+        if board is None:
+            # Test environment: ``board`` exists only on CircuitPython, which always provides it, so this
+            # return is never taken on the device. Construction still succeeds so the module-level
+            # ``J1``–``J4`` objects can exist; ``p_numbers``/``analog_p_number`` attrs remain; pin objects
+            # stay unbound.
             return
         self.pins = (getattr(board, f"IO{p_numbers[0]}"), getattr(board, f"IO{p_numbers[1]}"))
         if analog_p_number is None:
@@ -132,13 +135,11 @@ class I2CBus:
     def __init__(self) -> None:
         # Binds board.IO{n} for p_number_scl / p_number_sda as self.scl / self.sda.
         # On this firmware IO19 / IO20 are board.SCL / board.SDA.
-        try:
-            import board
-        except ImportError:
-            # Host pytest: Blinka ``board`` raises ImportError (pkg_resources). CircuitPython firmware
-            # always provides ``board``, so this return is never taken on the device. Construction still
-            # succeeds so the module-level ``I2C = I2CBus()`` can exist; ``p_number_scl``/``p_number_sda``
-            # class attrs remain; ``scl`` / ``sda`` stay unbound.
+        if board is None:
+            # Test environment: ``board`` exists only on CircuitPython, which always provides it, so this
+            # return is never taken on the device. Construction still succeeds so the module-level
+            # ``I2C = I2CBus()`` can exist; ``p_number_scl``/``p_number_sda`` class attrs remain;
+            # ``scl`` / ``sda`` stay unbound.
             return
         self.scl = getattr(board, f"IO{self.p_number_scl}")
         self.sda = getattr(board, f"IO{self.p_number_sda}")

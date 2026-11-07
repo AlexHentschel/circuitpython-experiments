@@ -69,6 +69,12 @@ When the same fact must live in two places (rare; only when duplication serves d
 - Mechanism, staff-sourced, in `concepts/ai-tooling.md` § Cursor agent inline diff: overlay tracks native file-edits only; Inline Diffs off, the partial-hunk bug, and shell/script writes each produce a silent apply. Git is not an input.
 - Probe: native append of four comments at the end of a `.tex` file in a folder outside this persona's projects. That tree has no `.git`. Alex has not yet reported whether the lines highlighted.
 
+## 2026-10-31: Session — [user] (document review: voice and collaboration)
+
+- Work in a folder outside this persona's projects; its own notes hold the details (no per-project write).
+- New `[user]` Document Authoring row in `universal/WORKING_STYLE.md`: check a self-descriptive word before flagging or cutting it.
+- Same session: Alex challenged a lone instance listed beside its own category; the rule (list granularity: families at one level, instances nested only with strong evidence) lives in that folder's notes.
+
 ## 2026-10-21: Session — [user] (human-owned framing: critique, don't rewrite)
 
 - Alex correction on a passage he wrote about his own work: list mechanical issues only; do not change the framing or drop facts.

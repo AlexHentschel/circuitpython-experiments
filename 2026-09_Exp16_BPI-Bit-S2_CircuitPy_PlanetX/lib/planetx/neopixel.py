@@ -12,9 +12,16 @@ The ring is a strip of 8 pixels. The data wire is the port's second pin
 A longer strip uses ``PlanetXNeoPixel(port=J1, count=24)``.
 """
 
-from __future__ import annotations
+import sys
 
 from .ports import Port
+
+# ``neopixel`` (the firmware's NeoPixel driver, not this module) exists only on CircuitPython. In the
+# test environment it is ``None``, and tests that need it replace it with a fake (see ``buttons.py``).
+if sys.implementation.name == "circuitpython":
+    import neopixel
+else:
+    neopixel = None
 
 # Same cap as the onboard matrix: a full-white tuple stays a modest current
 # on the 3.3 V port. MakeCode's strip default is 50% (about 0.5).
@@ -77,8 +84,7 @@ class PlanetXNeoPixel:
         if pixels is not None:
             self._pixels = pixels
             return
-        import neopixel
-
+        assert neopixel is not None, "neopixel is CircuitPython-only; tests must replace planetx.neopixel.neopixel"
         self._pixels = neopixel.NeoPixel(
             self._pin, count, brightness=brightness, auto_write=False
         )

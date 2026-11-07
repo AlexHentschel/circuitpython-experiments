@@ -125,9 +125,23 @@ that is going stops by itself: the handler already running finishes, then ``run(
 ``RuntimeError``.
 """
 
-from __future__ import annotations
+import asyncio
+import sys
 
-import asyncio  # once; ``_on_event`` runs on every event
+# ``board`` and ``keypad`` exist only on CircuitPython. In the test environment (CPython) both names
+# are ``None``, and tests replace them with fakes, for example ``monkeypatch.setattr(buttons, "keypad", fake)``.
+# This is the only place the code knows about tests.
+if sys.implementation.name == "circuitpython":
+    import board
+    import keypad
+else:
+    board = None
+    keypad = None
+
+try:  # CircuitPython / MicroPython have ``sys.print_exception``; CPython does not.
+    from sys import print_exception as _print_exception
+except ImportError:
+    from traceback import print_exception as _print_exception
 
 try:  # CircuitPython provides ``micropython.const``.
     from micropython import const
@@ -161,28 +175,22 @@ def _bind_scanner(owner, pins) -> None:
     """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``.
 
     Device path: ``keypad.Keys`` (active-low, pull-up) → native EventQueue on
-    ``owner``. ``import keypad`` lives here so a host ``import buttons`` does
-    not load it (tests build buttons with ``_from_queue`` and never call
-    ``_bind_scanner``). Each button binds once, at construction time, not per event.
+    ``owner``. On the physical board, ``keypad`` is the real module. In the test environment it
+    is ``None`` unless a test replaces it, so this function raises ``AssertionError`` if
+    ``keypad`` is missing (a test bug). The check costs almost nothing, because each button
+    is bound only once, at construction time.
     """
-    import keypad  # CircuitPython-only; not Blinka-on-CPython
+    assert keypad is not None, "keypad is CircuitPython-only; tests must replace buttons.keypad"
 
     # ``_keys`` is the scanner that watches the pin. ``_queue`` is that scanner's event list.
-    # We retain a reference to ``_keys`` so we can ``deinit`` the button to pin pairing later.
+    # We retain a reference to ``_keys`` so we can ``deinit`` the button-to-pin-pairing later.
     owner._keys = keypad.Keys(pins, value_when_pressed=False, pull=True)
     owner._queue = owner._keys.events
 
 
 def _report_handler_error(e) -> None:
     """Print exception ``e`` on the serial console and return. The button keeps running."""
-    try:
-        import sys
-
-        sys.print_exception(e)  # CircuitPython / MicroPython
-    except AttributeError:
-        import traceback
-
-        traceback.print_exception(e)
+    _print_exception(e)
 
 
 def _make_buttons(pin_1, pin_2):
@@ -396,8 +404,8 @@ class OnboardButtons:
         pass them only if you want to act on buttons connected to different pins instead.
         """
         if a_pin is None or b_pin is None:
-            import board  # CircuitPython-only; not imported on the host test path
-
+            # ``board`` is ``None`` in the test environment unless a test replaces it (see the top of this file).
+            assert board is not None, "board is CircuitPython-only; tests must replace buttons.board"
             if a_pin is None:
                 a_pin = board.BUTTON_A
             if b_pin is None:
@@ -405,13 +413,13 @@ class OnboardButtons:
         self._a, self._b = _make_buttons(a_pin, b_pin)
 
     @classmethod
-    def _from_buttons(cls, button_a: _Switch, button_b: _Switch) -> OnboardButtons:
+    def _from_buttons(cls, button_a: _Switch, button_b: _Switch) -> "OnboardButtons":
         """For TESTING: Pair two buttons that already exist.
 
-        ``__init__`` is not called, avoiding the ``board`` import (not available in the testing
-        environment) and binding to physical GPIO pins. Tests typically pass two buttons built
-        with ``Button._from_queue(event_queue)`` and push events into those queues instead of
-        pressing a physical switch.
+        ``__init__`` is not called, so nothing uses the ``board`` module (``None`` in the test
+        environment) or creates ``keypad.Keys`` scanners on physical GPIO pins. Tests typically
+        pass two buttons built with ``Button._from_queue(event_queue)`` and push events into
+        those queues instead of pressing a physical switch.
         """
         obj = cls.__new__(cls)
         obj._a = button_a

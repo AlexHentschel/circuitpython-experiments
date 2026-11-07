@@ -15,11 +15,18 @@ wait until that motion finishes, and other tasks keep running during the wait.
         # stop(), start(), turn(), or go_to() took the motor
 """
 
-from __future__ import annotations
-
+import asyncio
+import sys
 import time
 
-from .ports import MotorPort
+from .ports import I2C, MotorPort
+
+# ``busio`` exists only on CircuitPython. In the test environment it is ``None``, and tests that
+# need it replace it with a fake (see ``buttons.py``).
+if sys.implementation.name == "circuitpython":
+    import busio
+else:
+    busio = None
 
 # Student names. On a relative move the wire uses 1 and 2. On an absolute
 # move the wire uses a different numbering; ``_path_byte`` translates.
@@ -157,10 +164,7 @@ class PlanetXSmartMotor:
 
     def _ensure_bus(self):
         if self._bus is None:
-            import busio
-
-            from .ports import I2C
-
+            assert busio is not None, "busio is CircuitPython-only; tests must replace motor.busio"
             self._bus = busio.I2C(I2C.scl, I2C.sda, frequency=100000)
         return self._bus
 
@@ -220,8 +224,6 @@ class PlanetXSmartMotor:
         return gap <= _ARRIVED
 
     async def _wait_student(self, token: Token, target: int) -> None:
-        import asyncio
-
         deg_per_s = self._limit * 9
         if deg_per_s < 1:
             deg_per_s = 1
@@ -234,8 +236,6 @@ class PlanetXSmartMotor:
             await asyncio.sleep_ms(self._poll_ms)
 
     async def _wait_delta(self, token: Token, start: int, amount: int, direction: int) -> None:
-        import asyncio
-
         prev = start
         accum = 0
         deg_per_s = self._limit * 9
@@ -258,8 +258,6 @@ class PlanetXSmartMotor:
             await asyncio.sleep_ms(self._poll_ms)
 
     async def _wait_seconds(self, token: Token, seconds: float) -> None:
-        import asyncio
-
         deadline = time.monotonic() + seconds
         while not token.is_expired:
             if time.monotonic() >= deadline:

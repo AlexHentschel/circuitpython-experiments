@@ -40,6 +40,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 
 ## Entries
 
+- **A date printed beside a figure reads as the event date, even when it is the source's date**
+  - **Observation**: a bullet reporting a field-test figure carried the year of the conference slide that printed the figure; in its context it read as the year of the test, which was years earlier. Alex asked where the date came from.
+  - **Trigger**: a figure or event in a persisted document carries a date copied from the place it was reported, and the date differs from when the event happened.
+  - **Action on trigger**: give the event date, or no date, or word the source date as "reported in <year>"; before writing a figure, check whether its source states when and how it was measured. Promote to `WORKING_STYLE.md § Document Authoring` on a second incident.
+  - **First observed**: 2026-10-31 (document review outside this persona's projects).
+  - **Scope**: `[universal]`.
+
 - **Slice scroll-frame sleeps only if abandoned scrolls pile up**
   - **Observation**: `Image._scroll_image` and `show_string`'s scroll loop each `await asyncio.sleep(interval)` once per column. One awaited scroll is one sleeper; a faster poll only makes that one return sooner. A burst of un-awaited scrolls (`create_task`, not awaited) leaves each expired coroutine asleep until that column ends.
   - **Trigger**: exp16 (or a port of this display library) starts overlapping Tier 2 scrolls without awaiting them, or a caller needs cancel latency shorter than `interval_ms` on a column around 500 ms or more.
@@ -158,3 +165,17 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
   - **Action on trigger**: don't score on raw REACH — pre-register route-directness / hub-consultation / precision controls, or use a weaker navigator model or an unguessable target filename so the metric can actually discriminate. If a second run confirms REACH-saturation as a stable property of strong models, promote this to a harness-design note in `concepts/tooling.md` (or seed the first `concepts/ai-tooling.md` concept) and remove this entry.
   - **First observed**: 2026-09-15 (ai-tooling lifecycle, final paired probe).
   - **Scope**: `[user]` — applies to any cold-AI retrieval measurement in Alex's persona-tooling, not CircuitPython-specific.
+
+- **A fix "verified" on a scratch copy of the user's live files can be contaminated by edits the user already made there**
+  - **Observation**: while testing a PDF-text-extraction fix on a copy of one of Alex's LaTeX document folders, the extraction result came from an `accsupp` workaround Alex had already applied in the live files; I credited my new change (`glyphtounicode`) with it and had to retract. A baseline run on the untouched copy would have caught it. Single incident.
+  - **Trigger**: the next time a test runs on a copy of files the user may have edited since I last read them, and I attribute a result to my change.
+  - **Action on trigger**: before attributing, grep the copy for the mechanism under test and run a baseline with only my change removed; if a second incident occurs, add a one-line "baseline on the copy first" directive to `WORKING_STYLE.md` and remove this entry.
+  - **First observed**: 2026-11-03 (LaTeX document session outside this persona's projects, `[project]`-agnostic).
+  - **Scope**: `[user]`.
+
+- **Gave an unexplained artifact in the human's own environment a guessed history**
+  - **Observation**: inventory of a new dual-boot machine showed two Linux-type partitions I could not explain. I wrote "probably leftovers of an earlier install" into the notes and the reply; Alex had created them on purpose as the planned root and `/home`. Nothing was changed on the strength of the guess.
+  - **Trigger**: an unexplained item (partition, file, config, account) turns up in the human's own setup and I am about to describe its origin or purpose.
+  - **Action on trigger**: label it "unexplained", ask the human what it is in the same message, and do not write an origin story into persisted notes. If it can wait for a second incident: add a one-line "ask before guessing the purpose of the human's own artifacts" directive to `WORKING_STYLE.md § Judgment & Escalation` and remove this entry.
+  - **First observed**: 2026-11-04 (Linux-Dualboot session, `[project]`-agnostic).
+  - **Scope**: `[universal]`.

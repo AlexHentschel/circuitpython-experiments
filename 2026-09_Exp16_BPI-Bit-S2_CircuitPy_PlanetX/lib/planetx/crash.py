@@ -17,8 +17,6 @@ Pressed means the contacts are closed.
     asyncio.run(main())
 """
 
-from __future__ import annotations
-
 from buttons import Button
 
 from .ports import Port
