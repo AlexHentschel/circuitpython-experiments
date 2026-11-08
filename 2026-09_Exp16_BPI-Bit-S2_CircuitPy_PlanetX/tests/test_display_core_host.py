@@ -1107,7 +1107,7 @@ def test_show_zero_duration_yields_once_then_blanks(host, noun):
 
 
 @pytest.mark.parametrize("noun", _SHOW_NOUNS)
-def test_show_requires_keyword_duration(host, noun):
+def test_show_requires_duration_by_name(host, noun):
     """``duration_ms`` must be passed by name; omitting it or passing it positionally raises ``TypeError``.
 
     - Covers: a default of 0, or a positional time being accepted.

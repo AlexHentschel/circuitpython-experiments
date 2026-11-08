@@ -50,8 +50,8 @@ NeoPixel buffer; no ``await``):
 **Tier 2 — async MakeCode-compatible methods** (require
 `await`, cancellable):
 
-- `show_pattern` / `show_icon(icon, color=WHITE, *, duration_ms)` / `show_arrow` / `show_filled(color, *, duration_ms)` — draw, hold for `duration_ms`, then blank. Always pass the hold time parameter by name, for example `duration_ms=1000`. Without the name the call raises `TypeError`. This call's picture stays up for the hold duration. A later display call during the hold replaces it.
-- `show_image(img, offset=0, *, duration_ms)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image`, hold, then blank / scroll through one. `scroll_image` delegates to `Image._scroll_image` (internal — call the `Display` method, not that).
+- `show_pattern` / `show_icon(icon, color=WHITE, duration_ms)` / `show_arrow` / `show_filled(color, duration_ms)` — draw, hold for `duration_ms`, then blank. Always pass the hold time parameter by name, for example `duration_ms=1000`. Without the name the call raises `TypeError`. This call's picture stays up for the hold duration. A later display call during the hold replaces it.
+- `show_image(img, offset=0, duration_ms)` / `scroll_image(img, step=1, interval_ms=200)` — show a `WIDTH`-column window of an `Image`, hold, then blank / scroll through one. `scroll_image` delegates to `Image._scroll_image` (internal — call the `Display` method, not that).
 - `show_string(text, color=WHITE, interval_ms=150, loop=False)` — the call
   blocks, takes time, and ends on a blank screen. Text wider than the
   display scrolls one column every `interval_ms` and finishes blank.
