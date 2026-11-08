@@ -212,7 +212,27 @@ def test_render_string_and_render_number_are_sync_defs():
     - Covers: the static text calls being ``async def``, or ``show_string`` / ``show_number`` becoming sync.
     - How: AST of ``Display`` in ``core.py``; ``FunctionDef`` versus ``AsyncFunctionDef``.
     """
-    for name in ("render_string", "render_number"):
+    for name in ("render_string", "render_number", "render_image"):
         assert type(_display_method(name)) is ast.FunctionDef, name
-    for name in ("show_string", "show_number"):
+    for name in ("show_string", "show_number", "scroll_string", "scroll_number", "scroll_image"):
         assert type(_display_method(name)) is ast.AsyncFunctionDef, name
+
+
+def test_verb_grid_names_and_keyword_only_times():
+    """The M2 names exist, ``step`` and ``Image._scroll_image`` are gone, and times are by name.
+
+    - Covers: ``scroll_image`` still taking ``step``, or ``duration_ms`` / ``interval_ms`` becoming positional.
+    - How: AST of ``Display`` and ``Image`` in ``core.py``.
+    """
+    methods = _class_methods(_module_ast(CORE), "Display")
+    for name in ("render_image", "scroll_string", "scroll_number", "scroll_image", "show_string", "show_number"):
+        assert name in methods, name
+    image_methods = _class_methods(_module_ast(CORE), "Image")
+    assert "_scroll_image" not in image_methods
+    for name in ("scroll_string", "scroll_number", "scroll_image"):
+        method = _display_method(name)
+        assert [arg.arg for arg in method.args.kwonlyargs] == ["interval_ms", "loop", "blank_edges"], name
+        assert "step" not in [arg.arg for arg in method.args.args], name
+    for name in ("show_string", "show_number", "show_pattern", "show_icon", "show_arrow", "show_image", "show_filled"):
+        method = _display_method(name)
+        assert "duration_ms" in [arg.arg for arg in method.args.kwonlyargs], name

@@ -102,6 +102,17 @@ def _left_window(text):
     return window
 
 
+def _placed_window(columns, x):
+    """Content column 0 lands at display column ``x``. Columns off the matrix are 0."""
+    window = [0] * WIDTH
+    n = len(columns)
+    for c in range(WIDTH):
+        src = c - x
+        if 0 <= src < n:
+            window[c] = columns[src]
+    return window
+
+
 def _centered_window(text, origin):
     """``WIDTH`` window with source column 0 at display column ``origin``."""
     columns = _feeder_column_bytes(text)
@@ -373,29 +384,29 @@ def test_brightness_shows_without_cancelling(host):
     assert disp._pixels.brightness == 0.1
 
 
-def test_show_string_empty_holds_blank_for_interval_times_width(host):
-    """``show_string('')`` draws off pixels and waits ``interval_ms * WIDTH``.
+def test_show_string_empty_holds_blank_for_the_duration(host):
+    """``show_string('')`` draws off pixels and waits ``duration_ms``.
 
-    - Covers: empty text leaving the previous frame, or holding a different duration.
-    - How: ``interval_ms=100``; millisecond sleeps sum to 500; every logical pixel is off.
+    - Covers: empty text leaving the previous frame, or holding ``duration_ms * WIDTH``.
+    - How: ``duration_ms=100``; millisecond sleeps sum to 100; every logical pixel is off.
     """
     disp = host.disp
     disp.render_filled(RED)
 
     async def run():
         host.sleeps.clear()
-        await disp.show_string("", interval_ms=100)
-        assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100 * WIDTH
+        await disp.show_string("", duration_ms=100)
+        assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100
         assert host.logical() == tuple(tuple(OFF for _ in range(WIDTH)) for _ in range(HEIGHT))
 
     asyncio.run(run())
 
 
-def test_show_string_scroll_frame_count(host):
-    """Text wider than the display sleeps once per ``1 + columns + WIDTH`` frame.
+def test_scroll_string_marquee_frame_count(host):
+    """A marquee sleeps once per ``1 + columns + WIDTH`` frame.
 
-    - Covers: the scroll-out blank frame being skipped, or the fit-path hold being used.
-    - How: ``"HI"``; count ``show`` calls; first and last frames are blank; a middle frame is not.
+    - Covers: the scroll-out blank frame being skipped, or a hold being used for wide text.
+    - How: ``scroll_string("HI")``; count ``show`` calls; first and last frames are blank; a middle frame is not.
     """
     disp = host.disp
     frames = []
@@ -411,7 +422,7 @@ def test_show_string_scroll_frame_count(host):
     assert columns > WIDTH
 
     async def run():
-        await disp.show_string("HI", interval_ms=150)
+        await disp.scroll_string("HI", interval_ms=150)
 
     asyncio.run(run())
     assert len(frames) == 1 + columns + WIDTH
@@ -421,11 +432,11 @@ def test_show_string_scroll_frame_count(host):
     assert any(frame != blank for frame in frames)
 
 
-def test_scroll_step_skips_a_middle_column(host):
-    """``scroll_image`` stays on the step lattice. Width 10, step 6 visits 0 then 6.
+def test_scroll_image_pan_visits_each_window(host):
+    """A pan of a 10-wide image visits offsets 0 through 5, one column at a time.
 
-    - Covers: snapping the last frame onto column 5.
-    - How: record ``_render_window`` offsets.
+    - Covers: skipping a middle window, or stopping one column early.
+    - How: record ``_render_window`` offsets for ``blank_edges=False``.
     """
     disp = host.disp
     image = host.core.Image._from_encoded(bytes([1] * 10), 10, False, WHITE)
@@ -440,19 +451,19 @@ def test_scroll_step_skips_a_middle_column(host):
     try:
 
         async def run():
-            await disp.scroll_image(image, step=6, interval_ms=10)
+            await disp.scroll_image(image, interval_ms=10, blank_edges=False)
 
         asyncio.run(run())
     finally:
         host.core.Image._render_window = orig
-    assert offsets == [0, 6]
+    assert offsets == [0, 1, 2, 3, 4, 5]
 
 
 def test_scroll_cancel_does_not_draw_another_frame(host):
     """A cancel during the frame sleep returns before the next ``_render_window``.
 
     - Covers: one more frame after the token expires.
-    - How: ``render_filled`` inside the first ``asyncio.sleep_ms``; recorded offsets are ``[0]``; token expired.
+    - How: ``render_filled`` inside the first ``asyncio.sleep_ms``; the only offset is the marquee's first window; token expired.
     """
     disp = host.disp
     image = host.core.Image._from_encoded(bytes([1] * 10), 10, False, WHITE)
@@ -471,13 +482,13 @@ def test_scroll_cancel_does_not_draw_another_frame(host):
     try:
 
         async def run():
-            return await disp.scroll_image(image, step=1, interval_ms=100)
+            return await disp.scroll_image(image, interval_ms=100)
 
         token = asyncio.run(run())
     finally:
         host.core.Image._render_window = orig
         host.hook["fn"] = None
-    assert offsets == [0]
+    assert offsets == [-WIDTH]
     assert token.is_expired is True
 
 
@@ -495,7 +506,7 @@ def test_show_image_negative_duration_does_not_take_over(host):
     host.sleeps.clear()
 
     async def run():
-        await disp.show_image(image, offset=-2, duration_ms=-5)
+        await disp.show_image(image, x=-2, duration_ms=-5)
 
     with pytest.raises(ValueError, match="duration_ms must be >= 0"):
         asyncio.run(run())
@@ -505,18 +516,18 @@ def test_show_image_negative_duration_does_not_take_over(host):
     assert host.sleeps == []
 
 
-def test_show_string_negative_interval_does_not_cancel(host):
-    """``show_string`` rejects a negative interval before ``_acquire``.
+def test_show_string_negative_duration_does_not_cancel(host):
+    """``show_string`` rejects a negative duration before ``_acquire``.
 
     - Covers: clamping, or expiring the current token on the way to the error.
-    - How: ``interval_ms=-1`` raises ``ValueError``; same token, not expired.
+    - How: ``duration_ms=-1`` raises ``ValueError``; same token, not expired.
     """
     disp = host.disp
     token = disp._token
 
     async def run():
         with pytest.raises(ValueError):
-            await disp.show_string("I", interval_ms=-1)
+            await disp.show_string("I", duration_ms=-1)
 
     asyncio.run(run())
     assert disp._token is token
@@ -650,7 +661,7 @@ def test_render_string_cancels_a_running_scroll(host):
     try:
 
         async def run():
-            return await disp.show_string("STAGE2", interval_ms=80)
+            return await disp.scroll_string("STAGE2", interval_ms=80)
 
         token = asyncio.run(run())
     finally:
@@ -676,22 +687,22 @@ def test_render_number_matches_render_string(host):
 
 
 def test_show_string_fit_path_ends_blank(host):
-    """A fitting ``show_string`` holds for ``interval_ms * WIDTH``, then the last frame is blank.
+    """A fitting ``show_string`` holds for ``duration_ms``, then the last frame is blank.
 
-    - Covers: the letter staying lit, a different hold, or the call expiring its own token.
-    - How: ``"A"``, ``interval_ms=100``; sleeps sum to 500; frames are the letter then all off; token still current.
+    - Covers: the letter staying lit, a hold of ``duration_ms * WIDTH``, or the call expiring its own token.
+    - How: ``"A"``, ``duration_ms=100``; sleeps sum to 100; frames are the letter then all off; token still current.
     """
     disp = host.disp
-    expected = _frame_of(_fit_window("A"))
+    expected = _frame_of(_left_window("A"))
 
     async def run():
         host.sleeps.clear()
         with _recorded_shows(host) as frames:
-            token = await disp.show_string("A", interval_ms=100)
+            token = await disp.show_string("A", duration_ms=100)
         return token, list(frames)
 
     token, frames = asyncio.run(run())
-    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100 * WIDTH
+    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100
     assert frames[0] == expected
     assert frames[-1] == _BLANK
     assert token.is_expired is False
@@ -702,7 +713,7 @@ def test_show_string_fit_preempted_during_hold_keeps_the_other_frame(host):
     """A Tier 1 write during a fitting hold wins. The hold does not blank that frame.
 
     - Covers: a blank drawn after ``render_filled``, or the token staying current.
-    - How: hook ``render_filled(RED)`` on the first sleep of ``show_string("A")``; frame stays red; token expired.
+    - How: hook ``render_filled(RED)`` on the first sleep of ``show_string("A", duration_ms=100)``; frame stays red.
     """
     disp = host.disp
 
@@ -714,7 +725,7 @@ def test_show_string_fit_preempted_during_hold_keeps_the_other_frame(host):
     try:
 
         async def run():
-            return await disp.show_string("A", interval_ms=100)
+            return await disp.show_string("A", duration_ms=100)
 
         token = asyncio.run(run())
     finally:
@@ -723,11 +734,11 @@ def test_show_string_fit_preempted_during_hold_keeps_the_other_frame(host):
     assert host.logical() == tuple(tuple(RED for _ in range(WIDTH)) for _ in range(HEIGHT))
 
 
-def test_show_string_fit_loop_cancelled_does_not_blank(host):
-    """``loop=True`` on fitting text leaves the canceller's frame up.
+def test_scroll_string_loop_cancelled_leaves_the_other_frame(host):
+    """``loop=True`` stops when another display call takes over, and that picture stays up.
 
-    - Covers: a blank written after cancellation.
-    - How: hook ``render_filled(RED)`` on the first sleep; frame stays red.
+    - Covers: the scroll blanking after it was superseded, or ignoring the takeover.
+    - How: hook ``render_filled(RED)`` on the first sleep of ``scroll_string(..., loop=True)``; frame stays red; token expired.
     """
     disp = host.disp
 
@@ -739,7 +750,7 @@ def test_show_string_fit_loop_cancelled_does_not_blank(host):
     try:
 
         async def run():
-            return await disp.show_string("A", interval_ms=100, loop=True)
+            return await disp.scroll_string("A", interval_ms=100, loop=True)
 
         token = asyncio.run(run())
     finally:
@@ -749,18 +760,18 @@ def test_show_string_fit_loop_cancelled_does_not_blank(host):
 
 
 def test_show_string_fit_interval_zero_flashes_then_blanks(host):
-    """``interval_ms=0`` on fitting text yields once, then the screen is blank.
+    """``duration_ms=0`` yields once, then the screen is blank.
 
     - Covers: skipping the yield, leaving the text up, or expiring the token.
     - How: ``"A"``; sleeps are ``[("ms", 0)]``; frames are the letter then all off; token not expired.
     """
     disp = host.disp
-    expected = _frame_of(_fit_window("A"))
+    expected = _frame_of(_left_window("A"))
 
     async def run():
         host.sleeps.clear()
         with _recorded_shows(host) as frames:
-            token = await disp.show_string("A", interval_ms=0)
+            token = await disp.show_string("A", duration_ms=0)
         return token, list(frames)
 
     token, frames = asyncio.run(run())
@@ -779,12 +790,12 @@ def test_show_number_fit_ends_blank_render_number_stays(host):
 
     async def run():
         host.sleeps.clear()
-        return await disp.show_number(7, interval_ms=40)
+        return await disp.show_number(7, duration_ms=40)
 
     token = asyncio.run(run())
     assert token.is_expired is False
     assert host.logical() == _BLANK
-    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 40 * WIDTH
+    assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 40
     disp.render_string("7")
     held = host.logical()
     assert held != _BLANK
@@ -855,7 +866,11 @@ def test_image_and_icon_are_built_from_a_pattern_only(host):
         ("show_arrow", lambda d, c: d.show_arrow(c.Icon("#"), duration_ms=-1)),
         ("show_filled", lambda d, c: d.show_filled(duration_ms=-1)),
         ("show_image", lambda d, c: d.show_image(c.Image("#"), duration_ms=-1)),
-        ("show_string", lambda d, c: d.show_string("A", interval_ms=-1)),
+        ("show_string", lambda d, c: d.show_string("A", duration_ms=-1)),
+        ("show_number", lambda d, c: d.show_number(7, duration_ms=-1)),
+        ("scroll_string", lambda d, c: d.scroll_string("A", interval_ms=-1)),
+        ("scroll_number", lambda d, c: d.scroll_number(7, interval_ms=-1)),
+        ("scroll_image", lambda d, c: d.scroll_image(c.Image("#"), interval_ms=-1)),
         ("pause", lambda d, c: d.pause(-1)),
         ("repeat_until_cancelled", lambda d, c: c.Display.repeat_until_cancelled(lambda: None, -1)),
     ],
@@ -1006,10 +1021,14 @@ def _start_show(disp, core, noun, duration_ms):
         return disp.show_image(image, duration_ms=duration_ms)
     if noun == "filled":
         return disp.show_filled(RED, duration_ms=duration_ms)
+    if noun == "string":
+        return disp.show_string("A", RED, duration_ms=duration_ms)
+    if noun == "number":
+        return disp.show_number(7, RED, duration_ms=duration_ms)
     raise AssertionError(noun)
 
 
-_SHOW_NOUNS = ("pattern", "icon", "arrow", "image", "filled")
+_SHOW_NOUNS = ("pattern", "icon", "arrow", "image", "filled", "string", "number")
 
 
 @pytest.mark.parametrize("noun", _SHOW_NOUNS)
@@ -1129,18 +1148,26 @@ def test_show_requires_duration_by_name(host, noun):
             await disp.show_arrow(icon)
         elif noun == "image":
             await disp.show_image(image)
+        elif noun == "string":
+            await disp.show_string("A")
+        elif noun == "number":
+            await disp.show_number(7)
         else:
             await disp.show_filled()
 
     async def positional():
         if noun == "pattern":
-            await disp.show_pattern("#", RED, 1000)
+            await disp.show_pattern("#", RED, 0, 1000)
         elif noun == "icon":
-            await disp.show_icon(icon, RED, 1000)
+            await disp.show_icon(icon, RED, 0, 1000)
         elif noun == "arrow":
-            await disp.show_arrow(icon, RED, 1000)
+            await disp.show_arrow(icon, RED, 0, 1000)
         elif noun == "image":
             await disp.show_image(image, 0, 1000)
+        elif noun == "string":
+            await disp.show_string("A", RED, 0, 1000)
+        elif noun == "number":
+            await disp.show_number(7, RED, 0, 1000)
         else:
             await disp.show_filled(RED, 1000)
 
@@ -1183,7 +1210,7 @@ def test_render_string_of_screen_text_matches_the_string(host):
     assert host.logical() == _frame_of(_left_window("HELLO"))
 
     async def scroll():
-        await disp.show_string(prepared, interval_ms=0)
+        await disp.scroll_string(prepared, interval_ms=0)
 
     asyncio.run(scroll())
     disp.render_string("K")
@@ -1207,3 +1234,578 @@ def test_centered_accepts_number_and_screen_text_and_is_idempotent(host):
     frame = host.logical()
     host.disp.render_string(centered("7"))
     assert host.logical() == frame
+
+
+def _red_frame():
+    return tuple(tuple(RED for _ in range(WIDTH)) for _ in range(HEIGHT))
+
+
+@pytest.mark.parametrize("text", ("", "1", "A", "HELLO"))
+@pytest.mark.parametrize("as_screen_text", (False, True))
+def test_render_string_x_matches_the_shifted_columns(host, text, as_screen_text):
+    """``render_string(..., x=k)`` places a full column drain at display column ``k``.
+
+    - Covers: a clamp off by one, a skip one column short, or a non-blank frame when ``x`` is past the right edge.
+    - How: ``x`` from ``-(WIDTH + 1)`` to ``WIDTH + 2``. Oracle is the drain. One ``show``. Both a ``str`` and a ``ScreenText``.
+    """
+    disp = host.disp
+    columns = _feeder_column_bytes(text)
+    content = ScreenText(text) if as_screen_text else text
+    for x in range(-(WIDTH + 1), WIDTH + 3):
+        shows = disp._pixels.shows
+        disp.render_string(content, x=x)
+        assert disp._pixels.shows == shows + 1, (text, x, as_screen_text)
+        assert host.logical() == _frame_of(_placed_window(columns, x)), (text, x, as_screen_text)
+
+
+def test_render_string_past_the_right_edge_does_not_read_columns(host):
+    """``x >= WIDTH`` draws a blank frame and does not pull a column from the reader.
+
+    - Covers: the clamp treating ``x == WIDTH`` as a real column, or still calling ``next_column``.
+    - How: count ``_ColumnReader.next_column`` for ``""``, ``"A"``, ``"HELLO"`` at ``WIDTH``, ``WIDTH + 1``, ``WIDTH + 2``.
+    """
+    reads = {"n": 0}
+    orig = _ColumnReader.next_column
+
+    def counting(self):
+        reads["n"] += 1
+        return orig(self)
+
+    _ColumnReader.next_column = counting
+    try:
+        for text in ("", "A", "HELLO"):
+            for x in (WIDTH, WIDTH + 1, WIDTH + 2):
+                reads["n"] = 0
+                host.disp.render_string(text, x=x)
+                assert reads["n"] == 0, (text, x)
+                assert host.logical() == _BLANK, (text, x)
+    finally:
+        _ColumnReader.next_column = orig
+
+
+def test_render_icon_arrow_and_image_x_matches_shifted_columns(host):
+    """Icons, arrows and images place column 0 at display column ``x``.
+
+    - Covers: the ``x == 0`` path and the window path disagreeing, or a shift in the wrong direction.
+    - How: distinct column bytes; ``x`` walks past both edges; default ``x`` matches explicit ``0``. A 5-wide and a 10-wide image.
+    """
+    disp = host.disp
+    columns = [0x01, 0x02, 0x04, 0x08, 0x10]
+    icon = host.core.Icon._from_columns(bytes(columns))
+    for x in range(-(WIDTH + 1), WIDTH + 3):
+        disp.render_icon(icon, WHITE, x)
+        assert host.logical() == _frame_of(_placed_window(columns, x)), x
+        disp.render_arrow(icon, RED, x)
+        assert host.logical() == _frame_of(_placed_window(columns, x), RED), x
+    wide = [1, 2, 4, 8, 16, 1, 2, 4, 8, 16]
+    images = (
+        (host.core.Image._from_encoded(bytes(columns), 5, False, WHITE), columns),
+        (host.core.Image._from_encoded(bytes(wide), 10, False, WHITE), wide),
+    )
+    for image, cols in images:
+        for x in range(-(len(cols) + 1), WIDTH + 2):
+            disp.render_image(image, x)
+            assert host.logical() == _frame_of(_placed_window(cols, x)), (len(cols), x)
+    disp.render_icon(icon)
+    at_default = host.logical()
+    disp.render_icon(icon, x=0)
+    assert host.logical() == at_default
+    disp.render_image(images[1][0])
+    at_default = host.logical()
+    disp.render_image(images[1][0], x=0)
+    assert host.logical() == at_default
+
+
+def test_render_pattern_x_pans_the_parsed_columns(host):
+    """``render_pattern`` at ``x`` shows the parsed pattern shifted, including the ``x == 0`` scan.
+
+    - Covers: a wide row staying clipped when ``x`` is negative, or the fused scan disagreeing with the parsed columns.
+    - How: six hashes; oracle is ``Image``'s column bytes placed at ``x``, for ``x`` from -6 to ``WIDTH + 1``.
+    """
+    disp = host.disp
+    columns = list(host.core.Image("######")._data)
+    assert len(columns) == 6
+    for x in range(-6, WIDTH + 2):
+        disp.render_pattern("######", x=x)
+        assert host.logical() == _frame_of(_placed_window(columns, x)), x
+    disp.render_pattern("######")
+    assert host.logical() == _frame_of(_placed_window(columns, 0))
+
+
+def test_render_string_of_centered_text_shifts_with_x(host):
+    """``render_string(centered("1"), x=1)`` is the centered picture moved one column right.
+
+    - Covers: ``x`` being ignored for a ``ScreenText``, or the shift going left.
+    - How: drain ``centered("1")`` and place those columns at ``x = 1``.
+    """
+    columns = _feeder_column_bytes_of(centered("1"))
+    host.disp.render_string(centered("1"), x=1)
+    assert host.logical() == _frame_of(_placed_window(columns, 1))
+
+
+def test_render_image_multi_color_respects_x(host):
+    """A multi-color image puts each pixel's own color at the shifted column.
+
+    - Covers: a multi-color window using the mono color, or ignoring ``x``.
+    - How: ``"RG"`` with red and green; ``x=1`` lights column 1 red and column 2 green.
+    """
+    green = (0, 255, 0)
+    image = host.core.Image("RG", {"R": RED, "G": green})
+    host.disp.render_image(image, x=1)
+    row = host.logical()[0]
+    assert row[0] == OFF
+    assert row[1] == RED
+    assert row[2] == green
+    assert row[3] == OFF
+
+
+@pytest.mark.parametrize(
+    "method",
+    (
+        "render_pattern",
+        "render_icon",
+        "render_arrow",
+        "render_string",
+        "render_number",
+        "render_image",
+        "show_pattern",
+        "show_icon",
+        "show_arrow",
+        "show_string",
+        "show_number",
+        "show_image",
+    ),
+)
+@pytest.mark.parametrize("bad", (True, 1.5))
+def test_x_must_be_an_int_and_does_not_take_over(host, method, bad):
+    """A float or a bool ``x`` raises ``TypeError`` and leaves the display alone.
+
+    - Covers: accepting ``True`` because ``bool`` is an ``int``, or taking over before the check.
+    - How: paint red; call each method with ``x=True`` and ``x=1.5``; same token; frame still red; no sleep.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    before = host.logical()
+    token = disp._token
+    host.sleeps.clear()
+    core = host.core
+    icon = core.Icon("#")
+    image = core.Image("#")
+
+    def call():
+        if method == "render_pattern":
+            return disp.render_pattern("#", x=bad)
+        if method == "render_icon":
+            return disp.render_icon(icon, x=bad)
+        if method == "render_arrow":
+            return disp.render_arrow(icon, x=bad)
+        if method == "render_string":
+            return disp.render_string("A", x=bad)
+        if method == "render_number":
+            return disp.render_number(7, x=bad)
+        if method == "render_image":
+            return disp.render_image(image, x=bad)
+        if method == "show_pattern":
+            return disp.show_pattern("#", x=bad, duration_ms=10)
+        if method == "show_icon":
+            return disp.show_icon(icon, x=bad, duration_ms=10)
+        if method == "show_arrow":
+            return disp.show_arrow(icon, x=bad, duration_ms=10)
+        if method == "show_string":
+            return disp.show_string("A", x=bad, duration_ms=10)
+        if method == "show_number":
+            return disp.show_number(7, x=bad, duration_ms=10)
+        if method == "show_image":
+            return disp.show_image(image, x=bad, duration_ms=10)
+        raise AssertionError(method)
+
+    async def run():
+        result = call()
+        if result is not None:
+            await result
+
+    with pytest.raises(TypeError, match=rf"^{method}\(\): x must be an int, got {bad}$"):
+        asyncio.run(run())
+    assert disp._token is token
+    assert token.is_expired is False
+    assert host.logical() == before
+    assert host.sleeps == []
+
+
+@pytest.mark.parametrize("noun", ("pattern", "icon", "arrow", "image", "string", "number"))
+def test_show_frame_matches_render_at_the_same_x(host, noun):
+    """The first frame of ``show_*`` at ``x=1`` is the matching ``render_*`` frame.
+
+    - Covers: ``show_*`` ignoring ``x``, or drawing a different window than ``render_*``.
+    - How: render at ``x=1``, remember the frame, then ``show_*`` at ``x=1`` with ``duration_ms=0``; first recorded frame matches.
+    """
+    disp = host.disp
+    core = host.core
+    icon = core.Icon._from_columns(b"\x01\x02\x04\x08\x10")
+    image = core.Image._from_encoded(bytes([0x01, 0x02, 0x04]), 3, False, RED)
+    if noun == "pattern":
+        disp.render_pattern("#.#", RED, 1)
+    elif noun == "icon":
+        disp.render_icon(icon, RED, 1)
+    elif noun == "arrow":
+        disp.render_arrow(icon, RED, 1)
+    elif noun == "image":
+        disp.render_image(image, 1)
+    elif noun == "string":
+        disp.render_string("A", RED, 1)
+    else:
+        disp.render_number(7, RED, 1)
+    expected = host.logical()
+
+    async def run():
+        with _recorded_shows(host) as frames:
+            if noun == "pattern":
+                await disp.show_pattern("#.#", RED, 1, duration_ms=0)
+            elif noun == "icon":
+                await disp.show_icon(icon, RED, 1, duration_ms=0)
+            elif noun == "arrow":
+                await disp.show_arrow(icon, RED, 1, duration_ms=0)
+            elif noun == "image":
+                await disp.show_image(image, x=1, duration_ms=0)
+            elif noun == "string":
+                await disp.show_string("A", RED, 1, duration_ms=0)
+            else:
+                await disp.show_number(7, RED, 1, duration_ms=0)
+        return list(frames)
+
+    frames = asyncio.run(run())
+    assert frames[0] == expected
+
+
+def _windows(disp, host, draw, xs):
+    frames = []
+    for x in xs:
+        draw(x)
+        frames.append(host.logical())
+    return frames
+
+
+def test_scroll_frames_match_render_windows(host):
+    """Marquee and pan frames are the ``render_*`` frames at the ``x`` values from the frame law.
+
+    - Covers: an off-by-one last window, a pan that starts blank, or a marquee that starts on the content.
+    - How: string, number, and a 10-wide image; one sleep of ``interval_ms`` per frame; empty string too.
+    """
+    disp = host.disp
+    interval = 7
+
+    def check(draw, scroll, n, narrow):
+        marquee = list(range(WIDTH, -n - 1, -1))
+        span = 0 if narrow else n - WIDTH
+        pan = list(range(0, -span - 1, -1))
+        expected_m = _windows(disp, host, draw, marquee)
+        expected_p = _windows(disp, host, draw, pan)
+
+        async def run_marquee():
+            host.sleeps.clear()
+            with _recorded_shows(host) as frames:
+                await scroll(True)
+            return list(frames)
+
+        async def run_pan():
+            host.sleeps.clear()
+            with _recorded_shows(host) as frames:
+                await scroll(False)
+            return list(frames)
+
+        frames_m = asyncio.run(run_marquee())
+        assert frames_m == expected_m
+        assert frames_m[0] == _BLANK
+        assert frames_m[-1] == _BLANK
+        assert [ms for kind, ms in host.sleeps if kind == "ms"] == [interval] * len(frames_m)
+        frames_p = asyncio.run(run_pan())
+        assert frames_p == expected_p
+        assert frames_p[0] != _BLANK or n == 0
+        assert [ms for kind, ms in host.sleeps if kind == "ms"] == [interval] * len(frames_p)
+        if narrow:
+            assert len(frames_p) == 1
+
+    text = "HI"
+    n = _feeder_columns(text)
+    assert n > WIDTH
+    check(
+        lambda x: disp.render_string(text, x=x),
+        lambda edges: disp.scroll_string(text, interval_ms=interval, blank_edges=edges),
+        n,
+        False,
+    )
+    check(
+        lambda x: disp.render_number(42, x=x),
+        lambda edges: disp.scroll_number(42, interval_ms=interval, blank_edges=edges),
+        _feeder_columns("42"),
+        _feeder_columns("42") <= WIDTH,
+    )
+    wide = bytes([1, 2, 4, 8, 16, 1, 2, 4, 8, 16])
+    image = host.core.Image._from_encoded(wide, 10, False, WHITE)
+    check(
+        lambda x: disp.render_image(image, x),
+        lambda edges: disp.scroll_image(image, interval_ms=interval, blank_edges=edges),
+        10,
+        False,
+    )
+    short = host.core.Image._from_encoded(bytes([1, 2, 4]), 3, False, WHITE)
+    check(
+        lambda x: disp.render_image(short, x),
+        lambda edges: disp.scroll_image(short, interval_ms=interval, blank_edges=edges),
+        3,
+        True,
+    )
+    check(
+        lambda x: disp.render_string("", x=x),
+        lambda edges: disp.scroll_string("", interval_ms=interval, blank_edges=edges),
+        0,
+        True,
+    )
+
+
+def test_scroll_string_loop_repeats_then_stops_on_takeover(host):
+    """``loop=True`` plays the marquee twice, then a takeover leaves its own frame up.
+
+    - Covers: the second pass starting mid-text, or a blank written after the takeover.
+    - How: ``"A"``; stop on the sleep after two full passes via ``render_filled(RED)``.
+    """
+    disp = host.disp
+    n = _feeder_columns("A")
+    per_pass = 1 + n + WIDTH
+    expected = _windows(disp, host, lambda x: disp.render_string("A", x=x), range(WIDTH, -n - 1, -1))
+
+    async def run():
+        with _recorded_shows(host) as frames:
+            def stop():
+                if len(frames) >= 2 * per_pass:
+                    disp.render_filled(RED)
+
+            host.hook["fn"] = stop
+            token = await disp.scroll_string("A", interval_ms=5, loop=True)
+        return token, list(frames)
+
+    token, frames = asyncio.run(run())
+    host.hook["fn"] = None
+    assert frames[:per_pass] == expected
+    assert frames[per_pass : 2 * per_pass] == expected
+    assert frames[-1] == _red_frame()
+    assert token.is_expired is True
+
+
+def test_scroll_pan_loop_jumps_back_to_the_first_window(host):
+    """A looping pan returns to ``x = 0`` after the last window.
+
+    - Covers: the second pass continuing past the last column, or inserting a blank between passes.
+    - How: ``"HI"`` with ``blank_edges=False``; two passes, then ``render_filled``.
+    """
+    disp = host.disp
+    text = "HI"
+    n = _feeder_columns(text)
+    assert n > WIDTH
+    per_pass = 1 + n - WIDTH
+    expected = _windows(disp, host, lambda x: disp.render_string(text, x=x), range(0, -(n - WIDTH) - 1, -1))
+
+    async def run():
+        with _recorded_shows(host) as frames:
+            def stop():
+                if len(frames) >= 2 * per_pass:
+                    disp.render_filled(RED)
+
+            host.hook["fn"] = stop
+            token = await disp.scroll_string(text, interval_ms=5, loop=True, blank_edges=False)
+        return token, list(frames)
+
+    token, frames = asyncio.run(run())
+    host.hook["fn"] = None
+    assert frames[:per_pass] == expected
+    assert frames[per_pass : 2 * per_pass] == expected
+    assert token.is_expired is True
+
+
+def test_set_rotation_does_not_shorten_a_scroll(host):
+    """``set_rotation`` during a scroll keeps the marquee's frame count.
+
+    - Covers: rotation taking over the display and cutting the scroll short.
+    - How: rotate 180 on the first sleep of ``scroll_string`` and of ``scroll_image``; sleep count stays ``1 + n + WIDTH``.
+    """
+    disp = host.disp
+    text = "HI"
+    n = _feeder_columns(text)
+    expected = 1 + n + WIDTH
+    image = host.core.Image._from_encoded(bytes([1] * n), n, False, WHITE)
+
+    async def once(call):
+        turned = {"done": False}
+
+        def hook():
+            if not turned["done"]:
+                disp.set_rotation(180)
+                turned["done"] = True
+
+        host.hook["fn"] = hook
+        host.sleeps.clear()
+        await call()
+        host.hook["fn"] = None
+        return sum(1 for kind, _ms in host.sleeps if kind == "ms")
+
+    async def run():
+        text_sleeps = await once(lambda: disp.scroll_string(text, interval_ms=10))
+        image_sleeps = await once(lambda: disp.scroll_image(image, interval_ms=10))
+        return text_sleeps, image_sleeps
+
+    assert asyncio.run(run()) == (expected, expected)
+
+
+def test_loop_stops_on_takeover_but_repeat_draws_again(host):
+    """``loop=True`` returns when an arrow is drawn. ``repeat_until_cancelled`` draws over that arrow.
+
+    - Covers: a looping scroll ignoring takeover, or a repeat stopping because the display changed.
+    - How: after two shows, ``render_arrow``. The loop task returns expired. The repeat task then changes the frame and stops on ``cancel``.
+    """
+    disp = host.disp
+    icon = host.core.Icon._from_columns(b"\x1f\x00\x00\x00\x00")
+
+    async def loop_case():
+        task = asyncio.create_task(disp.scroll_string("HELLO", interval_ms=10, loop=True))
+        while disp._pixels.shows < 2:
+            await asyncio.sleep(0)
+        disp.render_arrow(icon, RED)
+        return await task
+
+    token = asyncio.run(loop_case())
+    assert token.is_expired is True
+    assert host.logical() == _frame_of(_placed_window([0x1F, 0, 0, 0, 0], 0), RED)
+
+    async def repeat_case():
+        async def body():
+            await disp.scroll_string("HI", interval_ms=10)
+
+        task = asyncio.create_task(disp.repeat_until_cancelled(body, sleep_between_ms=0))
+        while disp._pixels.shows < 2:
+            await asyncio.sleep(0)
+        disp.render_arrow(icon, RED)
+        held = host.logical()
+        overwritten = False
+        for _ in range(200):
+            await asyncio.sleep(0)
+            if host.logical() != held:
+                overwritten = True
+                break
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        return overwritten
+
+    assert asyncio.run(repeat_case()) is True
+
+
+def test_pause_after_an_expired_token_mints_a_fresh_one(host):
+    """A quiet ``pause`` expires the previous token and returns a new one.
+
+    - Covers: ``pause`` handing back the token it found, including one a render already replaced.
+    - How: two ``pause(0)`` calls. The first is expired; the second is a different current token.
+      Then ``render_filled`` and one more ``pause`` inside ``while token.is_expired``.
+    """
+    disp = host.disp
+
+    async def run():
+        first = await disp.pause(0)
+        second = await disp.pause(0)
+        assert first.is_expired is True
+        assert second is not first
+        assert second is disp._token
+        disp.render_filled(RED)
+        assert second.is_expired is True
+        while second.is_expired:
+            second = await disp.pause(0)
+            break
+        return second
+
+    token = asyncio.run(run())
+    assert token.is_expired is False
+    assert token is disp._token
+
+
+def test_scroll_negative_interval_does_not_take_over(host):
+    """A negative ``interval_ms`` on each ``scroll_*`` raises before the display changes.
+
+    - Covers: clamping a negative interval and scrolling anyway.
+    - How: paint red; ``interval_ms=-1`` on string, number and image; same token; frame still red.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    before = host.logical()
+    token = disp._token
+    image = host.core.Image("#")
+
+    async def run():
+        with pytest.raises(ValueError, match=r"^scroll_string\(\): interval_ms must be >= 0, got -1$"):
+            await disp.scroll_string("A", interval_ms=-1)
+        with pytest.raises(ValueError, match=r"^scroll_number\(\): interval_ms must be >= 0, got -1$"):
+            await disp.scroll_number(7, interval_ms=-1)
+        with pytest.raises(ValueError, match=r"^scroll_image\(\): interval_ms must be >= 0, got -1$"):
+            await disp.scroll_image(image, interval_ms=-1)
+
+    asyncio.run(run())
+    assert disp._token is token
+    assert host.logical() == before
+
+
+def test_scroll_time_and_flags_are_passed_by_name(host):
+    """A positional interval or flag on ``scroll_*`` raises ``TypeError`` and does not draw.
+
+    - Covers: ``interval_ms`` or ``blank_edges`` being accepted by position.
+    - How: a third positional on the text scrolls, and a second positional on ``scroll_image``.
+    """
+    disp = host.disp
+    disp.render_filled(WHITE)
+    before = host.logical()
+    token = disp._token
+    image = host.core.Image("#")
+
+    async def run():
+        with pytest.raises(TypeError):
+            await disp.scroll_string("A", WHITE, 150)
+        with pytest.raises(TypeError):
+            await disp.scroll_number(7, WHITE, False)
+        with pytest.raises(TypeError):
+            await disp.scroll_image(image, 10)
+
+    asyncio.run(run())
+    assert disp._token is token
+    assert host.logical() == before
+
+
+def test_explicit_x_takes_over_a_running_scroll(host):
+    """``render_string(..., x=1)`` during a scroll expires it and leaves the shifted letter up.
+
+    - Covers: an explicit ``x`` failing to take over, or drawing at ``x = 0``.
+    - How: cancel ``scroll_image(..., loop=True)`` with ``render_string("A", x=1)`` after the first show.
+    """
+    disp = host.disp
+    image = host.core.Image("#####")
+
+    async def run():
+        task = asyncio.create_task(disp.scroll_image(image, interval_ms=30, loop=True))
+        while disp._pixels.shows < 1:
+            await asyncio.sleep(0)
+        disp.render_string("A", x=1)
+        return await task
+
+    token = asyncio.run(run())
+    assert token.is_expired is True
+    assert host.logical() == _frame_of(_placed_window(_feeder_column_bytes("A"), 1))
+
+
+def test_render_ring_window_at_each_read_head(host):
+    """``_render_ring_window`` shows ``ring[read_head:]`` then ``ring[:read_head]``.
+
+    - Covers: a wrap that drops a column or draws the two halves in the wrong order.
+    - How: distinct column bytes; ``read_head`` of 0, 1 and ``WIDTH - 1``.
+    """
+    ring = bytearray([0x01, 0x02, 0x04, 0x08, 0x10])
+    assert len(ring) == WIDTH
+    for head in (0, 1, WIDTH - 1):
+        visible = list(ring[head:]) + list(ring[:head])
+        host.disp._render_ring_window(ring, head, WHITE)
+        assert host.logical() == _frame_of(visible), head

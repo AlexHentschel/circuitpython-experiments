@@ -14,6 +14,20 @@ Display and button work since the 2026-09-13 on-device confirm is still not re-r
 | Rotation during scroll | Stage 2 steps 12 and 13 (`show_string("ROTATE")` with `set_rotation(270)`, `scroll_image` with `set_rotation(180)`). | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
 
+## 2026-11-08 — M2 (C4–C6) committed, host-only
+
+`64cfb9a` on `display-verb-grid`. Host pytest **387 passed** from `tests/` (baseline at `520566e` was 319). Not on the board.
+
+- C4: `_check_x` (`TypeError`, names the method and `x`, rejects `bool`). `x` on `render_*` / `show_*` except filled. `x == 0` keeps the fused pattern scan and `_render_colmajor` for icon/arrow; any other `x` uses `_render_window(disp, -x)`. `render_image` added. `_draw_text` covered through `render_string` for `x` from `-(WIDTH+1)` to `WIDTH+2`, `str` and `ScreenText`, oracle = column drain.
+- C5: `show_string` / `show_number` are a static hold then blank (`duration_ms` by name). `scroll_string` / `scroll_number` are the marquee (old ring) or the pan (prefill `WIDTH`, stop when the reader ends). `show_number` no longer delegates, so a negative duration names `show_number`. Stale "call show_string to scroll" lines now name `scroll_string` / `scroll_number`. `_wider_than` deleted (no caller). `_sleep_until_cancelled` deleted (no caller).
+- C6: `scroll_image` walks the frame-law `x` values; negative `interval_ms` raises before takeover. `Image._scroll_image` and `step` removed.
+- Left for Alex: `ScreenText` docstring still says "fits or has to scroll" without naming `show_*` / `scroll_*`. `render_number` still says "left-most LED" / "crops" apart from the scroll pointer. Module docstring and README are C7. Stage scripts are C8.
+- Mutation check: new tests failed under one planted bug each, including a rewritten pause test after the first version stayed green when `pause` returned the current token. Restored from `/tmp`. Detail: exp16 `ai-notes/2026-10-17_display-api-uniformity/PROGRESS.md`.
+
+## 2026-11-08 02:20 — phase transition: M2 starts in a fresh chat
+
+M1 is done and committed; baseline for M2 is `520566e` on `display-verb-grid` (tree clean, host pytest 319 passed, not on the board). Resume from exp16 `ai-notes/2026-10-17_display-api-uniformity/06_m2_handoff_refinements.md`, then `05_execution_plan_v1.1.md` (C4–C6). Alex asked for a cold-AI handoff prompt (skill `handoff-exec-prompt`); it was emitted in the re-entry chat, not stored in a file. `CONTEXT.md` § Resumption point carries the same state. Open for Alex: `render_number` / `render_pattern` docstring wording; naming `show_*`/`scroll_*` in the `ScreenText` docstring after C5.
+
 ## 2026-11-08 — M2 handoff: own recommendations merged into `06_m2_handoff_refinements.md`
 
 Alex started Milestone M2 (C4–C6) in a separate executor session and asked for additions to the handoff file another session had already written. Drafted my own list first, then added only what was missing, as § 3 points 11–13 (describe behaviour not usage; model wording for the text methods; no speed claims without a board measurement), a new § 4d (reader contract, `_FixedColumnReader` no-copy, `_render_ring_window` `read_head` in `0..WIDTH-1`, `_draw_text` clamp, duplicated loops cost bytes not cycles, `render_arrow` kept in sync with `render_icon`), the `_draw_text` case list and mutation-check rule in § 5, and two § 6 rows (name `show_*`/`scroll_*` in the `ScreenText` docstring after C5; `.py` vs `.mpy` import timing in C9). Path: `ai-notes/2026-10-17_display-api-uniformity/06_m2_handoff_refinements.md` (gitignored). No code touched. Also this session: `ScreenText` docstring rewritten for students (committed text matches Alex's own final wording), `column_count_wider_than` docstring corrected (it uses the cached width when present and iterates only otherwise).

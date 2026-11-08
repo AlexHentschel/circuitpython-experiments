@@ -240,12 +240,6 @@ def _reader_for(content: str | int | float | ScreenText) -> _ColumnReader | _Fix
     return _ColumnReader(str(content), FONT)
 
 
-def _wider_than(content: str | int | float | ScreenText, limit: int) -> bool:
-    if isinstance(content, ScreenText):
-        return content.column_count_wider_than(limit)
-    return _column_count_wider_than(str(content), FONT, limit)
-
-
 def centered(content: str | int | float | ScreenText) -> ScreenText:
     """Return a ``ScreenText`` exactly ``WIDTH`` columns wide, with ``content`` centered.
 
