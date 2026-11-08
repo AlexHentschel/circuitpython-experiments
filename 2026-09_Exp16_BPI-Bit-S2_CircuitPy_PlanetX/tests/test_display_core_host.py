@@ -852,6 +852,7 @@ def test_image_and_icon_are_built_from_a_pattern_only(host):
     [
         ("show_pattern", lambda d, c: d.show_pattern("#", duration_ms=-1)),
         ("show_icon", lambda d, c: d.show_icon(c.Icon("#"), duration_ms=-1)),
+        ("show_arrow", lambda d, c: d.show_arrow(c.Icon("#"), duration_ms=-1)),
         ("show_filled", lambda d, c: d.show_filled(duration_ms=-1)),
         ("show_image", lambda d, c: d.show_image(c.Image("#"), duration_ms=-1)),
         ("show_string", lambda d, c: d.show_string("A", interval_ms=-1)),
@@ -992,7 +993,7 @@ def test_repeat_until_cancelled_negative_rest_and_callback_error(host):
 
 
 def _start_show(disp, core, noun, duration_ms):
-    """Start one ``show_*`` call. ``duration_ms`` is passed keyword-only."""
+    """Start one ``show_*`` call. ``duration_ms`` is passed by name."""
     icon = core.Icon._from_columns(b"\x1f\x00\x00\x00\x00")
     if noun == "pattern":
         return disp.show_pattern("#", RED, duration_ms=duration_ms)
@@ -1107,7 +1108,7 @@ def test_show_zero_duration_yields_once_then_blanks(host, noun):
 
 @pytest.mark.parametrize("noun", _SHOW_NOUNS)
 def test_show_requires_keyword_duration(host, noun):
-    """``duration_ms`` is required and keyword-only.
+    """``duration_ms`` must be passed by name; omitting it or passing it positionally raises ``TypeError``.
 
     - Covers: a default of 0, or a positional time being accepted.
     - How: omit ``duration_ms``; pass the time as a positional argument. Both raise ``TypeError`` and do not draw.

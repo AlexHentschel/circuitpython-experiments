@@ -61,8 +61,13 @@ from __future__ import annotations
 # https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information
 # https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18
 try:
-    from typing import Awaitable, Callable, Iterator, NoReturn
+    from typing import Awaitable, Callable, Iterator, NoReturn, TypeAlias
     from .text_layout import _ColumnReader, _FixedColumnReader
+
+    # One ``(red, green, blue)`` color, each channel 0–255. ``ColorDict`` maps a pattern character to such a color.
+    # Defined here, after the ``typing`` import, so that CircuitPython (no ``typing``) never evaluates ``tuple[...]``.
+    RGBcolor: TypeAlias = tuple[int, int, int]
+    ColorDict: TypeAlias = dict[str, RGBcolor]
 except ImportError:
     pass
 
@@ -92,7 +97,7 @@ PIXEL_PIN = board.NEOPIXEL
 BRIGHTNESS = 0.20
 
 
-def color(r: int, g: int, b: int) -> tuple[int, int, int]:
+def color(r: int, g: int, b: int) -> RGBcolor:
     """Convenience constructor mirroring Adafruit NeoMatrix's matrix.Color()."""
     return (r, g, b)
 
@@ -165,7 +170,7 @@ class Image:
     def __init__(
         self,
         pattern_str: str,
-        color: dict[str, tuple[int, int, int]] | tuple[int, int, int] = WHITE,
+        color: RGBcolor | ColorDict = WHITE,
     ) -> None:
         """Parse a pattern string into an Image.
 
@@ -214,10 +219,10 @@ class Image:
     @classmethod
     def _from_encoded(
         cls,
-        data: bytes | tuple[tuple[int, int, int], ...],
+        data: bytes | tuple[RGBcolor, ...],
         width: int,
         multi: bool,
-        color: tuple[int, int, int] | None,
+        color: RGBcolor | None,
     ) -> Image:
         """Build an image from already-encoded pixels. Applies no checks.
 
@@ -252,7 +257,7 @@ class Image:
         """
         return HEIGHT
 
-    def recolor(self, new_color: tuple[int, int, int]) -> None:
+    def recolor(self, new_color: RGBcolor) -> None:
         """Change a mono Image's display color in place. No-op for multi-color.
 
         In-place mutation: recoloring a shared ``Image`` (e.g. one built once
@@ -450,9 +455,7 @@ class Image:
                     pixels[lut[x_base + y]] = off
                 x_base += HEIGHT
             for x in range(x_min, x_max):
-                col_byte = data[offset + x]
-                for y in range(HEIGHT):
-                    pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+                _write_column(pixels, lut, x_base, data[offset + x], color_on, off)
                 x_base += HEIGHT
             for x in range(x_max, WIDTH):
                 for y in range(HEIGHT):
@@ -644,7 +647,7 @@ async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
         await asyncio.sleep_ms(poll_ms)
 
 
-def _write_column(pixels: neopixel.NeoPixel, lut: bytearray, x_base: int, col_byte: int, color: tuple[int, int, int], off: tuple[int, int, int]) -> None:
+def _write_column(pixels: neopixel.NeoPixel, lut: bytearray, x_base: int, col_byte: int, color: RGBcolor, off: RGBcolor) -> None:
     """Write one column byte at logical column ``x_base // HEIGHT``. Bit 0 is the top row."""
     for y in range(HEIGHT):
         pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
@@ -708,7 +711,7 @@ class Display:
     def _write_pattern_on_the_fly(
         self,
         pattern: str,
-        color: tuple[int, int, int] | dict[str, tuple[int, int, int]],
+        color: RGBcolor | ColorDict,
     ) -> None:
         """Write ``pattern`` into this instance's pixel buffer: parsing and drawing fused in one scan of the string.
 
@@ -809,7 +812,7 @@ class Display:
         self,
         data: bytes,
         offset: int,
-        color: tuple[int, int, int],
+        color: RGBcolor,
     ) -> None:
         """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to this instance's ``self._pixels``.
 
@@ -841,7 +844,7 @@ class Display:
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
         pixels.show()
 
-    def _draw_text(self, reader: _ColumnReader | _FixedColumnReader, x: int, color: tuple[int, int, int]) -> None:
+    def _draw_text(self, reader: _ColumnReader | _FixedColumnReader, x: int, color: RGBcolor) -> None:
         """Draw ``reader`` with its first column at display column ``x``. One ``show()``.
 
         ``x < 0`` skips ``-x`` content columns and starts at display column 0.
@@ -870,7 +873,7 @@ class Display:
         self,
         ring: bytearray,
         read_head: int,
-        color_on: tuple[int, int, int],
+        color_on: RGBcolor,
     ) -> None:
         """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``.
         IMPORTANT: ``read_head`` must be in 0..WIDTH-1!
@@ -894,14 +897,10 @@ class Display:
         # parts to avoid tests inside the loops on whether we have wrapped around the ring. This requires
         # that ``read_head`` is in 0..WIDTH-1; when ``read_head == 0`` the second loop is empty.
         for idx in range(read_head, WIDTH):
-            col_byte = ring[idx]
-            for y in range(HEIGHT):
-                pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+            _write_column(pixels, lut, x_base, ring[idx], color_on, off)
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
         for idx in range(read_head):
-            col_byte = ring[idx]
-            for y in range(HEIGHT):
-                pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+            _write_column(pixels, lut, x_base, ring[idx], color_on, off)
             x_base += HEIGHT
         pixels.show()
 
@@ -910,7 +909,7 @@ class Display:
     def render_pattern(
         self,
         pattern: str,
-        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+        color: RGBcolor | ColorDict = WHITE,
     ) -> None:
         """Draw a pattern string straight onto the LEDs.
         Best for a picture you show once, because this method needs to go over the input string
@@ -939,78 +938,76 @@ class Display:
         self._write_pattern_on_the_fly(pattern, color)
         self._pixels.show()
 
-    def render_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE) -> None:
+    def render_icon(self, icon: Icon, color: RGBcolor = WHITE) -> None:
         """Render an ``Icon`` (e.g. ``Emojis.HEART``) to the LEDs.
-
-        ``color`` is the render color — an ``Icon`` carries no color of its
-        own, so ``color`` is not an override of anything, just the color.
+        The icon is shown in the provided ``color`` (white by default), which must be
+        explicitly stated because an ``Icon`` carries no color of its own.
         """
         self._acquire()
         self._render_colmajor(icon._columns, 0, color)
 
-    def render_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE) -> None:
+    def render_arrow(self, arrow: Icon, color: RGBcolor = WHITE) -> None:
         """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs.
 
-        ``color`` is the render color — an ``Icon`` carries no color of its
-        own, so ``color`` is not an override of anything, just the color.
+        The icon is shown in the provided ``color`` (white by default), which must be
+        explicitly stated because an ``Icon`` carries no color of its own.
         """
         # Body of ``render_icon`` repeated on purpose: saves one method lookup and call. Keep the two in sync.
         self._acquire()
         self._render_colmajor(arrow._columns, 0, color)
 
-    def render_string(self, text: str | ScreenText, color: tuple[int, int, int] = WHITE) -> None:
+    def render_string(self, text: str | ScreenText, color: RGBcolor = WHITE) -> None:
         """Draw ``text`` left-aligned and leave it lit until some other call overwrites the display.
-        Text hanging over the display on the right is cut off.
+        Text wider than the display is cropped on the right. To scroll longer text, call ``show_string``.
 
         ``text`` may be a Python ``str`` or a ``ScreenText``. An empty string draws a blank screen.
 
-        A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` is prepared text:
+        A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` is pre-prepared text:
         it counts how many columns the text needs (its ``width``) the first time you ask, and remembers
-        the answer. Use one when you draw the same text again and again, or when you want to check
-        ``width`` against the display before you choose how to show the text.
-        ``centered(text)`` returns a ``ScreenText`` too, so create it once and reuse it.
+        the answer. Use ``ScreenText`` when you draw the same text again and again, or when you want to
+        check ``width`` against the display before you choose how to show the text.
 
-        To scroll longer text, call ``show_string``. Pass ``centered(text)`` when the text should sit
-        in the middle.
+        Pass ``centered(text)`` when the text should sit in the middle. ``centered(text)`` returns a
+        ``ScreenText`` too, so create it once and reuse it if you want to show the centered text repeatedly.
         """
         self._acquire()
         self._draw_text(_reader_for(text), 0, color)
 
-    def render_number(self, n: int | float, color: tuple[int, int, int] = WHITE) -> None:
+    def render_number(self, n: int | float, color: RGBcolor = WHITE) -> None:
         """Converts number ``n`` into a string (via python's ``str(n)``) and displays it
         starting at the left-most LED, and leaves it lit until some other call overwrites the display.
 
         A number wider than the screen shows its first columns and crops the rest.
         To scroll longer numbers, call ``show_string``.
         """
-
         self.render_string(str(n), color)
 
     def clear(self) -> None:
-        """Turn off all pixels. Takes over the display."""
+        """Turn off all pixels."""
         self._acquire()
         self._pixels.fill(OFF)
         self._pixels.show()
 
-    def set_pixel(self, x: int, y: int, color: tuple[int, int, int] = WHITE) -> None:
-        """Set one pixel. Cancels any in-progress Tier 2 operation.
+    def set_pixel(self, x: int, y: int, color: RGBcolor = WHITE) -> None:
+        """Set one pixel.
 
-        The display stays on the most recent frame. When ``(x, y)`` is on
-        the matrix, that pixel is changed and flushed. When it is outside,
-        nothing is written and the frame is left as it was.
+        The display stays on the most recent frame. When ``(x, y)`` is on the matrix, that pixel is changed and
+        flushed. When it is outside, nothing is written and the frame is left as it was. Writing to coordinates
+        ``(x, y)`` outside the matrix draws nothing visible, but it still cancels any Tier 2 call that is running
+        (such as a ``show_string`` scroll), as every other display-changing call does.
         """
         self._acquire()
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             self._pixels[self._lut[x * HEIGHT + y]] = color
             self._pixels.show()
 
-    def render_filled(self, color: tuple[int, int, int] = WHITE) -> None:
-        """Fill all pixels with ``color``. Takes over the display."""
+    def render_filled(self, color: RGBcolor = WHITE) -> None:
+        """Fill all pixels with ``color``."""
         self._acquire()
         self._pixels.fill(color)
         self._pixels.show()
 
-    def get_pixel(self, x: int, y: int) -> tuple[int, int, int]:
+    def get_pixel(self, x: int, y: int) -> RGBcolor:
         """Read the buffered pixel color at (x, y). Read-only; does not cancel ongoing animations."""
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
             return self._pixels[self._lut[x * HEIGHT + y]]
@@ -1059,18 +1056,14 @@ class Display:
     def deinit(self) -> None:
         """Release the NeoPixel hardware (RMT peripheral + data pin).
 
-        Cancels any ongoing animation, then deinitializes the underlying
-        NeoPixel buffer. After this call *this instance* is unusable and it must
-        be discarded (any further render call on it raises an error). There is
-        no re-init path *on this instance* — but the pin is now free, so a
-        fresh ``Display()`` may be constructed afterward (it will claim the
-        pin again and start with a clean buffer/LUT/token; it is unrelated to
-        and does not resurrect this deinitialized instance). This is a
-        teardown hook for code that wants to free the data pin / RMT peripheral
-        for other use (e.g. before a soft reboot, to hand the pin to a
-        different peripheral, or to restart the display with new hardware
-        config). See ``lib/display/README.md`` § "Singleton design &
-        ``deinit``" for the module-level ``display`` singleton's rationale.
+        Cancels any ongoing animation, then deinitializes the underlying NeoPixel buffer. After this call *this instance*
+        is unusable and it must be discarded (any further render call on it raises an error). There is no re-init path
+        *on this instance* — but the pin is now free, so a fresh ``Display()`` may be constructed afterward (it will claim
+        the pin again and start with a clean buffer/LUT/token; it is unrelated to and does not resurrect this deinitialized
+        instance). This is a teardown hook for code that wants to free the data pin / RMT peripheral for other use (e.g.
+        before a soft reboot, to hand the pin to a different peripheral, or to restart the display with new hardware
+        config). See ``lib/display/README.md`` § "Singleton design & ``deinit``" for the module-level ``display``
+        singleton's rationale.
         """
         self._acquire()
         self._pixels.deinit()
@@ -1078,10 +1071,10 @@ class Display:
     # — Tier 2: Async MakeCode-compatible methods ---------------------------
 
     async def _hold_then_blank(self, token: Token, duration_ms: int) -> Token:
-        """Wait ``duration_ms``, then turn every LED off if this call still owns the display.
+        """Wait ``duration_ms``, then turn every LED off IF AND ONLY IF this call still owns the display.
 
-        The blank does not take over the display. A call that superseded this one
-        leaves its own picture up.
+        This function does not take over the display (i.e. it does not cancel any ongoing Tier 2 operation).
+        A call that superseded this one leaves its own picture up.
         """
         await _sleep_pollable(token, duration_ms)
         if not token.is_expired:
@@ -1092,16 +1085,21 @@ class Display:
     async def show_pattern(
         self,
         pattern: str,
-        color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
+        color: RGBcolor | ColorDict = WHITE,
         *,
         duration_ms: int | float,
     ) -> Token:
         """Draw a pattern, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        ``duration_ms`` is required and keyword-only. A later display call during the hold
-        leaves that call's picture up and this call's token expired. ``duration_ms=0`` draws
-        the pattern, lets other ready tasks run once, then blanks.
-        Same pattern rules as ``render_pattern``.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
+        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
+        replaces it, and this call's token expires. ``duration_ms=0`` draws the pattern, lets other ready tasks run
+        once, then blanks, which is probably just a short flicker.
+
+        If ``color`` is an RGB tuple, every ``#`` is an LED lit in that color and every other character is off.
+        If ``color`` is a dict ``{character: RGB tuple}``, each listed character lights its LED in the given color
+        and any character not in the dict is off. Spaces, tabs and carriage returns are skipped; any other character
+        takes one column. See ``render_pattern`` for more detailed examples.
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
@@ -1109,12 +1107,13 @@ class Display:
         self.render_pattern(pattern, color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
+    async def show_icon(self, icon: Icon, color: RGBcolor = WHITE, *, duration_ms: int | float) -> Token:
         """Draw an ``Icon`` (e.g. ``Emojis.HEART``), hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        ``duration_ms`` is required and keyword-only. A later display call during the hold
-        leaves that call's picture up. ``duration_ms=0`` draws the icon, lets other ready
-        tasks run once, then blanks.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
+        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
+        replaces it, and this call's token expires. ``duration_ms=0`` draws the icon, lets other ready tasks run once,
+        then blanks, which is probably just a short flicker.
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
@@ -1122,18 +1121,27 @@ class Display:
         self.render_icon(icon, color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
+    async def show_arrow(self, arrow: Icon, color: RGBcolor = WHITE, *, duration_ms: int | float) -> Token:
         """Draw an arrow ``Icon`` (e.g. ``Arrows.NORTH``), hold it, then turn the LEDs off.
 
-        Same contract as ``show_icon``. ``duration_ms`` is required and keyword-only.
-        """
-        return await self.show_icon(arrow, color=color, duration_ms=duration_ms)
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
+        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
+        replaces it, and this call's token expires. ``duration_ms=0`` draws the arrow, lets other ready tasks run
+        once, then blanks, which is probably just a short flicker.
 
-    async def show_filled(self, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
+        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
+        """
+        duration_ms = _check_ms("show_arrow", "duration_ms", duration_ms)
+        self.render_arrow(arrow, color)
+        return await self._hold_then_blank(self._token, duration_ms)
+
+    async def show_filled(self, color: RGBcolor = WHITE, *, duration_ms: int | float) -> Token:
         """Fill the display with ``color``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        ``duration_ms`` is required and keyword-only. A later display call during the hold
-        leaves that call's picture up.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
+        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
+        replaces it, and this call's token expires. ``duration_ms=0`` fills the display, lets other ready tasks run
+        once, then blanks, which is probably just a short flicker.
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
@@ -1142,11 +1150,13 @@ class Display:
         return await self._hold_then_blank(self._token, duration_ms)
 
     async def show_image(self, image: Image, offset: int = 0, *, duration_ms: int | float) -> Token:
-        """Show a ``WIDTH``-column window of ``image``, hold it, then turn the LEDs off.
+        """Show a ``WIDTH``-column window of ``image``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        ``duration_ms`` is required and keyword-only. ``offset`` is the image column placed at
-        display column 0. It may be negative or past the right edge; uncovered columns are off.
-        A later display call during the hold leaves that call's picture up.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
+        raises ``TypeError``. ``offset`` is the image column placed at display column 0. It may be negative or past
+        the right edge; uncovered columns are off. This call's picture stays up for the hold duration. A later display
+        call during the hold replaces it, and this call's token expires. ``duration_ms=0`` shows the window, lets
+        other ready tasks run once, then blanks, which is probably just a short flicker.
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
@@ -1176,7 +1186,7 @@ class Display:
     async def show_string(
         self,
         text: str | ScreenText,
-        color: tuple[int, int, int] = WHITE,
+        color: RGBcolor = WHITE,
         interval_ms: int | float = 150,
         loop: bool = False,
     ) -> Token:
@@ -1284,7 +1294,7 @@ class Display:
     async def show_number(
         self,
         n: int | float,
-        color: tuple[int, int, int] = WHITE,
+        color: RGBcolor = WHITE,
         interval_ms: int | float = 150,
         loop: bool = False,
     ) -> Token:
