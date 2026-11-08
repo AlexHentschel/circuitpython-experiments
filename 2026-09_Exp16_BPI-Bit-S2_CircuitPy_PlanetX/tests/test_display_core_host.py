@@ -115,10 +115,7 @@ def _centered_window(text, origin):
 
 def _frame_of(columns, color=WHITE):
     """Logical pixels for exactly ``WIDTH`` column bytes. Bit ``y`` is row ``y``."""
-    return tuple(
-        tuple(color if (columns[x] >> y) & 1 else OFF for x in range(WIDTH))
-        for y in range(HEIGHT)
-    )
+    return tuple(tuple(color if (columns[x] >> y) & 1 else OFF for x in range(WIDTH)) for y in range(HEIGHT))
 
 
 def _fit_window(text):
@@ -162,9 +159,7 @@ class _Host:
 
     def logical(self):
         disp = self.disp
-        return tuple(
-            tuple(disp.get_pixel(x, y) for x in range(WIDTH)) for y in range(HEIGHT)
-        )
+        return tuple(tuple(disp.get_pixel(x, y) for x in range(WIDTH)) for y in range(HEIGHT))
 
     def paint_logical(self):
         """One distinct color per logical cell, written through the current LUT."""
@@ -443,6 +438,7 @@ def test_scroll_step_skips_a_middle_column(host):
 
     host.core.Image._render_window = capture
     try:
+
         async def run():
             await disp.scroll_image(image, step=6, interval_ms=10)
 
@@ -473,6 +469,7 @@ def test_scroll_cancel_does_not_draw_another_frame(host):
     host.core.Image._render_window = capture
     host.hook["fn"] = cancel
     try:
+
         async def run():
             return await disp.scroll_image(image, step=1, interval_ms=100)
 
@@ -651,6 +648,7 @@ def test_render_string_cancels_a_running_scroll(host):
 
     host.hook["fn"] = preempt
     try:
+
         async def run():
             return await disp.show_string("STAGE2", interval_ms=80)
 
@@ -714,6 +712,7 @@ def test_show_string_fit_preempted_during_hold_keeps_the_other_frame(host):
 
     host.hook["fn"] = preempt
     try:
+
         async def run():
             return await disp.show_string("A", interval_ms=100)
 
@@ -738,6 +737,7 @@ def test_show_string_fit_loop_cancelled_does_not_blank(host):
 
     host.hook["fn"] = preempt
     try:
+
         async def run():
             return await disp.show_string("A", interval_ms=100, loop=True)
 

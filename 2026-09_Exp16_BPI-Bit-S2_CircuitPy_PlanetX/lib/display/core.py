@@ -1071,10 +1071,11 @@ class Display:
     # — Tier 2: Async MakeCode-compatible methods ---------------------------
 
     async def _hold_then_blank(self, token: Token, duration_ms: int) -> Token:
-        """Wait ``duration_ms``, then turn every LED off IF AND ONLY IF this call still owns the display.
+        """Wait ``duration_ms``, then turn every LED off, but only if this call's token has not expired.
 
-        This function does not take over the display (i.e. it does not cancel any ongoing Tier 2 operation).
-        A call that superseded this one leaves its own picture up.
+        The caller has already taken over the display and drew its picture. This helper does not take over again,
+        so it cancels nothing. The wait ends early if another display call expires the token, and that call's
+        picture stays up.
         """
         await _sleep_pollable(token, duration_ms)
         if not token.is_expired:
