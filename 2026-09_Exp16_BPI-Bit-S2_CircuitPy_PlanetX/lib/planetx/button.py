@@ -51,11 +51,20 @@ Each module you plug in is its own ``PlanetXButtonSensor``. With two modules on 
 construct two objects, and each one has its own ``button_c`` and ``button_d``.
 """
 
+from __future__ import annotations
+
 import asyncio
 
 from buttons import _Switch, _make_buttons
 
 from .ports import Port
+
+# Type hints only. ``typing`` does not exist on CircuitPython, so nothing after it in this block runs there.
+try:
+    import typing  # noqa: F401  (guard: raises ImportError on CircuitPython)
+    from microcontroller import Pin
+except ImportError:
+    pass
 
 
 class PlanetXButtonSensor:
@@ -68,7 +77,7 @@ class PlanetXButtonSensor:
     ``run`` or ``deinit`` of their own; use the ones on this object.
     """
 
-    def __init__(self, c_pin=None, d_pin=None, *, port: Port | None = None) -> None:
+    def __init__(self, c_pin: Pin | None = None, d_pin: Pin | None = None, *, port: Port | None = None) -> None:
         """Create a PlanetXButtonSensor for a module plugged into the GPIO interface ``port`` (J1 to J4). Example:
 
             buttons = PlanetXButtonSensor(port=J3)
@@ -88,7 +97,7 @@ class PlanetXButtonSensor:
         self._c, self._d = _make_buttons(c_pin, d_pin)
 
     @classmethod
-    def _from_buttons(cls, button_c: _Switch, button_d: _Switch) -> "PlanetXButtonSensor":
+    def _from_buttons(cls, button_c: _Switch, button_d: _Switch) -> PlanetXButtonSensor:
         """For TESTING: Pair two buttons that already exist."""
         obj = cls.__new__(cls)
         obj._c = button_c

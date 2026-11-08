@@ -42,12 +42,21 @@ as digital ones; J3 and J4 are digital-only (red marking).
 # it is `None` and the constructors skip binding pins, so `J1`-`J4`/`I2C` still
 # exist for tests that only check port wiring, not live pins.
 
+from __future__ import annotations
+
 import sys
 
 if sys.implementation.name == "circuitpython":
     import board
 else:
     board = None
+
+# Type hints only. ``typing`` does not exist on CircuitPython, so nothing after it in this block runs there.
+try:
+    import typing  # noqa: F401  (guard: raises ImportError on CircuitPython)
+    from microcontroller import Pin
+except ImportError:
+    pass
 
 
 class Port:
@@ -63,7 +72,7 @@ class Port:
     the analog-capable P-number on J1/J2, or None on J3/J4.
     """
 
-    def __init__(self, name: str, p_numbers: tuple, analog_p_number: int | None = None) -> None:
+    def __init__(self, name: str, p_numbers: tuple[int, int], analog_p_number: int | None = None) -> None:
         # p_numbers = (p_a, p_b): P-numbers per ElecFreaks' Nezha v2 wiring (sources
         # at the J1-J4 definitions below). analog_p_number: the analog-capable
         # P-number on J1/J2, None on J3/J4. Binds board.IO{n} for those numbers
@@ -145,7 +154,7 @@ class I2CBus:
         self.sda = getattr(board, f"IO{self.p_number_sda}")
 
     @property
-    def pins(self):
+    def pins(self) -> tuple[Pin, Pin]:
         """``(scl, sda)`` in CircuitPython ``busio.I2C`` argument order."""
         return (self.scl, self.sda)
 

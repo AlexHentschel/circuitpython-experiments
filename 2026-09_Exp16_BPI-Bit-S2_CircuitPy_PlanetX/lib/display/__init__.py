@@ -47,7 +47,7 @@ import sys
 # on CircuitPython. In the test environment (CPython) they are absent; we skip the
 # re-export so the pure sub-modules remain importable. Detected by the interpreter
 # name, not by importing ``board``: a working Blinka ``board`` would otherwise make
-# the test environment look like hardware.
+# the test environment look like runnin on the real hardware.
 # ``Emojis`` / ``Arrows`` are constructed inside core.py (they are Icon
 # instances), so they ship with the hardware import group too.
 _HAS_HARDWARE = sys.implementation.name == "circuitpython"

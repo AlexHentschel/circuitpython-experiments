@@ -163,3 +163,22 @@ def test_font_width_is_the_length_byte_and_matches_the_glyph():
     for ch in ("A", "!", " ", "7", "~", "", "\n", "☃"):
         assert FONT.width(ch) == len(FONT.glyph(ch))
     assert FONT.width("☃") == len(_TOFU_INK)
+
+
+def test_every_character_has_width_equal_to_its_glyph_length():
+    """For every printable ASCII character, ``FONT.width(ch)`` equals ``len(FONT.glyph(ch))``.
+
+    - Covers: a table record whose length byte disagrees with the ink that follows it, for example
+      a truncated last record or a wrong stride. ``centered`` and ``ScreenText.width`` rely on this.
+    - How: loop over ``_ASCII_START`` to ``_ASCII_END``; the glyph is never empty; the characters just
+      outside the range are tofu with the tofu width.
+    """
+    for code in range(_ASCII_START, _ASCII_END + 1):
+        ch = chr(code)
+        glyph = FONT.glyph(ch)
+        assert len(glyph) > 0, f"{ch!r} has an empty glyph"
+        assert FONT.width(ch) == len(glyph), f"{ch!r}: width {FONT.width(ch)} != glyph length {len(glyph)}"
+    for code in (_ASCII_START - 1, _ASCII_END + 1):
+        ch = chr(code)
+        assert FONT.glyph(ch) == _TOFU_INK
+        assert FONT.width(ch) == len(_TOFU_INK)

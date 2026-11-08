@@ -16,8 +16,8 @@ What runs:
   3. ``set_pixel`` then ``get_pixel`` at (2, 2). Serial prints ``[OK]``
      when the read-back matches ``MAGENTA``.
   4. ``render_icon(Emojis.HAPPY)`` at rotations 0, 90, 180, and 270.
-  5. ``Icon.create`` of a ring, then ``render_icon`` of that icon.
-     ``Icon.create`` decoded it; step 1 writes the grid directly.
+  5. ``Icon(pattern)`` of a ring, then ``render_icon`` of that icon.
+     ``Icon(pattern)`` decoded it; step 1 writes the grid directly.
   6. ``render_filled(colorwheel(hue))`` at hues 0, 85, and 170.
   7. ``render_string("A")`` — four columns, so one dark column on the right.
      The letter stays lit.
@@ -45,7 +45,7 @@ print("Stage 1: import display OK")
 # Constants for steps 1 and 5 -- built once, not per-cycle, matching the
 # module-level Emojis/Arrows singletons' own allocate-once pattern. Multiline
 # triple-quoted form, one row per line, columns aligned -- matches
-# bitmap_codec.py's own docstring convention; render_pattern/Image.create
+# bitmap_codec.py's own docstring convention; render_pattern/Image(pattern)
 # ignore all whitespace, so this is purely for human readability.
 _DIAMOND = """
 . . # . .
@@ -61,7 +61,7 @@ _RING_PATTERN = """
 # . . . #
 # # # # #
 """
-_ring_icon = display.Icon.create(_RING_PATTERN)
+_ring_icon = display.Icon(_RING_PATTERN)
 
 cycle = 0
 while True:
@@ -103,10 +103,10 @@ while True:
     d.set_rotation(0)
 
     # 5) The ring Icon was built once above. render_icon draws it.
-    #    Icon.create decoded it; step 1's render_pattern does not.
+    #    Icon(pattern) decoded it; step 1's render_pattern does not.
     d.clear()
     d.render_icon(_ring_icon, color=display.ORANGE)
-    print("5/11: Icon.create(ring pattern) + render_icon -- Icon decode path")
+    print("5/11: Icon(ring pattern) + render_icon -- Icon decode path")
     time.sleep(2)
 
     # 6) colorwheel(hue) returns an RGB tuple; render_filled paints the matrix with it.

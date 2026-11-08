@@ -61,7 +61,8 @@ from __future__ import annotations
 # https://learn.adafruit.com/creating-and-sharing-a-circuitpython-library/typing-information
 # https://github.com/adafruit/Adafruit_CircuitPython_NTP/issues/18
 try:
-    from typing import Callable, NoReturn
+    from typing import Awaitable, Callable, Iterator, NoReturn
+    from .text_layout import _ColumnReader, _FixedColumnReader
 except ImportError:
     pass
 
@@ -98,8 +99,8 @@ def color(r: int, g: int, b: int) -> tuple[int, int, int]:
 
 # ---------------------------------------------------------------------------
 # Runtime pattern parsers:
-#   - ``_iter_pattern_rows`` for cold path. Used by ``Image.create``,
-#     ``Icon.create``. Lenient: collapses *all* Python whitespace via
+#   - ``_iter_pattern_rows`` for cold path. Used by ``Image(pattern)``,
+#     ``Icon(pattern)``. Lenient: collapses *all* Python whitespace via
 #     ``"".join(raw.split())`` (matches the design-time idiom in
 #     ``bitmap_codec.pattern_to_colmajor``). Allocations are not
 #     performance-critical here.
@@ -112,7 +113,7 @@ def color(r: int, g: int, b: int) -> tuple[int, int, int]:
 # ---------------------------------------------------------------------------
 
 
-def _iter_pattern_rows(pattern_str: str):
+def _iter_pattern_rows(pattern_str: str) -> Iterator[str]:
     """Yield normalized non-blank rows from a pattern — *cold-path* parser.
 
     Each emitted string has all Python whitespace (spaces, tabs, CRs, FFs,
@@ -120,7 +121,7 @@ def _iter_pattern_rows(pattern_str: str):
     idiom in ``bitmap_codec.pattern_to_colmajor``. Blank lines (any amount
     of whitespace) are skipped.
 
-    Cold-path callers: ``Image.create``, ``Icon.create``.
+    Cold-path callers: ``Image(pattern)``, ``Icon(pattern)``.
     Per-frame render uses ``Display._write_pattern_on_the_fly``.
     """
     for raw in pattern_str.split("\n"):
@@ -143,7 +144,7 @@ class Image:
     An image is always ``HEIGHT`` rows tall (see property ``height``). Its width (see
     property ``width``) is independent of the display and may be smaller, equal to,
     or **larger** than the ``WIDTH`` physical columns of the LED matrix.
-    The factory method ``Image.create`` accepts any width (the widest kept row).
+    ``Image(pattern)`` accepts any width (the widest kept row).
     Short rows are padded with OFF.
     An image can be monochrome (one shared color, recolorable via ``recolor``)
     or multi-color (a fixed color per pixel, ``recolor`` is no-op).
@@ -163,30 +164,10 @@ class Image:
 
     def __init__(
         self,
-        data: bytes | tuple,
-        width: int,
-        multi: bool,
-        color: tuple[int, int, int] | None,
-    ) -> None:
-        """Build an image from already-encoded pixels.
-
-        Usage outside of this module is discouraged, because this method applies no checks!
-        Please call ``Image.create(…)`` to instantiate an ``Image``.
-        Input ``width`` is this image's column count (independent of the LED
-        matrix). Input ``multi`` is True for an individual color per pixel, False for
-        one shared mono color for all pixels (``color``).
-        """
-        self._data = data
-        self._width = width
-        self._multi = multi
-        self._color = color
-
-    @staticmethod
-    def create(
         pattern_str: str,
         color: dict[str, tuple[int, int, int]] | tuple[int, int, int] = WHITE,
-    ) -> Image:
-        """Factory Method: Parse a pattern string into an Image.
+    ) -> None:
+        """Parse a pattern string into an Image.
 
         If ``color`` is a single RGB tuple ``(red, green, blue)``:
         the entire image is drawn in that color, with illuminated pixels marked by ``#``.
@@ -205,18 +186,19 @@ class Image:
         # per column, bit y = row y counted from top); multi-color stores a flat
         # tuple of per-pixel RGB tuples. Conversion happens here so render methods
         # do not re-parse on each call.
-        is_dict = isinstance(color, dict)
         rows = list(_iter_pattern_rows(pattern_str))
         height = min(len(rows), HEIGHT)
         img_width = max((len(r) for r in rows[:height]), default=WIDTH)
 
-        if is_dict:
+        if isinstance(color, dict):
             pixels = [OFF] * (img_width * HEIGHT)
             for y in range(height):
                 row = rows[y]
                 for x in range(min(img_width, len(row))):
                     pixels[x * HEIGHT + y] = color.get(row[x], OFF)
-            return Image(tuple(pixels), img_width, True, None)
+            self._data = tuple(pixels)
+            self._multi = True
+            self._color = None
         else:
             cols = bytearray(img_width)
             for y in range(height):
@@ -224,14 +206,39 @@ class Image:
                 for x in range(min(img_width, len(row))):
                     if row[x] == "#":
                         cols[x] |= 1 << y
-            return Image(bytes(cols), img_width, False, color)
+            self._data = bytes(cols)
+            self._multi = False
+            self._color = color
+        self._width = img_width
+
+    @classmethod
+    def _from_encoded(
+        cls,
+        data: bytes | tuple[tuple[int, int, int], ...],
+        width: int,
+        multi: bool,
+        color: tuple[int, int, int] | None,
+    ) -> Image:
+        """Build an image from already-encoded pixels. Applies no checks.
+
+        Internal: for ``clone`` and for tests. ``width`` is the column count. ``multi`` is True for
+        an individual color per pixel (``data`` is a flat tuple of RGB tuples, ``color`` is None),
+        False for one shared mono color (``data`` is column-major bytes, ``color`` is that color).
+        Skips ``__init__``, like ``_from_columns`` on ``ScreenText``.
+        """
+        obj = object.__new__(cls)
+        obj._data = data
+        obj._width = width
+        obj._multi = multi
+        obj._color = color
+        return obj
 
     @property
     def width(self) -> int:
         """Column count of this image, not the physical display width. Read-only.
 
-        May be smaller, equal to, or larger than ``WIDTH``. Factory method
-        ``Image.create`` sets ``width`` to the length of the widest row in the pattern.
+        May be smaller, equal to, or larger than ``WIDTH``. ``Image(pattern)``
+        sets ``width`` to the length of the widest row in the pattern.
         """
         return self._width
 
@@ -240,27 +247,17 @@ class Image:
         """Row count of this image: always display ``HEIGHT``. Read-only.
 
         If an image is created from pattern that has less rows than the display's ``HEIGHT``,
-        the factory method ``Image.create(…)`` always pads with OFF to ``HEIGHT`` rows. Equivalently,
-        ``Image.create(…)`` truncates an overly tall pattern to ``HEIGHT`` rows.
+        ``Image(pattern)`` always pads with OFF to ``HEIGHT`` rows. Equivalently,
+        ``Image(pattern)`` truncates an overly tall pattern to ``HEIGHT`` rows.
         """
         return HEIGHT
-
-    @property
-    def columns(self) -> bytes | tuple:
-        """Raw backing data: column-major ``bytes`` (mono) or a flat per-pixel RGB-tuple sequence (multi-color).
-
-        Intended for composability (e.g. combining two same-width mono
-        ``Image``s column-by-column). Read-only: mutate via ``recolor`` (mono
-        color only), or get an independent copy via ``clone()``.
-        """
-        return self._data
 
     def recolor(self, new_color: tuple[int, int, int]) -> None:
         """Change a mono Image's display color in place. No-op for multi-color.
 
         In-place mutation: recoloring a shared ``Image`` (e.g. one built once
         at module scope and reused across calls, like a scrollable
-        big image built via ``create``) changes it for every caller
+        big image built via ``Image(pattern)``) changes it for every caller
         (and across coroutines). Call ``clone()`` first if you need an Image
         instance whose color can be changed independently without affecting the original.
 
@@ -286,11 +283,11 @@ class Image:
         independent color for an ``Image`` you already have (e.g. one built
         once at module scope and reused, like a scrollable big image)
         without re-parsing its original pattern string through
-        ``create`` again.
+        ``Image(pattern)`` again.
         """
-        return Image(self._data, self._width, self._multi, self._color)
+        return Image._from_encoded(self._data, self._width, self._multi, self._color)
 
-    async def _scroll_image(self, disp: Display, step: int = 1, interval_ms: int = 200) -> Token:
+    async def _scroll_image(self, disp: Display, step: int = 1, interval_ms: int | float = 200) -> Token:
         """Internal implementation backing ``Display.scroll_image``.
 
         Scroll through the image, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
@@ -481,27 +478,13 @@ class Icon:
 
     Carries no color of its own — always rendered with a caller-supplied
     ``color`` (see methods ``render_icon`` / ``show_icon`` / ``render_arrow`` / ``show_arrow``).
-    Build one from a pattern via ``Icon.create``.
+    Build one from a pattern: ``Icon(pattern)``.
     """
 
     __slots__ = ("_data",)
 
-    def __init__(self, data: bytes) -> None:
-        """Build an Icon from already-encoded column-major bytes.
-
-        Usage outside of this module is discouraged, because this method applies no checks!
-        Please call ``Icon.create(…)`` to instantiate an ``Icon``.
-        """
-        self._data = data
-
-    @property
-    def columns(self) -> bytes:
-        """Raw backing data: WIDTH column-major bytes. Read-only."""
-        return self._data
-
-    @staticmethod
-    def create(pattern_str: str) -> Icon:
-        """Factory Method: Create an ``Icon`` of ``WIDTH`` columns by ``HEIGHT`` rows, from a pattern string.
+    def __init__(self, pattern_str: str) -> None:
+        """Create an ``Icon`` of ``WIDTH`` columns by ``HEIGHT`` rows, from a pattern string.
         ``#`` is a lit pixel and ``.`` is off. So the row ``#.#`` reads on, off, on.
 
         The Icon stores no color of its own. Pass the color when you draw it,
@@ -512,28 +495,43 @@ class Icon:
         Raises ``ValueError`` if the pattern *exceeds* ``WIDTH`` columns or
         ``HEIGHT`` rows (every whitespace character and blank lines ignored).
         For a multi-color bitmap, or one wider than ``WIDTH`` (e.g. a scrollable
-        image), use ``Image.create`` instead.
+        image), use ``Image`` instead.
         """
         # Dedicated mono-only parse: an Icon has no color and a fixed WIDTH,
-        # so (unlike Image.create) there is no color-shape branch and
+        # so (unlike Image) there is no color-shape branch and
         # no variable-width bookkeeping. It is verified on the fly, that ``len(row)``
         # does not exceed ``WIDTH``. We error immediately on the first over-wide
         # row rather than pre-validating every row's length up front.
         rows = list(_iter_pattern_rows(pattern_str))
         row_count = len(rows)
         if row_count > HEIGHT:
-            raise ValueError(f"Icon.create requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows")
+            raise ValueError(f"Icon requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows")
 
         cols = bytearray(WIDTH)
         for y in range(row_count):
             row = rows[y]
             row_len = len(row)
             if row_len > WIDTH:
-                raise ValueError(f"Icon.create requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows x {len(row)} columns")
+                raise ValueError(f"Icon requires at most {HEIGHT} rows x {WIDTH} columns; got {row_count} rows x {len(row)} columns")
             for x in range(row_len):
                 if row[x] == "#":
                     cols[x] |= 1 << y
-        return Icon(bytes(cols))
+        self._data = bytes(cols)
+
+    @classmethod
+    def _from_columns(cls, data: bytes) -> Icon:
+        """Build an Icon from already-encoded column-major bytes. Applies no checks.
+
+        Internal: for ``Emojis`` / ``Arrows`` and for tests. Skips ``__init__``.
+        """
+        obj = object.__new__(cls)
+        obj._data = data
+        return obj
+
+    @property
+    def _columns(self) -> bytes:
+        """Raw backing data: WIDTH column-major bytes. Internal: ``Display`` reads it to draw the icon."""
+        return self._data
 
 
 # ---------------------------------------------------------------------------
@@ -548,7 +546,7 @@ def _build_icon_namespace(names: tuple[str, ...], data: bytes) -> type:
     cls = type("_IconNamespace", (), {})
     for i, name in enumerate(names):
         start = i * WIDTH
-        setattr(cls, name, Icon(data[start : start + WIDTH]))
+        setattr(cls, name, Icon._from_columns(data[start : start + WIDTH]))
     return cls
 
 
@@ -591,17 +589,20 @@ class Token:
 # ---------------------------------------------------------------------------
 
 
-def _check_ms(name: str, value: int) -> int:
+def _check_ms(method: str, param: str, value: int | float) -> int:
     """Reject a negative duration, then truncate to whole milliseconds.
 
+    ``method`` is the name of the public ``Display`` method that was called and ``param`` is its
+    parameter holding ``value``. Both only appear in the error message, for example
+    ``show_image(): duration_ms must be >= 0, got -5``.
     Runs before the display is taken over. A float is truncated (``1.9`` becomes ``1``).
     """
     if value < 0:
-        raise ValueError(f"{name} must be >= 0, got {value}")
+        raise ValueError(f"{method}(): {param} must be >= 0, got {value}")
     return int(value)
 
 
-async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> None:
+async def _sleep_pollable(token: Token, total_ms: int | float, poll_ms: int = 47) -> None:
     """Sleep up to ``total_ms`` milliseconds, returning early once ``token.is_expired``.
 
     Chunks the sleep into at most ``poll_ms``-sized pieces so a caller notices
@@ -643,7 +644,7 @@ async def _sleep_until_cancelled(token: Token, poll_ms: int = 51) -> None:
         await asyncio.sleep_ms(poll_ms)
 
 
-def _write_column(pixels, lut, x_base: int, col_byte: int, color: tuple[int, int, int], off: tuple[int, int, int]) -> None:
+def _write_column(pixels: neopixel.NeoPixel, lut: bytearray, x_base: int, col_byte: int, color: tuple[int, int, int], off: tuple[int, int, int]) -> None:
     """Write one column byte at logical column ``x_base // HEIGHT``. Bit 0 is the top row."""
     for y in range(HEIGHT):
         pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
@@ -709,7 +710,7 @@ class Display:
         pattern: str,
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]],
     ) -> None:
-        """Fused hot-path used by ``render_pattern``: one scan of the pattern string.
+        """Write ``pattern`` into this instance's pixel buffer: parsing and drawing fused in one scan of the string.
 
         Scan the source string once, skip only space / tab / CR, write each cell
         directly to this instance's NeoPixel buffer, ignore columns past ``WIDTH``,
@@ -812,8 +813,8 @@ class Display:
     ) -> None:
         """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to this instance's ``self._pixels``.
 
-        Each ``data[offset + x]`` is one column byte (i.e. a single byte representing
-        one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
+        Each byte ``data[offset + x]`` for x=0, 1,…, WIDTH-1 is drawn as one column (i.e. a single
+        byte representing one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
         row ``y`` (with bit 0 = top row).
         On the hardware level, the LEDs are addressed using a single index. The Look-Up Table
         [``lut``] translates from logical pixels (x, y) to the physical strip index. The ``lut``
@@ -840,7 +841,7 @@ class Display:
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
         pixels.show()
 
-    def _draw_text(self, reader, x: int, color: tuple[int, int, int]) -> None:
+    def _draw_text(self, reader: _ColumnReader | _FixedColumnReader, x: int, color: tuple[int, int, int]) -> None:
         """Draw ``reader`` with its first column at display column ``x``. One ``show()``.
 
         ``x < 0`` skips ``-x`` content columns and starts at display column 0.
@@ -854,16 +855,15 @@ class Display:
             reader.skip(-x)
             start = 0
         else:
-            start = WIDTH if x > WIDTH else x
-        x_base = 0
-        for col in range(WIDTH):
-            if col < start:
+            start = WIDTH if x > WIDTH else x  # deliberately not ``min(x, WIDTH)``: the builtin call costs more than a compare on the MCU VM.
+        split = start * HEIGHT  # x_base of the first column that shows text (x_base == column * HEIGHT)
+        for x_base in range(0, split, HEIGHT):  # columns before the text starts are off
+            _write_column(pixels, lut, x_base, 0, color, off)
+        for x_base in range(split, WIDTH * HEIGHT, HEIGHT):
+            col_byte = reader.next_column()
+            if col_byte is None:
                 col_byte = 0
-            else:
-                nxt = reader.next_column()
-                col_byte = 0 if nxt is None else nxt
             _write_column(pixels, lut, x_base, col_byte, color, off)
-            x_base += HEIGHT
         pixels.show()
 
     def _render_ring_window(
@@ -873,10 +873,12 @@ class Display:
         color_on: tuple[int, int, int],
     ) -> None:
         """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``.
+        IMPORTANT: ``read_head`` must be in 0..WIDTH-1!
 
         The ring holds exactly ``WIDTH`` column bytes; ``read_head`` is the index
-        of the leftmost visible column. Wrap is handled by a single subtract
-        instead of a per-pixel modulo (cheaper on the MCU VM).
+        of the leftmost visible column. Wrap is handled by splitting the draw
+        into two loops (``read_head`` to the end, then the start up to ``read_head``),
+        with no per-column modulo, subtraction or compare (cheaper on the MCU VM).
 
         Reads ``self._pixels`` / ``self._lut`` fresh on every call, not cached
         once per animation. This is one of the three facts (alongside
@@ -888,14 +890,19 @@ class Display:
         lut = self._lut
         off = OFF
         x_base = 0  # invariant at top of loop: x_base == x * HEIGHT
-        for x in range(WIDTH):
-            idx = read_head + x
-            if idx >= WIDTH:
-                idx -= WIDTH
+        # The visible columns are ring[read_head:WIDTH], then ring[0:read_head]. We break the loop into two
+        # parts to avoid tests inside the loops on whether we have wrapped around the ring. This requires
+        # that ``read_head`` is in 0..WIDTH-1; when ``read_head == 0`` the second loop is empty.
+        for idx in range(read_head, WIDTH):
             col_byte = ring[idx]
             for y in range(HEIGHT):
                 pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
+        for idx in range(read_head):
+            col_byte = ring[idx]
+            for y in range(HEIGHT):
+                pixels[lut[x_base + y]] = color_on if (col_byte >> y) & 1 else off
+            x_base += HEIGHT
         pixels.show()
 
     # — Tier 1: Synchronous rendering primitives ----------------------------
@@ -909,17 +916,23 @@ class Display:
         Best for a picture you show once, because this method needs to go over the input string
         and decode every character into a pixel (this is called "parsing" the pattern).
         For pictures you want to show repeatedly, it is best to only parse the pattern once,
-        which is done by the factory methods ``Image.create`` or ``Icon.create``. They return
+        which is done by constructing an ``Image(pattern)`` or an ``Icon(pattern)``. Each is
         a parsed Image / Icon, whose reference you can keep and show repeatedly.
 
-        An RGB tuple ``(red, green, blue)`` lights every ``#``, and ``.`` is off,
-        so ``#.#`` is on, off, on. A short row is filled with off pixels on the
-        right. Rows past the bottom of the screen are left out.
-        A dict ``{character: RGB tuple}`` gives each character its own color,
-        as in ``color["G"] = (0, 255, 0)``.
-        Space, tab, and carriage return are skipped. Any other character is a
-        pixel. With one RGB tuple, a character other than ``#`` is off and still
-        takes a column.
+        Each line of the pattern is one row of the picture, starting at the top left corner of the
+        LED matrix. A row with fewer than 5 characters is filled with off pixels on the right.
+        Extra characters on the right, and rows past the bottom of the screen, are cut off.
+        Missing rows at the bottom are off.
+
+        If ``color`` is an RGB tuple ``(red, green, blue)``, every ``#`` is an LED lit in that color
+        and every other character is off, so ``#.#`` shows "on, off, on". The default color is white.
+        If ``color`` is a dict ``{character: RGB tuple}``, you can specify different letters to represent
+        different colors, such as ``color["G"] = (0, 255, 0)`` for green and ``color["R"] = (255, 0, 0)``
+        for red (and so on). Then, writing ``G.RG`` shows "green, off, red, green". Any character that
+        is not in the dict represents off.
+
+        Spaces, tabs and carriage returns are skipped, so ``#.#`` and ``# .  #`` are the same picture.
+        Any other character takes one column.
         """
         self._acquire()
         # Direct render via LUT — no intermediate column-major buffer. Fused one-pass scan.
@@ -933,27 +946,37 @@ class Display:
         own, so ``color`` is not an override of anything, just the color.
         """
         self._acquire()
-        self._render_colmajor(icon.columns, 0, color)
+        self._render_colmajor(icon._columns, 0, color)
 
     def render_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE) -> None:
         """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs.
-        Alias of ``render_icon``.
+
+        ``color`` is the render color — an ``Icon`` carries no color of its
+        own, so ``color`` is not an override of anything, just the color.
         """
-        self.render_icon(arrow, color)
+        # Body of ``render_icon`` repeated on purpose: saves one method lookup and call. Keep the two in sync.
+        self._acquire()
+        self._render_colmajor(arrow._columns, 0, color)
 
     def render_string(self, text: str | ScreenText, color: tuple[int, int, int] = WHITE) -> None:
-        """Draw ``text`` starting at the left-most LED and leave it lit until some other call
-        overwrites the display.
+        """Draw ``text`` left-aligned and leave it lit until some other call overwrites the display.
+        Text hanging over the display on the right is cut off.
 
-        ``text`` may be a ``str`` or a ``ScreenText``. Anything else is drawn as ``str(text)``.
-        Text wider than the screen shows its first columns and crops the rest. An empty string
-        draws a blank screen. To scroll longer text, call ``show_string``. Pass ``centered(text)``
-        when the text should sit in the middle.
+        ``text`` may be a Python ``str`` or a ``ScreenText``. An empty string draws a blank screen.
+
+        A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` is prepared text:
+        it counts how many columns the text needs (its ``width``) the first time you ask, and remembers
+        the answer. Use one when you draw the same text again and again, or when you want to check
+        ``width`` against the display before you choose how to show the text.
+        ``centered(text)`` returns a ``ScreenText`` too, so create it once and reuse it.
+
+        To scroll longer text, call ``show_string``. Pass ``centered(text)`` when the text should sit
+        in the middle.
         """
         self._acquire()
         self._draw_text(_reader_for(text), 0, color)
 
-    def render_number(self, n: int, color: tuple[int, int, int] = WHITE) -> None:
+    def render_number(self, n: int | float, color: tuple[int, int, int] = WHITE) -> None:
         """Converts number ``n`` into a string (via python's ``str(n)``) and displays it
         starting at the left-most LED, and leaves it lit until some other call overwrites the display.
 
@@ -1071,7 +1094,7 @@ class Display:
         pattern: str,
         color: tuple[int, int, int] | dict[str, tuple[int, int, int]] = WHITE,
         *,
-        duration_ms: int,
+        duration_ms: int | float,
     ) -> Token:
         """Draw a pattern, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
@@ -1082,11 +1105,11 @@ class Display:
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("duration_ms", duration_ms)
+        duration_ms = _check_ms("show_pattern", "duration_ms", duration_ms)
         self.render_pattern(pattern, color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+    async def show_icon(self, icon: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
         """Draw an ``Icon`` (e.g. ``Emojis.HEART``), hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
         ``duration_ms`` is required and keyword-only. A later display call during the hold
@@ -1095,18 +1118,18 @@ class Display:
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("duration_ms", duration_ms)
+        duration_ms = _check_ms("show_icon", "duration_ms", duration_ms)
         self.render_icon(icon, color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+    async def show_arrow(self, arrow: Icon, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
         """Draw an arrow ``Icon`` (e.g. ``Arrows.NORTH``), hold it, then turn the LEDs off.
 
         Same contract as ``show_icon``. ``duration_ms`` is required and keyword-only.
         """
         return await self.show_icon(arrow, color=color, duration_ms=duration_ms)
 
-    async def show_filled(self, color: tuple[int, int, int] = WHITE, *, duration_ms: int) -> Token:
+    async def show_filled(self, color: tuple[int, int, int] = WHITE, *, duration_ms: int | float) -> Token:
         """Fill the display with ``color``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
         ``duration_ms`` is required and keyword-only. A later display call during the hold
@@ -1114,11 +1137,11 @@ class Display:
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("duration_ms", duration_ms)
+        duration_ms = _check_ms("show_filled", "duration_ms", duration_ms)
         self.render_filled(color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_image(self, image: Image, offset: int = 0, *, duration_ms: int) -> Token:
+    async def show_image(self, image: Image, offset: int = 0, *, duration_ms: int | float) -> Token:
         """Show a ``WIDTH``-column window of ``image``, hold it, then turn the LEDs off.
 
         ``duration_ms`` is required and keyword-only. ``offset`` is the image column placed at
@@ -1127,12 +1150,12 @@ class Display:
 
         Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("duration_ms", duration_ms)
+        duration_ms = _check_ms("show_image", "duration_ms", duration_ms)
         token = self._acquire()
         image._render_window(self, offset)
         return await self._hold_then_blank(token, duration_ms)
 
-    async def scroll_image(self, image: Image, step: int = 1, interval_ms: int = 200) -> Token:
+    async def scroll_image(self, image: Image, step: int = 1, interval_ms: int | float = 200) -> Token:
         """Scroll through ``image``, advancing ``step`` columns per frame, with ``interval_ms`` milliseconds between frames.
 
         ``step`` is how many image columns scroll in from the right each frame. The scroll always starts at position 0.
@@ -1154,7 +1177,7 @@ class Display:
         self,
         text: str | ScreenText,
         color: tuple[int, int, int] = WHITE,
-        interval_ms: int = 150,
+        interval_ms: int | float = 150,
         loop: bool = False,
     ) -> Token:
         """Scroll text across the display.
@@ -1190,9 +1213,7 @@ class Display:
         Returns the cancellation ``Token`` (check ``token.is_expired`` to see
         whether a later display operation preempted this call).
         """
-        if interval_ms < 0:
-            raise ValueError(f"interval_ms must be >= 0, got {interval_ms}")
-        interval_ms = int(interval_ms)
+        interval_ms = _check_ms("show_string", "interval_ms", interval_ms)
         token = self._acquire()
         if isinstance(text, ScreenText):
             source: str | ScreenText = text
@@ -1262,9 +1283,9 @@ class Display:
 
     async def show_number(
         self,
-        n: int,
+        n: int | float,
         color: tuple[int, int, int] = WHITE,
-        interval_ms: int = 150,
+        interval_ms: int | float = 150,
         loop: bool = False,
     ) -> Token:
         """Show ``str(n)`` the same way as ``show_string``: the call blocks, takes time, and ends on a blank screen.
@@ -1277,42 +1298,52 @@ class Display:
         # passes ``str(n)`` through unchanged. Booleans will therefore render as "True" or "False" for example.
         return await self.show_string(str(n), color, interval_ms, loop)
 
-    async def pause(self, duration_ms: int) -> Token:
+    async def pause(self, duration_ms: int | float) -> Token:
         """Wait up to ``duration_ms`` milliseconds before returning. If a subsequent operation acquires the display
         before the wait elapses, this method returns immediately instead; check the returned ``Token``'s
         ``is_expired`` to tell whether the wait was cut short by another task.
 
         Raises ``ValueError`` if ``duration_ms < 0``.
         """
+        # Not ``_check_ms``: it would truncate to ``int`` here, and ``_sleep_pollable`` truncates again right below.
+        # So only the negative check is written out. Keep this message in the format of ``_check_ms``.
         if duration_ms < 0:
-            raise ValueError(f"duration_ms must be >= 0, got {duration_ms}")
+            raise ValueError(f"pause(): duration_ms must be >= 0, got {duration_ms}")
         token = self._acquire()
         await _sleep_pollable(token, duration_ms)
         return token
 
     @staticmethod
-    async def repeat_until_cancelled(callback: Callable[[], object], sleep_between_ms: int = 10) -> NoReturn:
-        """Run ``callback`` again and again. Ends only when its task is cancelled; display takeover does not stop it. Use ``loop=True`` on ``scroll_*`` for that.
+    async def repeat_until_cancelled(callback: Callable[[], Awaitable[None] | None], sleep_between_ms: int | float = 10) -> NoReturn:
+        """Call ``callback`` again and again, until the task executing ``repeat_until_cancelled`` is cancelled.
 
-        Use this when you want to repeat a task, for example scrolling
-        a message over and over. You give ``repeat_until_cancelled`` a function that takes no
-        arguments. It calls that function, waits for it to finish, rests for
-        ``sleep_between_ms`` milliseconds, and then calls it again.
+        Another display operation (for example from a button handler) does not stop it: the next
+        round simply draws over whatever was shown in between. If you want a repeat that stops
+        when something else takes over the display, use ``loop=True`` on the ``scroll_*`` methods.
+
+        Use this when you want to repeat a task, for example showing a message over and over. You give
+        ``repeat_until_cancelled`` a function that takes no arguments. It calls that function, waits for it
+        to finish, rests for ``sleep_between_ms`` milliseconds, and then calls it again.
 
         The ``callback`` can be a normal ``def`` function or an ``async def`` (a function that
         uses ``await``). If it is an ``async def`` function, ``repeat_until_cancelled`` waits until it is done.
 
-        Here is a function to repeat. Give ``repeat_until_cancelled`` its name without parentheses
-        (``say_hello``, not ``say_hello()``), because ``repeat_until_cancelled`` calls it for you:
+        Say you want to repeat this function:
 
             async def say_hello():
                 await display.show_string("Hello")
 
-        ``repeat_until_cancelled`` is itself ``async`` and it never returns on its own. So the code you write after it, in the same
-        place, never runs, unless you start ``repeat_until_cancelled`` as a task (way 3 below). There are three ways:
+        Pass the function itself, ``repeat_until_cancelled(say_hello)``, without parentheses: it is
+        ``repeat_until_cancelled`` that calls ``say_hello``, once per round. Just for comparison, with
+        ``say_hello()`` Python would call it on the spot and pass on what that returns. Essentially
+        ``say_hello()`` produces a coroutine that can run only once. In comparison, ``say_hello`` is the
+        recipe for producing such a coroutine, and can be used arbitrarily many times.
 
-            # 1. In the main part of your program, outside any async function, as its last line. No
-            #    code after this line will ever run, so use it only when repeating is the whole program:
+        ``repeat_until_cancelled`` is itself ``async`` and it never returns on its own. So the code you write after it, in the
+        same place, never runs, unless you start ``repeat_until_cancelled`` as a task (way 3 below). There are three ways:
+
+            # 1. In the main part of your program, outside any async function, as its last line.
+            #    No code after this line will ever run, so use it only when repeating is the whole program:
             asyncio.run(display.repeat_until_cancelled(say_hello))
 
             # 2. Inside an async function. The rest of this function will never run, but your
@@ -1325,15 +1356,17 @@ class Display:
             await asyncio.sleep(10)  # ...do other things, for example wait for a button press
             task.cancel()            # stops ``repeat_until_cancelled`` at its next ``await``
 
-        A cancelled ``repeat_until_cancelled`` leaves the last picture on the LEDs. Call ``display.clear()``
-        afterwards if you want them dark.
+        Cancelling stops ``repeat_until_cancelled`` and the ``callback`` that is running at that moment, and
+        leaves whatever is on the LEDs lit. Call ``display.clear()`` afterwards if you want the display cleared.
 
-        After each round, ``repeat_until_cancelled`` rests for ``sleep_between_ms`` milliseconds. This rest keeps the
-        board calm and lets your other tasks (for example button handlers) run, even when ``callback``
-        finishes quickly. If your callback already waits (for example ``show_string`` or ``pause``),
-        the rest is not needed, but by default the rest is so short (10 ms) that you will probably not
-        notice. Set ``sleep_between_ms=0`` only if you need the timing of your own callback to be exact,
-        for example a repeat every 1000 ms, or a very fast repeat.
+        After each round, ``repeat_until_cancelled`` rests for ``sleep_between_ms`` milliseconds
+        (whole milliseconds: a fraction is dropped, so 25.9 means 25). The time from one start to the
+        next is the time ``callback`` takes plus this rest. The rest lets your other tasks (for example
+        button handlers) run, even when ``callback`` finishes quickly. If your callback already waits
+        (for example ``show_string`` or ``pause``), the rest is not needed, but by default it is so
+        short (10 ms) that you will probably not notice. Set ``sleep_between_ms=0`` only if the repeat
+        must be as fast or as regular as your own callback makes it, for example a repeat every
+        1000 ms. Even with ``0``, other ready tasks still get one turn per round.
 
         Only one task runs at a time, and it keeps going until it reaches an ``await``. Tasks
         that are ready to run will get their turn, but they have to wait until your ``callback``
@@ -1342,16 +1375,14 @@ class Display:
 
         Raises ``ValueError`` if ``sleep_between_ms`` is negative. Because ``repeat_until_cancelled``
         never returns, the only ways out are an exception in ``callback`` or cancelling
-        the task that is running it.
+        the task executing ``repeat_until_cancelled``.
         """
-        if sleep_between_ms < 0:
-            raise ValueError(f"sleep_between_ms must be >= 0, got {sleep_between_ms}")
-        # `sleep_between_ms` is annotated `int`, but a caller can still pass a float(for example `1000 / 3` or `10.0`). `asyncio.sleep_ms` adds
+        # `sleep_between_ms` may be an `int` or a `float` (for example `1000 / 3` or `10.0`). `asyncio.sleep_ms` adds
         # its argument to a tick count and hands the sum to the scheduler as the wake-up time. The C task queue (`_asyncio`) reads that time as
         # a small int and only asserts it, so a float wake-up time could silently mis-order tasks (inferred from the 10.3.0 source, not tried on
-        # the board). `int()` makes sure we always pass whole milliseconds. It truncates, it does not round (25.9 becomes 25). Run it once as
-        # preprocessing of the loop.
-        rest_ms = int(sleep_between_ms)
+        # the board). `_check_ms` rejects a negative value, then `int()` makes sure we always pass whole milliseconds. It truncates, it does not
+        # round (25.9 becomes 25). Run it once as preprocessing of the loop.
+        rest_ms = _check_ms("repeat_until_cancelled", "sleep_between_ms", sleep_between_ms)
         while True:
             result = callback()
             if hasattr(result, "__await__"):

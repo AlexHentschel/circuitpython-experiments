@@ -79,7 +79,7 @@ _BIG_PATTERN = """
 . # # # . # . . # #
 . . . . # # . . . #
 """
-_big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
+_big_image = display.Image(_BIG_PATTERN, display.CYAN)
 
 # Per-letter feedback: a distinct color + arrow direction so a human
 # watching can tell at a glance which button just fired, purely by what

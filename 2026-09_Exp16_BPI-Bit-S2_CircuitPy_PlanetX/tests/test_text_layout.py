@@ -355,6 +355,55 @@ def test_fixed_column_reader_skip():
     assert reader.next_column() is None
 
 
+_SKIP_TEXTS = ["", "A", "AB", "A B", " ", "1!", "HELLO"]
+
+
+@pytest.mark.parametrize("text", _SKIP_TEXTS)
+def test_column_reader_skip_equals_dropping_columns_from_the_full_drain(text):
+    """``skip(n)`` leaves the reader where dropping ``n`` columns from a full drain would.
+
+    - Covers: ``skip`` going wrong past the end (``n`` above the remaining or the total columns), on an empty
+      string, on a fresh or reset reader, or after some columns were read (``n`` equal to, one below and one
+      above the remaining count, including inside a half-read glyph), and ``next_column`` coming back to life
+      after the end.
+    - How: oracle = the full drain of ``text`` (built-in font). For every count already read (0 to total + 2),
+      with and without ``reset()``, and every ``n`` from -2 to total + 4: read, optionally reset, ``skip(n)``,
+      drain. The drain equals the full drain minus the columns already read and the ``max(0, n)`` skipped.
+      Two more calls after the end return ``None``. Also a second skip: ``skip(a)`` then ``skip(b)`` leaves the
+      reader where ``skip(a + b)`` does, so a skip that ends exactly on a glyph's last column is safe to follow.
+    """
+    full = _drain(text)
+    total = len(full)
+    for already_read in range(total + 3):
+        for a in range(total + 3):
+            for b in range(total + 3):
+                split = _ColumnReader(text)
+                together = _ColumnReader(text)
+                for _ in range(already_read):
+                    split.next_column()
+                    together.next_column()
+                split.skip(a)
+                split.skip(b)
+                together.skip(a + b)
+                label = f"text={text!r} already_read={already_read} a={a} b={b}"
+                assert _drain_from(split) == _drain_from(together), label
+        for reset_first in (False, True):
+            for n in range(-2, total + 5):
+                reader = _ColumnReader(text)
+                for _ in range(already_read):
+                    reader.next_column()
+                if reset_first:
+                    reader.reset()
+                    behind = 0
+                else:
+                    behind = min(already_read, total)
+                reader.skip(n)
+                label = f"text={text!r} already_read={already_read} reset={reset_first} n={n}"
+                assert _drain_from(reader) == full[behind + max(0, n):], label
+                assert reader.next_column() is None, label
+                assert reader.next_column() is None, label
+
+
 def test_centered_width_and_inputs():
     """``centered`` is ``WIDTH`` columns wide for a string, an int, and a ``ScreenText``, and repeating it is a no-op.
 
@@ -375,3 +424,21 @@ def _drain_from(reader) -> list[int]:
         if col is None:
             return cols
         cols.append(col)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [0, -7, 3.14, -0.5, 1e-05, 1.5e20, 1e16, float("nan"), float("inf"), float("-inf"), True],
+)
+def test_str_of_a_number_has_no_tofu_in_the_shipped_font(value):
+    """Every character of ``str(value)`` has a real glyph, so ``render_number`` never draws tofu.
+
+    - Covers: ``str(int | float)`` output such as ``1e-05``, ``nan``, ``inf``, ``-0.5``, and ``True``
+      (``bool`` is accepted but unspecified).
+    - How: ``FONT.glyph(ch)`` differs from the tofu glyph for each character of ``str(value)``.
+    """
+    from display.font_makecode_5.ink import _TOFU_INK
+
+    text = str(value)
+    for ch in text:
+        assert FONT.glyph(ch) != _TOFU_INK, f"{ch!r} in {text!r} is tofu"

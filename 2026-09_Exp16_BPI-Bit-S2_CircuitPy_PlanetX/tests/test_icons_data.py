@@ -171,7 +171,7 @@ def _parse_comment_blocks(source: str):
     """Yield ``(name, ascii_pattern, hex_bytes)`` from each ``icons.py`` comment+hex block.
 
     A block is ``# N: NAME``, then HEIGHT ``#    . # .`` rows, then one ``0x.., …`` line.
-    Used by the comment↔byte tests; not a second encoder.
+    The pattern rows and the hex bytes are returned exactly as written in the source.
     """
     lines = source.splitlines()
     i = 0

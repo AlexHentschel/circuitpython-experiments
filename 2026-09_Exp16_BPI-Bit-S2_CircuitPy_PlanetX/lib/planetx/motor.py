@@ -15,6 +15,8 @@ wait until that motion finishes, and other tasks keep running during the wait.
         # stop(), start(), turn(), or go_to() took the motor
 """
 
+from __future__ import annotations
+
 import asyncio
 import sys
 import time
@@ -27,6 +29,12 @@ if sys.implementation.name == "circuitpython":
     import busio
 else:
     busio = None
+
+# Type hints only. ``typing`` does not exist on CircuitPython, so nothing after it in this block runs there.
+try:
+    from typing import Any
+except ImportError:
+    pass
 
 # Student names. On a relative move the wire uses 1 and 2. On an absolute
 # move the wire uses a different numbering; ``_path_byte`` translates.
@@ -60,7 +68,7 @@ class Token:
         return self._is_expired
 
 
-def _fill(buf, motor, arg_a, opcode, high, mode, low) -> None:
+def _fill(buf: bytearray, motor: int, arg_a: int, opcode: int, high: int, mode: int, low: int) -> None:
     buf[0] = 0xFF
     buf[1] = 0xF9
     buf[2] = motor & 0xFF
@@ -97,7 +105,7 @@ def _check_speed(speed: int) -> int:
     return speed
 
 
-def firmware_degrees_from(buf) -> int:
+def firmware_degrees_from(buf: bytes | bytearray) -> int:
     """Whole degrees 0..359 from a 4-byte little-endian encoder reading.
 
     The motor reports tenths of a degree. Negative readings wrap into 0..359.9
@@ -141,9 +149,10 @@ class PlanetXSmartMotor:
     Read ``angle()`` when you need to tell those apart.
     """
 
-    def __init__(self, *, port: MotorPort, bus=None, settle_s: float = 0.004, poll_s: float = 0.02) -> None:
+    def __init__(self, *, port: MotorPort, bus: Any = None, settle_s: float = 0.004, poll_s: float = 0.02) -> None:
         # ``bus``, ``settle_s``, and ``poll_s`` are test hooks. Students pass
-        # ``port=`` only. ``settle_s`` is the no-yield pause after a read opcode.
+        # ``port=`` only. ``bus`` is typed ``Any`` on purpose: ``_send`` and ``_read_encoder`` accept
+        # a ``busio.I2C`` (``try_lock`` / ``writeto``) or a plain ``write`` / ``readinto`` object. ``settle_s`` is the no-yield pause after a read opcode.
         self._index = port.index
         self._bookmark = 0
         self._token = Token()
@@ -162,7 +171,7 @@ class PlanetXSmartMotor:
         self._token = Token()
         return self._token
 
-    def _ensure_bus(self):
+    def _ensure_bus(self) -> Any:
         if self._bus is None:
             assert busio is not None, "busio is CircuitPython-only; tests must replace motor.busio"
             self._bus = busio.I2C(I2C.scl, I2C.sda, frequency=100000)

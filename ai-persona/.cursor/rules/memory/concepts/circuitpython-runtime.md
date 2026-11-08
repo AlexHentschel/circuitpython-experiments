@@ -224,6 +224,24 @@ On-device import of a `.py` uses the same compiler flags, so comments and docstr
 
 **Status:** `evidence-supported` (10.3.0 binary size probe + `MICROPY_ENABLE_DOC_STRING` in the 10.3.0 tag). `[domain:circuitpython-runtime]` `[project:circuitpython-exp16-planetx]` for the file sizes.
 
+### Cost of extra (duplicated / specialized) code: bytes, not cycles
+
+Question (Alex, 2026-11-06): does trading source length for fewer per-iteration operations (split loops, duplicated inner loop) cost flash or interpretation time? `[domain:circuitpython-runtime]`.
+
+| Cost axis | Finding | Status |
+|---|---|---|
+| Source file on CIRCUITPY (flash) | Comments and docstrings are the bulk of it; the `.mpy` is ~10x smaller (see previous concept). Volume is 983040 bytes; whole exp16 `lib/` is ~24 KB compiled. | evidence-supported |
+| Bytecode size of the change | Measured with mpy-cross 10.3.0 on isolated functions: `_draw_text` two stepped loops vs one loop with `if col < start`: **355 → 372 bytes (+17)**. `_render_ring_window` split into two loops (inner pixel loop duplicated): **233 → 277 bytes (+44)**. Whole `core.py` HEAD 6921 → working tree 6982 (**+61 bytes**, both edits). | evidence-supported (host measurement; function snippets, not the on-device layout) |
+| Where the bytecode lives at run time | A `.mpy` read from the filesystem is **copied to the RAM heap** (`py/persistentcode.c`: `fun_data = mp_reader_try_read_rom(...)`; if NULL, `m_new(uint8_t, fun_data_len)` + `read_bytes`). Only memory-mapped sources (frozen modules) are referenced in place. A `.py` is compiled on import into the same RAM form. So extra code costs **heap bytes, once, at import**, not flash execution space. Read against CP 10.0.x source; 10.3.0 not re-read. | evidence-supported (source) |
+| Heap placement on `bpi_bit_s2` | `ports/espressif/supervisor/port.c` `port_malloc` tries `MALLOC_CAP_SPIRAM` first when `CONFIG_SPIRAM`; board has 2 MB PSRAM, so the VM heap, and the bytecode, are probably in cached PSRAM (slower than internal RAM on a cache miss). That the VM heap itself goes through `port_malloc` is `[inferred]`, not re-read. | partly unverified |
+| Cost per executed iteration | The VM executes only the bytecode on the path taken. A second copy of a loop body that is not entered adds **no** per-call or per-iteration time. Splitting at a known boundary executes the same inner bodies as before and drops the per-column test. | mechanism (follows from the interpreter) |
+| Cache / locality | The VM's C code runs from flash through the instruction cache; bytecode is data in the heap. The hot loops here are a few hundred bytes of bytecode, so cache footprint is not a plausible constraint. | `[inferred]`, not measured |
+| Import time | Proportional to bytecode size (read + copy + GC allocation), plus on-device compilation if the file is `.py`. +61 bytes on a 6982-byte module is under 1%. Not timed on the board. | `unverified` |
+
+**Conclusion.** For this class of change (tens of bytes of bytecode, hot loop untouched in size) the code-size cost is negligible on every axis, and the readable-source cost (a reader must keep two copies in sync) is the real cost. The larger effect on RAM and import time is deploying `core.py` as `.py` (compiled on the board, peak RAM during compilation) versus `.mpy`; unmeasured on the device. Rule of thumb: duplicate only a short inner loop, comment why, and have a test that exercises both copies.
+
+Verification queue: time `import display` on UID `0740D10F1BE9` with `.py` vs `.mpy` and report `gc.mem_free()` before/after; measure frame time for one `render_string` with `time.monotonic_ns()` (see exp16 plan § 6.3 note for the `_draw_text` test).
+
 ### `__slots__` is not implemented on CircuitPython — declaring it is silently inert, not an error
 
 Standard Python's `__slots__` (a class-level tuple of allowed instance-attribute names) replaces each instance's `__dict__` with a fixed-size slot layout: memory savings scale with instance count, plus marginally faster attribute access (no dict hash/probe per get/set) — general Python-language behavior, not CircuitPython-specific [general Python semantics; cross-checked against `docs.python.org/3/reference/datamodel.html#slots` and `wiki.python.org/moin/UsingSlots`, 2026-09-13].

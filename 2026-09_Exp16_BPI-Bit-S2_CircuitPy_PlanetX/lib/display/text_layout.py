@@ -25,7 +25,7 @@ def _column_count(text: str, font: Font) -> int:
     width = font.width
     count = width(text[0])
     for i in range(1, n):
-        count += 1 + width(text[i])
+        count += 1 + width(text[i])  # `+1` term here is spacer column between characters
     return count
 
 
@@ -41,14 +41,14 @@ def _column_count_wider_than(text: str, font: Font, limit: int) -> bool:
     if count > limit:
         return True
     for i in range(1, n):
-        count += 1 + width(text[i])
+        count += 1 + width(text[i])  # `+1` term here is spacer column between characters
         if count > limit:
             return True
     return False
 
 
 class _ColumnReader:
-    """Cursor over a string's glyph columns. One reader per display call.
+    """Cursor over a string's glyph columns.
 
     ``next_column`` returns the next column byte, then ``None`` at the end.
     Further calls keep returning ``None``. ``reset`` puts the cursor back at
@@ -103,28 +103,27 @@ class _ColumnReader:
         """
         if n <= 0:
             return
-        remaining = n
         available = len(self._cols) - self._col_idx
         if available > 0:
-            take = available if available < remaining else remaining
+            take = available if available < n else n  # implies: `take` ≤ `n`
             self._col_idx += take
-            remaining -= take
-            if remaining == 0:
+            n -= take
+            if n == 0:
                 return
             self._cols = b""
             self._col_idx = 0
         width = self._font.width
         text = self._text
         nchars = len(text)
-        while remaining > 0 and self._next_char_idx < nchars:
+        while n > 0 and self._next_char_idx < nchars:
             group = width(text[self._next_char_idx])
             if self._pending_spacer:
                 group += 1
-            if group > remaining:
-                for _ in range(remaining):
+            if group > n:
+                for _ in range(n):
                     self.next_column()
                 return
-            remaining -= group
+            n -= group
             self._next_char_idx += 1
             self._pending_spacer = True
             self._cols = b""
@@ -132,7 +131,16 @@ class _ColumnReader:
 
 
 class _FixedColumnReader:
-    """Cursor over a prepared column-byte string. Used by ``centered``."""
+    """Cursor over a byte sequence of ``columns``, with the same operations as ``_ColumnReader``.
+
+    ``next_column`` returns the next byte, then ``None`` after the last one, and keeps returning ``None``.
+    ``skip(n)`` moves the cursor ``n`` bytes forward and stops at the end; ``n <= 0`` does nothing.
+    ``reset`` moves the cursor back to the first byte.
+
+    The reader keeps a reference to ``columns`` and does not copy it. Do not mutate ``columns``
+    after the constructor has returned: this would change what the reader returns and could
+    produce subtle errors.
+    """
 
     __slots__ = ("_cols", "_idx")
 
@@ -159,16 +167,20 @@ class _FixedColumnReader:
 
 
 class ScreenText:
-    """Prepared text: the string, the font, and the column count.
+    """``ScreenText`` takes a plain ``text`` (Python string) and prepares it for the LED matrix.
+    Passing a ``ScreenText`` to display methods avoids repeating the preprocessing needed to display
+    plain strings. Showing a ``ScreenText`` does not change it, so you can create it once and show
+    it again and again. This is more efficient if you want to display the same ``text`` many times.
 
-    ``width`` is the number of columns, including the spacer between characters.
-    It is computed the first time you ask and then remembered. Building a
-    ``ScreenText`` does not draw anything, and a display call does not change it.
+    A ``ScreenText`` can also tell you how the text would be displayed, without drawing anything:
+    - ``width``: the number of LED columns the text needs, including the blank column between
+      letters. It is counted the first time you ask and remembered after that.
+    - ``column_count_wider_than(limit)``: ``True`` if the text needs more than ``limit`` columns.
+      For a long text this can answer sooner than ``width``, because it stops counting early.
+    Use these to decide whether the text fits on the display or has to scroll.
 
-    ``column_count_wider_than(limit)`` answers whether the text needs more than
-    ``limit`` columns. It can stop before the end of a long string. Use it
-    (or compare ``width`` with the display width) to choose ``show_*`` for text
-    that fits and ``scroll_*`` for text that does not.
+    ``centered(text)`` returns a ``ScreenText`` too.
+    An empty text is allowed: its ``width`` is 0 and it shows as a blank display.
     """
 
     __slots__ = ("_text", "_font", "_columns", "_width")
@@ -191,7 +203,7 @@ class ScreenText:
 
     @property
     def width(self) -> int:
-        """Columns this text occupies, including spacers. Computed once."""
+        """Columns this text occupies, including spacers. Computed once (and remembered after that)."""
         cached = self._width
         if cached is None:
             cached = _column_count(self._text, self._font)
@@ -199,10 +211,13 @@ class ScreenText:
         return cached
 
     def column_count_wider_than(self, limit: int) -> bool:
-        """True when this text occupies more than ``limit`` columns.
+        """``True`` if this text needs more than ``limit`` columns, otherwise ``False``.
 
-        Raises ``ValueError`` if ``limit`` is negative. An empty string has width 0.
-        Stops at the first character that makes the answer true.
+        Stops counting as soon as the count exceeds ``limit``, so it can be faster than ``width``
+        for a long text. If ``width`` has already been computed, it just compares that value.
+        Unlike ``width``, it does not remember its own result.
+
+        Raises ``ValueError`` if ``limit`` is negative.  An empty string has width 0.
         """
         if limit < 0:
             raise ValueError(f"limit must be >= 0, got {limit}")
@@ -218,50 +233,45 @@ class ScreenText:
         return _ColumnReader(self._text, self._font)
 
 
-def _reader_for(content: object) -> _ColumnReader | _FixedColumnReader:
+def _reader_for(content: str | int | float | ScreenText) -> _ColumnReader | _FixedColumnReader:
     """A fresh reader. A ``str`` does not allocate a ``ScreenText``."""
     if isinstance(content, ScreenText):
         return content._reader()
     return _ColumnReader(str(content), FONT)
 
 
-def _wider_than(content: object, limit: int) -> bool:
+def _wider_than(content: str | int | float | ScreenText, limit: int) -> bool:
     if isinstance(content, ScreenText):
         return content.column_count_wider_than(limit)
     return _column_count_wider_than(str(content), FONT, limit)
 
 
-def centered(content: object) -> ScreenText:
+def centered(content: str | int | float | ScreenText) -> ScreenText:
     """Return a ``ScreenText`` exactly ``WIDTH`` columns wide, with ``content`` centered.
 
-    ``content`` may be a ``str``, a number, or a ``ScreenText``. Anything else is
-    drawn as ``str(content)``. Text that fits is padded with blanks; a spare blank
-    goes on the right. Text that is wider keeps ``WIDTH`` columns and drops the
-    extra on the right when the overflow is odd. The result's ``width`` is ``WIDTH``.
+    ``content`` may be a ``str``, an ``int``, a ``float`` (shown as ``str(content)``), or
+    a ``ScreenText``. Text that fits is padded with blanks about equally on both sides; if
+    an odd number of blank column then the extra blank goes on the right. Text that is wider
+    keeps ``WIDTH`` columns and drops the extra on the right when the overflow is odd. The
+    result's ``width`` is ``WIDTH``.
     Calling ``centered`` on that result returns the same picture.
 
-    This measures the text once and builds a 5-column picture. Do it once and
-    reuse the result.
+    This measures the text once and builds a 5-column picture. Do it once and reuse the result.
     """
-    if isinstance(content, ScreenText):
-        src = content
-    else:
-        src = ScreenText(str(content))
-    w = src.width
+    if not isinstance(content, ScreenText):
+        content = ScreenText(str(content))
+    w = content.width
     out = bytearray(WIDTH)
-    reader = src._reader()
+    reader = content._reader()
+    # ``width`` equals the number of columns the reader yields (a font's ``width(ch)`` is
+    # ``len(glyph(ch))``), so ``next_column`` never returns ``None`` below. A font that breaks
+    # this fails here with a ``TypeError`` instead of drawing a quietly shortened picture.
     if w <= WIDTH:
         pad = (WIDTH - w) // 2
         for i in range(w):
-            col = reader.next_column()
-            if col is None:
-                break
-            out[pad + i] = col
+            out[pad + i] = reader.next_column()
     else:
         reader.skip((w - WIDTH) // 2)
         for i in range(WIDTH):
-            col = reader.next_column()
-            if col is None:
-                break
-            out[i] = col
+            out[i] = reader.next_column()
     return ScreenText._from_columns(bytes(out))

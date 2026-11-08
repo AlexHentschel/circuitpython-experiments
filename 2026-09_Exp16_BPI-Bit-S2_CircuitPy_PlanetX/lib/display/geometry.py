@@ -129,5 +129,22 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
 
 
 def xy_to_index(x: int, y: int, lut: bytearray) -> int:
-    """Map logical (x, y) to NeoPixel strip index via the given LUT."""
+    """Map logical (x, y) to NeoPixel strip index via the given LUT.
+
+    For reference and tests only. Production code on a hot path (rendering loops) must
+    not call this: inline ``lut[x * HEIGHT + y]`` to save the function call on every pixel, and
+    avoid repeating the multiplication:
+
+    - Rows of one column: compute ``x_base = x * HEIGHT`` once per column, then index
+      ``lut[x_base + y]``.
+    - Looping over columns: do not multiply at all. Start with ``x_base = 0`` (or some offset)
+      and add ``x_base += HEIGHT`` after each processed column.
+
+        x_base = 0
+        for x in range(WIDTH):
+            for y in range(HEIGHT):
+                index = lut[x_base + y]
+                ...
+            x_base += HEIGHT
+    """
     return lut[x * HEIGHT + y]

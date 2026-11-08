@@ -11,6 +11,8 @@ Plug the sensor into J1 or J2 (the yellow analog ports):
 The lighthouse treats a reading below 100 as dark.
 """
 
+from __future__ import annotations
+
 import sys
 
 from .ports import Port
@@ -21,6 +23,12 @@ if sys.implementation.name == "circuitpython":
     import analogio
 else:
     analogio = None
+
+# Type hints only. ``typing`` does not exist on CircuitPython, so nothing after it in this block runs there.
+try:
+    from typing import Callable
+except ImportError:
+    pass
 
 
 def _u16_to_counts(raw: int) -> int:
@@ -48,7 +56,7 @@ class PlanetXLightSensor:
         light.lux()
     """
 
-    def __init__(self, *, port: Port, reader=None) -> None:
+    def __init__(self, *, port: Port, reader: Callable[[], int] | None = None) -> None:
         # ``reader`` is a test hook: a callable returning 0..65535. Not part of
         # the student-facing construction API.
         if port.analog_p_number is None:

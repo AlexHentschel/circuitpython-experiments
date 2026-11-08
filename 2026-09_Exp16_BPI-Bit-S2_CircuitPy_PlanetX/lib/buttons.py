@@ -125,6 +125,8 @@ that is going stops by itself: the handler already running finishes, then ``run(
 ``RuntimeError``.
 """
 
+from __future__ import annotations
+
 import asyncio
 import sys
 
@@ -147,12 +149,14 @@ try:  # CircuitPython provides ``micropython.const``.
     from micropython import const
 except ImportError:
 
-    def const(x):
+    def const(x: int) -> int:
         return x
 
 
+# Type hints only. ``typing`` does not exist on CircuitPython, so nothing after it in this block runs there.
 try:
-    from typing import Callable
+    from typing import Callable, Self
+    from microcontroller import Pin
 except ImportError:
     pass
 
@@ -171,7 +175,7 @@ _STATE_RUNNING = const(1)  # run() is inside its loop
 _STATE_DEINIT = const(2)  # the pin is released; run() must raise and must not start
 
 
-def _bind_scanner(owner, pins) -> None:
+def _bind_scanner(owner: _Switch, pins: tuple[Pin, ...]) -> None:
     """Attach a ``keypad.Keys`` scanner for ``pins`` onto ``owner``.
 
     Device path: ``keypad.Keys`` (active-low, pull-up) → native EventQueue on
@@ -188,12 +192,12 @@ def _bind_scanner(owner, pins) -> None:
     owner._queue = owner._keys.events
 
 
-def _report_handler_error(e) -> None:
+def _report_handler_error(e: BaseException) -> None:
     """Print exception ``e`` on the serial console and return. The button keeps running."""
     _print_exception(e)
 
 
-def _make_buttons(pin_1, pin_2):
+def _make_buttons(pin_1: Pin, pin_2: Pin) -> tuple[_Switch, _Switch]:
     """Build two ``_Switch`` objects. If the second pin fails, deinit the first."""
     first = _Switch(pin_1)
     try:
@@ -208,7 +212,7 @@ class _Switch:
     """One physical button switch, wired to one GPIO pin. This is a private base class that provides
     service methods for deinitialization and event handling. ``Button`` adds public ``deinit`` and ``run``."""
 
-    def __init__(self, pin) -> None:
+    def __init__(self, pin: Pin) -> None:
         """Bind the button functionality to a GPIO ``pin``.
         ``pin`` is a board pin object, e.g. ``board.IO13``.
         """
@@ -216,7 +220,7 @@ class _Switch:
         _bind_scanner(self, (pin,))
 
     @classmethod
-    def _from_queue(cls, event_queue):
+    def _from_queue(cls, event_queue: keypad.EventQueue) -> Self:
         """For TESTING: a button fed from ``event_queue`` instead of a GPIO pin.
 
         Tests push events into ``event_queue`` without pressing a physical switch. The button
@@ -395,7 +399,7 @@ class OnboardButtons:
     ``deinit()`` releases the GPIO pins for A and B.
     """
 
-    def __init__(self, a_pin=None, b_pin=None) -> None:
+    def __init__(self, a_pin: Pin | None = None, b_pin: Pin | None = None) -> None:
         """Bind to this board's A and B buttons. Typically requires no arguments:
 
             buttons = OnboardButtons()
@@ -413,7 +417,7 @@ class OnboardButtons:
         self._a, self._b = _make_buttons(a_pin, b_pin)
 
     @classmethod
-    def _from_buttons(cls, button_a: _Switch, button_b: _Switch) -> "OnboardButtons":
+    def _from_buttons(cls, button_a: _Switch, button_b: _Switch) -> OnboardButtons:
         """For TESTING: Pair two buttons that already exist.
 
         ``__init__`` is not called, so nothing uses the ``board`` module (``None`` in the test

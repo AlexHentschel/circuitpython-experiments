@@ -7,7 +7,7 @@ animation.
 Stage 0 and Stage 1 walked the sync calls (``render_filled`` / ``clear`` /
 ``set_pixel`` / ``render_icon`` / ``render_pattern`` / ``render_arrow`` /
 ``render_string`` / ``render_number`` / ``get_pixel`` / ``set_rotation`` /
-``Icon.create`` / ``colorwheel``).
+``Icon(pattern)`` / ``colorwheel``).
 We assume that works, and use those calls here as setup around the async
 steps.
 
@@ -86,7 +86,7 @@ _BIG_PATTERN = """
 . # # # . # # # # #
 . . # . . # # # # #
 """
-_big_image = display.Image.create(_BIG_PATTERN, display.CYAN)
+_big_image = display.Image(_BIG_PATTERN, display.CYAN)
 
 
 def _scroll_sleep_s(text: str, interval_ms: int) -> float:

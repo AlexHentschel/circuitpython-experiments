@@ -289,7 +289,7 @@ def test_recolor_does_not_redraw(host):
     - How: draw the image, ``recolor(RED)``; ``show`` count unchanged and pixel still white; a second draw is red.
     """
     disp = host.disp
-    image = host.core.Image(bytes([0x1F]), 1, False, WHITE)
+    image = host.core.Image._from_encoded(bytes([0x1F]), 1, False, WHITE)
 
     image._render_window(disp, 0)
     shows = disp._pixels.shows
@@ -433,7 +433,7 @@ def test_scroll_step_skips_a_middle_column(host):
     - How: record ``_render_window`` offsets.
     """
     disp = host.disp
-    image = host.core.Image(bytes([1] * 10), 10, False, WHITE)
+    image = host.core.Image._from_encoded(bytes([1] * 10), 10, False, WHITE)
     offsets = []
     orig = host.core.Image._render_window
 
@@ -459,7 +459,7 @@ def test_scroll_cancel_does_not_draw_another_frame(host):
     - How: ``render_filled`` inside the first ``asyncio.sleep_ms``; recorded offsets are ``[0]``; token expired.
     """
     disp = host.disp
-    image = host.core.Image(bytes([1] * 10), 10, False, WHITE)
+    image = host.core.Image._from_encoded(bytes([1] * 10), 10, False, WHITE)
     offsets = []
     orig = host.core.Image._render_window
 
@@ -491,7 +491,7 @@ def test_show_image_negative_duration_does_not_take_over(host):
     - How: paint red; ``duration_ms=-5`` raises ``ValueError``; same token; frame still red; no sleep.
     """
     disp = host.disp
-    image = host.core.Image(bytes([0x1F, 0x00]), 2, False, WHITE)
+    image = host.core.Image._from_encoded(bytes([0x1F, 0x00]), 2, False, WHITE)
     disp.render_filled(RED)
     before = host.logical()
     token = disp._token
@@ -805,13 +805,13 @@ def test_short_icon_does_not_latch_a_partial_write(host):
     pixels = disp._pixels
     shows = pixels.shows
     with pytest.raises(IndexError):
-        disp.render_icon(host.core.Icon(b"\xff"), WHITE)
+        disp.render_icon(host.core.Icon._from_columns(b"\xff"), WHITE)
     assert pixels.shows == shows
     assert pixels.buf != pixels.latched
 
 
-def test_render_pattern_clips_a_wide_row_image_create_keeps_it(host):
-    """``render_pattern`` drops columns past ``WIDTH``. ``Image.create`` keeps them as width.
+def test_render_pattern_clips_a_wide_row_image_keeps_it(host):
+    """``render_pattern`` drops columns past ``WIDTH``. ``Image(pattern)`` keeps them as width.
 
     - Covers: both entry points silently using the same width rule.
     - How: six hashes; the rendered row is five on-pixels; the image reports width 6.
@@ -821,8 +821,57 @@ def test_render_pattern_clips_a_wide_row_image_create_keeps_it(host):
     assert host.logical()[0] == tuple(WHITE for _ in range(WIDTH))
     assert host.logical()[1][0] == WHITE
     assert host.logical()[1][1] == OFF
-    image = host.core.Image.create("######\n#")
+    image = host.core.Image("######\n#")
     assert image.width == 6
+
+
+def test_image_and_icon_are_built_from_a_pattern_only(host):
+    """``Image(pattern)`` and ``Icon(pattern)`` are the public constructors. No ``create`` remains.
+
+    - Covers: a second public construction path coming back, or the raw seam leaking into the signature.
+    - How: no ``create`` attribute; the constructors parse; ``Icon`` rejects an over-wide row; the
+      private seams skip ``__init__`` and keep the given data.
+    """
+    core = host.core
+    assert not hasattr(core.Image, "create")
+    assert not hasattr(core.Icon, "create")
+    assert core.Icon("#.#")._columns == bytes([1, 0, 1, 0, 0])
+    with pytest.raises(ValueError):
+        core.Icon("######")
+    mono = core.Image("##", RED)
+    assert (mono._data, mono.width) == (bytes([1, 1]), 2)
+    multi = core.Image("R", {"R": RED})
+    assert multi.width == 1 and multi._data[0] == RED
+    raw = core.Image._from_encoded(bytes([3]), 1, False, RED)
+    assert raw.clone()._data == bytes([3])
+    assert core.Icon._from_columns(b"\x01")._columns == b"\x01"
+
+
+@pytest.mark.parametrize(
+    "method, call",
+    [
+        ("show_pattern", lambda d, c: d.show_pattern("#", duration_ms=-1)),
+        ("show_icon", lambda d, c: d.show_icon(c.Icon("#"), duration_ms=-1)),
+        ("show_filled", lambda d, c: d.show_filled(duration_ms=-1)),
+        ("show_image", lambda d, c: d.show_image(c.Image("#"), duration_ms=-1)),
+        ("show_string", lambda d, c: d.show_string("A", interval_ms=-1)),
+        ("pause", lambda d, c: d.pause(-1)),
+        ("repeat_until_cancelled", lambda d, c: c.Display.repeat_until_cancelled(lambda: None, -1)),
+    ],
+)
+def test_negative_time_error_names_method_and_parameter(host, method, call):
+    """A negative time raises ``ValueError("<method>(): <param> must be >= 0, got <v>")``.
+
+    - Covers: one of the checks drifting to another message format, or naming the wrong method.
+    - How: each public entry point is called with -1; the method name is matched in the message.
+    """
+    disp = host.disp
+
+    async def run():
+        await call(disp, host.core)
+
+    with pytest.raises(ValueError, match=rf"^{method}\(\): \w+ must be >= 0, got -1$"):
+        asyncio.run(run())
 
 
 def test_deinit_then_render_filled_raises(host):
@@ -944,7 +993,7 @@ def test_repeat_until_cancelled_negative_rest_and_callback_error(host):
 
 def _start_show(disp, core, noun, duration_ms):
     """Start one ``show_*`` call. ``duration_ms`` is passed keyword-only."""
-    icon = core.Icon(b"\x1f\x00\x00\x00\x00")
+    icon = core.Icon._from_columns(b"\x1f\x00\x00\x00\x00")
     if noun == "pattern":
         return disp.show_pattern("#", RED, duration_ms=duration_ms)
     if noun == "icon":
@@ -952,7 +1001,7 @@ def _start_show(disp, core, noun, duration_ms):
     if noun == "arrow":
         return disp.show_arrow(icon, RED, duration_ms=duration_ms)
     if noun == "image":
-        image = core.Image(bytes([0x1F]), 1, False, RED)
+        image = core.Image._from_encoded(bytes([0x1F]), 1, False, RED)
         return disp.show_image(image, duration_ms=duration_ms)
     if noun == "filled":
         return disp.show_filled(RED, duration_ms=duration_ms)
@@ -1067,8 +1116,8 @@ def test_show_requires_keyword_duration(host, noun):
     disp.render_filled(WHITE)
     before = host.logical()
     token = disp._token
-    icon = host.core.Icon(b"\x1f\x00\x00\x00\x00")
-    image = host.core.Image(bytes([0x1F]), 1, False, RED)
+    icon = host.core.Icon._from_columns(b"\x1f\x00\x00\x00\x00")
+    image = host.core.Image._from_encoded(bytes([0x1F]), 1, False, RED)
 
     async def missing():
         if noun == "pattern":

@@ -12,6 +12,8 @@ The ring is a strip of 8 pixels. The data wire is the port's second pin
 A longer strip uses ``PlanetXNeoPixel(port=J1, count=24)``.
 """
 
+from __future__ import annotations
+
 import sys
 
 from .ports import Port
@@ -29,7 +31,7 @@ _DEFAULT_BRIGHTNESS = 0.20
 RING_PIXELS = 8
 
 
-def hsl(hue: int, saturation: int, luminosity: int) -> tuple:
+def hsl(hue: int, saturation: int, luminosity: int) -> tuple[int, int, int]:
     """One ``(red, green, blue)`` color, each channel 0–255.
 
     ``hue`` is 0–360, ``saturation`` and ``luminosity`` are 0–100.
@@ -74,7 +76,7 @@ class PlanetXNeoPixel:
         strip.clear()
     """
 
-    def __init__(self, *, port: Port, count: int, brightness: float = _DEFAULT_BRIGHTNESS, pixels=None) -> None:
+    def __init__(self, *, port: Port, count: int, brightness: float = _DEFAULT_BRIGHTNESS, pixels: neopixel.NeoPixel | None = None) -> None:
         # ``pixels`` is a test hook standing in for ``neopixel.NeoPixel``.
         # Not part of the student-facing construction API.
         if count < 1:
@@ -104,12 +106,12 @@ class PlanetXNeoPixel:
         self._pixels.brightness = value
         self._pixels.show()
 
-    def fill(self, color: tuple) -> None:
+    def fill(self, color: tuple[int, int, int]) -> None:
         """Light every pixel with ``color``, an ``(red, green, blue)`` tuple."""
         self._pixels.fill(color)
         self._pixels.show()
 
-    def set_pixel(self, index: int, color: tuple) -> None:
+    def set_pixel(self, index: int, color: tuple[int, int, int]) -> None:
         """Light pixel ``index`` (0 is the first) and show the strip."""
         if index < 0 or index >= self._count:
             raise ValueError(f"pixel index must be 0..{self._count - 1}")
@@ -146,5 +148,5 @@ class PlanetXRainbowRing(PlanetXNeoPixel):
         ring.off()
     """
 
-    def __init__(self, *, port: Port, brightness: float = _DEFAULT_BRIGHTNESS, pixels=None) -> None:
+    def __init__(self, *, port: Port, brightness: float = _DEFAULT_BRIGHTNESS, pixels: neopixel.NeoPixel | None = None) -> None:
         super().__init__(port=port, count=RING_PIXELS, brightness=brightness, pixels=pixels)

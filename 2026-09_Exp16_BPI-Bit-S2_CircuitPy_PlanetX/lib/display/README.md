@@ -247,7 +247,7 @@ reference to keep in sync) while still supporting more than one live
 `Icon` (the type behind `Emojis.*` / `Arrows.*`) has *no* such coupling
 either — it is a plain `__slots__ = ("_data",)` bitmap with no reference
 to any `Display` at all. All rendering happens in `Display.render_icon`,
-which reads `icon.columns` and writes to `self._pixels` itself; `Icon`
+which reads `icon._columns` and writes to `self._pixels` itself; `Icon`
 never touches display state.
 
 ## Singleton design & `deinit`
