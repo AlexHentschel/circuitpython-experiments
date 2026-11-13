@@ -16,6 +16,10 @@ Display and button work since the 2026-09-13 on-device confirm is still not re-r
 | Rotation during scroll | Stage 2 steps 12 and 13 (`show_string("ROTATE")` with `set_rotation(270)`, `scroll_image` with `set_rotation(180)`). | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
 
+## 2026-11-12 — `display-verb-grid` history rewritten; commit IDs changed
+
+Alex granted a rewrite of the eight commits from the 2026-10-31 buttons refactor to the park commit (persona memory wording only; code, messages, authors and dates unchanged) and a force-push. Old to new: `707ff08`→`61ff450`, `5bd90fb`→`0cdab8b`, `16e18ce`→`b65735e`, `0310620`→`14af8fa`, `ce3ce41`→`a1d0fc7`, `520566e`→`2fe5e68`, `39990a3`→`1416661`; branch head `bd12354`. Review range `2fe5e68..1416661` has the same code diff as the old one. IDs were updated in this persona's memory and in exp16 `ai-notes/2026-10-17_display-api-uniformity/` (`INDEX.md`, `PROGRESS.md`, `05_execution_plan_v1.1.md`, `06_m2_handoff_refinements.md`). An old ID found anywhere else maps through this list.
+
 ## 2026-11-12 — parked; Alex reviews M2 next
 
 Alex is leaving this for a few days. He said commit `2fe5e68` (`2fe5e68775306b1c4b0edc91ce0c3d7dd6aecb4d`, "pre-kick off Milestone M2") is largely reviewed by him. Everything after it is not. That range is one commit: `1416661` ("Display M2: place content with x, hold text, and scroll as its own verb"), parent `2fe5e68`, branch `display-verb-grid`. `64cfb9a` is the same display change and is on no branch. Host pytest 387 passed from `tests/` (recorded 2026-11-08; not re-run this session). Not on the board. Experiment `lib/` and `tests/` are clean at `1416661`.

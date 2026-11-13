@@ -40,6 +40,13 @@ Bullet-per-entry. Keep each entry to 2–4 lines. Fields:
 
 ## Entries
 
+- **After a history rewrite, old commit IDs survive in gitignored notes**
+  - **Observation**: after rewriting a branch I updated the old commit IDs only in git-tracked files (`git grep`); the experiment's gitignored `ai-notes/` still named the old review range until Alex asked. A recursive `grep -r` over the repo also returned nothing while `find … | xargs grep -l` found the files (cause not established).
+  - **Trigger**: any rewrite, rebase or amend that changes commit IDs which notes or memory cite.
+  - **Action on trigger**: build the old-to-new ID map, then search every file under the repo including ignored ones (`find -type f … -print0 | xargs -0 grep -l`, and check the result is non-empty for a known hit) plus the persona memory; update all, report what was updated. Promote to `WORKING_STYLE.md` on a second incident.
+  - **First observed**: 2026-11-12 (`display-verb-grid` rewrite).
+  - **Scope**: `[universal]`.
+
 - **A date printed beside a figure reads as the event date, even when it is the source's date**
   - **Observation**: a bullet reporting a field-test figure carried the year of the conference slide that printed the figure; in its context it read as the year of the test, which was years earlier. Alex asked where the date came from.
   - **Trigger**: a figure or event in a persisted document carries a date copied from the place it was reported, and the date differs from when the event happened.
