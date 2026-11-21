@@ -50,6 +50,16 @@ vertically-stacked pixels. Full format specification in ``bitmap_codec.py``
 and ``lib/display/README.md § Column-major bytes``.
 """
 
+# Maintainer notes
+# * On performance numbers: Comments in this file that say "benchmarked" quote the following experimental runs:
+#   Hardware and software: BPI-Bit-S2 (ESP32-S2), CircuitPython 10.3.0 (2026-08-31), code compiled to ``.mpy`` with mpy-cross 10.3.0, the 25 onboard
+#   WS2812 LEDs at brightness 0.02, 2026-11-16. Medians of 7 rounds on one board. Other ports and firmware may differ.
+#   Costs are quoted in µs and as a fraction of one ``show()`` of 25 pixels, which takes 1954 µs. Why ``show()`` is the reference: every displayed frame
+#   ends with one ``show()``, and its duration is set by the NeoPixel driver and the LED data rate, not by our code. It is the fixed baseline for
+#   updating the display. Therefore, ``show()`` is a good reference frame.
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ #
+
 # PEP 563: defer all annotation evaluation, so PEP 585 subscripts
 # (e.g. ``dict[str, tuple[int, int, int]]``) and forward references work
 # uniformly without per-annotation string-quoting and incur zero on-device
@@ -145,23 +155,17 @@ def _iter_pattern_rows(pattern_str: str) -> Iterator[str]:
 class Image:
     """Bitmap image for the LED matrix.
 
-    An image is always ``HEIGHT`` rows tall (see property ``height``). Its width (see
-    property ``width``) is independent of the display and may be smaller, equal to,
-    or **larger** than the ``WIDTH`` physical columns of the LED matrix.
-    ``Image(pattern)`` accepts any width (the widest kept row).
-    Short rows are padded with OFF.
-    An image can be monochrome (one shared color, recolorable via ``recolor``)
-    or multi-color (a fixed color per pixel, ``recolor`` is no-op).
-    An image wider than the display is shown a ``WIDTH``-column window at a
-    time. ``x`` on ``render_image`` / ``show_image`` is the display column where
-    the image's first column goes. Columns left of 0 or right of ``WIDTH`` are
-    cut off, and the LEDs they leave empty are off.
-    ``scroll_image`` moves that window across the display.
+    An image is always ``HEIGHT`` rows tall (see property ``height``). Its width (see property ``width``) is independent of the
+    display and may be smaller, equal to, or **larger** than the ``WIDTH`` physical columns of the LED matrix. ``Image(pattern)``
+    accepts any width (the widest kept row). Short rows are padded with OFF. An image can be monochrome (one shared color,
+    recolorable via ``recolor``) or multi-color (a fixed color per pixel, ``recolor`` is no-op).
+
+    You can choose an image's horizontal position when you draw it by specifying the LED column ``start_col`` where the image's leftmost
+    column goes. Image columns that land outside the matrix are not shown, and LEDs that no image column reaches are off.
     """
 
     # Implementation notes:
-    # Internally (see ``columns``): monochrome images store column-major bytes
-    # plus one RGB color; multi-color images store a flat per-pixel RGB sequence.
+    # Internally (see ``columns``): monochrome images store column-major bytes plus one RGB color; multi-color images store a flat per-pixel RGB sequence.
 
     __slots__ = ("_data", "_width", "_multi", "_color")
 
@@ -172,23 +176,23 @@ class Image:
     ) -> None:
         """Parse a pattern string into an Image.
 
-        If ``color`` is a single RGB tuple ``(red, green, blue)``:
-        the entire image is drawn in that color, with illuminated pixels marked by ``#``.
-        If a dictionary ``{character: RGB tuple}`` is given for the input ``color``,
-        then characters such as ``G`` or ``c`` in the pattern stand for colors.
-        You set each character's RGB tuple in ``color``, for example ``color["G"] = (0, 255, 0)``.
-        Keep the Image and pass it to ``show_image`` or ``scroll_image`` again.
+        If ``color`` is a single RGB tuple ``(red, green, blue)``: the entire image is drawn in that color, with illuminated pixels marked by ``#``.
+        If a dictionary ``{character: RGB tuple}`` is given for the input ``color``, then characters such as ``G`` or ``c`` in the pattern stand
+        for colors. You set each character's RGB tuple in ``color``, for example ``color["G"] = (0, 255, 0)``. Keep the Image and pass it to
+        ``show_image`` or ``scroll_image`` again.
 
-        Rows past ``HEIGHT`` are dropped; short rows or columns are padded with OFF.
-        Image width is the widest of the rows (ignoring rows beyond``HEIGHT``).
-        Unknown chars in mono mode render as OFF. Spaces and other invisible characters are
-        skipped, so ``#`` marks close up around them. ``render_pattern`` skips only space,
-        tab, and carriage return; anything else stays a pixel, off when it is not ``#``.
+        Rows past ``HEIGHT`` are dropped; short rows or columns are padded with OFF. Image width is the widest row, in pixels (ignoring rows beyond
+        ``HEIGHT``). Characters without a specified color render as OFF. Whitespace (spaces, tabs, carriage returns, form feeds, vertical tabs) is
+        ignored; it only helps you format ``pattern_str`` readably, so ``# .  #`` displays the same picture as ``#.#``.
+        Any other character is interpreted as a pixel.
         """
-        # Internal encoding: mono images store column-major bytes (one byte
-        # per column, bit y = row y counted from top); multi-color stores a flat
-        # tuple of per-pixel RGB tuples. Conversion happens here so render methods
-        # do not re-parse on each call.
+        # Notes:
+        #  * Internal encoding: mono images store column-major bytes (one byte per column, bit y = row y counted from top); multi-color
+        #    stores a flat tuple of per-pixel RGB tuples. Conversion happens here so render methods do not re-parse on each call.
+        #  * For comparison, ``render_pattern`` skips fewer whitespace characters (only space, tab, and carriage return) than the code below. This
+        #    is a deliberate trade-off: when we render pattern strings directly to the display, we prioritize performance and accept that exotic
+        #    whitespace characters are not supported. For ``Image``, the use case is to parse once at object creation, so we accept a higher runtime
+        #    cost and also support exotic whitespace characters. For performance details, see maintainer note in ``_write_pattern_on_the_fly``.
         rows = list(_iter_pattern_rows(pattern_str))
         height = min(len(rows), HEIGHT)
         img_width = max((len(r) for r in rows[:height]), default=WIDTH)
@@ -295,7 +299,11 @@ class Image:
 
         ``disp`` is the ``Display`` instance to render to.
 
-        ``offset`` is the image column shown at display column 0. The image width is independent of the display: it may exceed ``WIDTH``
+        ``offset`` is the image column shown at display column 0. It has the opposite sign of the public ``start_col`` (the display column where the image's
+        first column goes): ``render_image(image, start_col)`` calls this with ``offset = -start_col``. In the derivation below, ``x`` is a display column
+        (loop variable).
+
+        The image width is independent of the display: it may exceed ``WIDTH``
         (e.g. a 16-pixel-wide image, scrolled via ``Display.scroll_image``) or be narrower. Only the window columns
         ``[offset, offset + WIDTH)`` from ``self._data`` are transferred to the display; any display column not covered by the image
         renders ``OFF`` (e.g. if the picture is narrower than the display, or if offset leaves display columns uncovered).
@@ -517,27 +525,29 @@ Arrows = _build_icon_namespace(ARROW_NAMES, ARROWS)
 # Cancellation token
 # ---------------------------------------------------------------------------
 class Token:
-    """A display-operation generation marker, returned by every mutating call.
+    """Tells you whether another display operation has taken over the display since yours started.
+    The ``show_*``, ``scroll_*`` and ``pause`` methods return a ``Token`` when their ``await`` finishes.
+    Check ``is_expired`` on it:
 
-    ``is_expired`` starts False and is set True exactly once — by a later
-    ``Display._acquire()`` call — at the moment this generation is
-    superseded. Self-contained: no back-reference to ``Display``, no
-    sequence-number comparison to recompute; check the flag directly.
+        token = await display.show_string("Hello", duration_ms=2000)
+        if token.is_expired:
+            print("Another task took over the display while the text was showing")
+
+    ``is_expired`` is ``False`` while your operation still owns the display. It turns ``True`` as soon as another
+    display operation starts, and never goes back to ``False``. You can read it but not set it.
     """
 
     __slots__ = ("_is_expired",)
 
     def __init__(self) -> None:
-        # Read-only from outside this module: ``is_expired`` is a property
-        # backed by ``_is_expired``, so external code can check it but not set
-        # it. ``Display._acquire()`` — the only code allowed to expire a token —
-        # writes ``_is_expired`` directly (module-internal access, not the
-        # public property).
+        # Read-only from outside this module: ``is_expired`` is a property backed by ``_is_expired``, so external code can check it
+        # but not set it. ``Display._acquire()`` and the ``_ensure_*_and_acquire()`` methods are the only code allowed to
+        # expire a token. They write ``_is_expired`` directly (module-internal access, not the public property).
         self._is_expired = False
 
     @property
     def is_expired(self) -> bool:
-        """True once a later ``Display._acquire()`` call has superseded this token."""
+        """True once a later ``_acquire`` or ``_ensure_*_and_acquire`` call has superseded this token."""
         return self._is_expired
 
 
@@ -548,65 +558,46 @@ class Token:
 # ---------------------------------------------------------------------------
 
 
-def _check_ms(method: str, param: str, value: int | float) -> int:
-    """Reject a negative duration, then truncate to whole milliseconds.
+def _ensure_non_negative_duration(method_name: str, param_name: str, duration: int) -> None:
+    """Reject a time ``duration`` that is not an integer or is negative (strict type check: for example, ``float`` or ``bool`` is rejected too).
 
-    ``method`` is the name of the public ``Display`` method that was called and ``param`` is its
-    parameter holding ``value``. Both only appear in the error message, for example
-    ``show_image(): duration_ms must be >= 0, got -5``.
-    Runs before the display is taken over. A float is truncated (``1.9`` becomes ``1``).
+    ``method_name`` is the name of the public ``Display`` method that was called and ``param_name`` is its parameter providing
+    the time ``duration``. Both only appear in the error message, for example ``show_image(): 'duration_ms' must be >= 0, got '-5'``.
+    This check should be run before the display is acquired.
     """
-    if value < 0:
-        raise ValueError(f"{method}(): {param} must be >= 0, got {value}")
-    return int(value)
+    # ``type(duration) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
+    if type(duration) is not int:
+        raise TypeError(f"{method_name}(): '{param_name}' must be an integer, got '{duration}'")
+    if duration < 0:
+        raise ValueError(f"{method_name}(): '{param_name}' must be >= 0, got '{duration}'")
 
 
-def _check_x(method: str, value: int) -> int:
-    """Reject a placement that is not an ``int``. A ``bool`` is rejected too.
-
-    ``method`` is the public ``Display`` method the caller used. The message names that method
-    and the parameter ``x``, for example ``render_icon(): x must be an int, got True``.
-    Runs before the display is taken over.
-    """
-    # ``bool`` is a subclass of ``int``. A bare ``isinstance(value, int)`` would accept ``True``.
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{method}(): x must be an int, got {value}")
-    return value
-
-
-async def _sleep_pollable(token: Token, total_ms: int | float, poll_ms: int = 47) -> None:
+async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> None:
     """Sleep up to ``total_ms`` milliseconds, returning early once ``token.is_expired``.
 
-    Chunks the sleep into at most ``poll_ms``-sized pieces so a caller notices
-    a superseding display operation within ``poll_ms``, not only after the full
-    ``total_ms`` has elapsed. When not cancelled, the total elapsed time still converges
-    to ``total_ms`` (the final chunk is the time still left, never overshooting).
+    Chunks the sleep into at most ``poll_ms``-sized pieces so a caller notices a superseding display operation approximately within ``poll_ms``
+    (not only after the full ``total_ms`` has elapsed). Without cancellation the wait ends close to ``total_ms``, usually negligibly longer:
+    other coroutines run until their next ``await``, so this coroutine might resume a little beyond the requested ``total_ms``.
 
-    A ``total_ms ≤ 0`` allows once for other coroutines to run (we call ``asyncio.sleep_ms(0)``)
-    before this function returns. If no pause is desired, please use a synchronous Tier 1 method, which
-    returns in the same call, so those other coroutines must wait until the caller itself pauses.
+    This function always awaits at least once, so other coroutines get a turn even when ``total_ms`` is very small, 0 or negative (a negative
+    value behaves like 0).
     """
-    # Once before the loop we do a potential type conversion, e.g. if a float is passed
-    # then ``int`` truncates decimal places (for example, 0.9 becomes 0).
-    total_ms = int(total_ms)
-    if total_ms <= 0:
-        await asyncio.sleep_ms(0)  # passing a negative value is safe and behaves exactly like 0 and still yields once.
-        return
     deadline = ticks_add(ticks_ms(), total_ms)
-    while True:
-        if token.is_expired:
-            return
-        remaining = ticks_diff(deadline, ticks_ms())
-        if remaining <= 0:
-            return
-        if remaining <= poll_ms:
-            await asyncio.sleep_ms(remaining)
-            return
+    remaining = total_ms
+    while remaining > poll_ms and not token.is_expired:
         await asyncio.sleep_ms(poll_ms)
+        remaining = ticks_diff(deadline, ticks_ms())
+    # Last piece, always awaited: ensures we yield at least once, even if ``total_ms`` is negative, 0 or very small. An expired token (also on entry)
+    # shortens it to 0. ``remaining`` can be negative, since scheduling jitters may overshoot the deadline, and ``total_ms`` itself may be negative.
+    # Note: ``asyncio.sleep_ms`` clamping negative values to 0 is an undocumented feature of asyncio ``core.py`` (10.3.0). Therefore, we do not rely
+    # on it and clamp explicitly with ``max(0, remaining)``.
+    await asyncio.sleep_ms(0 if token.is_expired else max(0, remaining))
 
 
 def _write_column(pixels: neopixel.NeoPixel, lut: bytearray, x_base: int, col_byte: int, color: RGBcolor, off: RGBcolor) -> None:
     """Write one column byte at logical column ``x_base // HEIGHT``. Bit 0 is the top row."""
+    # Not inlined into the callers. Benchmarked: calling this helper instead of writing the column's pixels inline adds 24 µs per column, so 119 µs
+    # for the five columns of an icon (6.1% of one ``show()``). Inlining five copies of the body was judged not worth that.
     for y in range(HEIGHT):
         pixels[lut[x_base + y]] = color if (col_byte >> y) & 1 else off
 
@@ -615,23 +606,41 @@ def _write_column(pixels: neopixel.NeoPixel, lut: bytearray, x_base: int, col_by
 # Display class
 # ---------------------------------------------------------------------------
 class Display:
-    """Controls the 5×5 WS2812 NeoPixel matrix.
+    """Controls the 5×5 LED matrix.
 
-    Use the module-level ``display`` instance for normal use. Starting any
-    display-mutating operation cancels any Tier 2 animation in progress.
-    Non-cancelling methods: ``get_pixel``, ``set_brightness``,
-    ``set_rotation``. See the module docstring for the full cancellation
-    policy.
+    Use the ready-made ``display`` object from this module; you normally do not create a ``Display`` yourself. For one physical LED matrix, only
+    a single ``Display`` object can exist for operating it. This is because the ``Display`` object takes control of the data pin the LED matrix is
+    connected to. Creating a second ``Display`` raises an error unless you call ``deinit()`` on the first. After ``deinit()``, that first object
+    is unusable. See ``lib/display/README.md`` § "Singleton design & ``deinit``" for the package's rationale for exposing one ready-made
+    ``display`` instance.
 
-    Each ``Display`` owns its own NeoPixel buffer, coordinate LUT, and
-    cancellation token (``self._pixels`` / ``self._lut`` / ``self._token``).
-    Constructing a ``Display`` instance claims the data pin's RMT peripheral.
-    Constructing a *second* instance while an existing one is still live raises
-    (the pin is already claimed); call ``deinit()`` on the existing instance first
-    to free it, then construct a new ``Display()``. See ``lib/display/README.md``
-    § "Singleton design & ``deinit``" for the package's rationale for
-    exposing one ready-made ``display`` instance.
+    Starting any display operation cancels an animation that is still running (a Tier 2 call, i.e. one started with an ``await`` method such as
+    ``show_string`` or ``scroll_image``). The exceptions are ``get_pixel``, ``set_brightness`` and ``set_rotation``. See the module docstring for the
+    two tiers and further details on the cancellation policy.
+
+    All times (``duration_ms``, ``interval_ms``, ``sleep_between_ms``) are integer milliseconds. ``float`` raises ``TypeError``.
+    To convert, write ``int(1000 / 3)`` or use integer division ``1000 // 3``. Both drop the fraction (truncate).
     """
+
+    _pixels: neopixel.NeoPixel
+    """The raw NeoPixel buffer. Index a single pixel through ``_lut`` (logical ``(x, y)`` to NeoPixel index). 
+    Uniform buffer operations such as ``fill`` need no index."""
+
+    _lut: bytearray
+    """Look-up table [LUT] from logical pixel (``x`` = column, ``y`` = row) to NeoPixel index in ``_pixels``:
+    ``index = _lut[x * HEIGHT + y]``. At rotation 0 that is ``index = y + HEIGHT * (WIDTH - 1 - x)``.
+    LUT reflects current rotation and is updated when rotation is changed by method ``set_rotation``."""
+
+    _token: Token
+    """The token of the current display-operation generation. Every display-mutating operation must acquire its own token
+    internally (``_acquire()`` or an ``_ensure_*_and_acquire()`` method) before it changes a pixel. That expires the
+    previous token, which cancels any Tier 2 animation still holding it. The only methods that do not acquire are the
+    non-cancelling ones named in the class docstring: ``get_pixel``, ``set_brightness`` and ``set_rotation``."""
+
+    _frame: list[RGBcolor]
+    """Scratch buffer for temporarily storing a snapshot of the current frame. For example, ``set_rotation`` uses it to avoid memory
+    allocation on each call. Any method may overwrite it, so its contents are only valid until the next ``await``: write and read it
+    without an ``await`` in between, and never use it to pass data between methods."""
 
     def __init__(self) -> None:
         """Create the matrix controller, claiming the NeoPixel data pin.
@@ -654,12 +663,67 @@ class Display:
     def _acquire(self) -> Token:
         """Start a new display-operation generation.
 
-        Expires the previous token (its ``is_expired`` becomes True) and
-        creates a new one which is then returned. Any Tier 2 animation
-        holding the previous token will see its ``is_expired`` become True
-        on its next check, and should return early. Called internally by
-        every display-mutating method.
+        Expires the previous token (specifically setting ``is_expired`` to True) and creates a new one which is then returned. Any
+        Tier 2 animation holding the previous token will see its ``is_expired`` become True on its next check, and should return early.
         """
+        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token = Token()
+        return self._token
+
+    def _ensure_integer_offset_and_acquire(self, method_name: str, start_col: int) -> Token:
+        """Reject any non-integer ``start_col``, then acquire the display, and return the new ``Token``.
+        The integer check is strict: for example, ``bool`` is rejected too. The check runs before the display is acquired.
+        A rejected ``start_col`` leaves the display and any running animation untouched:
+        ``method_name`` is the public method the caller used. It only appears in the error message, for example
+        ``render_icon(): 'start_col' must be an integer, got 'True'``.
+
+        This is a convenience method that combines the offset check with the display acquisition for performance reasons:
+        both operations are very frequently used together and combining them saves an additional method call at runtime.
+        """
+        # ``type(start_col) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
+        if type(start_col) is not int:
+            raise TypeError(f"{method_name}(): 'start_col' must be an integer, got '{start_col}'")
+        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token = Token()
+        return self._token
+
+    def _ensure_non_negative_duration_and_acquire(self, method_name: str, param_name: str, duration: int) -> Token:
+        """Reject a time ``duration`` that is not an integer or is negative, then acquire the display, and return the new ``Token``.
+        The integer check is strict: for example, ``bool`` is rejected too. The check runs before the display is acquired.
+        A rejected ``duration`` leaves the display and any running animation untouched.
+        ``method_name`` is the public method the caller used and ``param_name`` is its time parameter. Both only appear in the
+        error message, for example ``scroll_string(): 'interval_ms' must be >= 0, got '-5'``.
+
+        This is a convenience method that combines the duration check with the display acquisition for performance reasons:
+        both operations are very frequently used together and combining them saves an additional method call at runtime.
+        """
+        # ``type(duration) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
+        if type(duration) is not int:
+            raise TypeError(f"{method_name}(): '{param_name}' must be an integer, got '{duration}'")
+        if duration < 0:
+            raise ValueError(f"{method_name}(): '{param_name}' must be >= 0, got '{duration}'")
+        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token = Token()
+        return self._token
+
+    def _ensure_duration_and_start_col_and_acquire(self, method_name: str, duration_ms: int, start_col: int) -> Token:
+        """Reject an invalid ``duration_ms`` or ``start_col``, then acquire the display, and return the new ``Token``. Enforces:
+        ``duration_ms`` must be an integer ``>= 0``, and ``start_col`` must be an integer. Both integer checks are strict: for example, ``bool`` is
+        rejected too. Both checks run before the display is acquired, so a rejected argument leaves the display and any running animation untouched.
+        ``method_name`` is the public method the caller used. It only appears in the error message, for example
+        ``show_pattern(): 'duration_ms' must be >= 0, got '-5'``.
+
+        This is a convenience method for the ``show_*`` methods: it combines the checks of ``_ensure_non_negative_duration`` and
+        ``_ensure_integer_offset_and_acquire`` with ``_acquire`` for performance reasons, because all three are used together and combining them
+        saves two method calls at runtime.
+        """
+        # ``type(...) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
+        if type(duration_ms) is not int:
+            raise TypeError(f"{method_name}(): 'duration_ms' must be an integer, got '{duration_ms}'")
+        if duration_ms < 0:
+            raise ValueError(f"{method_name}(): 'duration_ms' must be >= 0, got '{duration_ms}'")
+        if type(start_col) is not int:
+            raise TypeError(f"{method_name}(): 'start_col' must be an integer, got '{start_col}'")
         self._token._is_expired = True  # module-internal write; public side is read-only
         self._token = Token()
         return self._token
@@ -668,155 +732,195 @@ class Display:
 
     def _write_pattern_on_the_fly(
         self,
-        pattern: str,
+        pattern_str: str,
         color: RGBcolor | ColorDict,
+        start_col: int = 0,
     ) -> None:
-        """Write ``pattern`` into this instance's pixel buffer: parsing and drawing fused in one scan of the string.
+        """Write ``pattern_str`` into this instance's pixel buffer in a single scan of the string, decoding and drawing each character as it is read.
 
-        Scan the source string once, skip only space / tab / CR, write each cell
-        directly to this instance's NeoPixel buffer, ignore columns past ``WIDTH``,
-        ignore rows past ``HEIGHT``, pad short / missing rows with ``OFF``. No
-        per-row string allocation and no generator.
+        ``start_col`` is the display column where the pattern's first column goes (not validated here: the public entry points check that it is an
+        integer). ``start_col=0`` means the pattern starts at the left-most LED column. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off. LEDs uncovered by the pattern are written ``OFF`` (for example, ``start_col=2`` leaves columns 0 and 1 off).
+
+        Scan the source string once, skip only space / tab / CR, write each cell directly to this instance's NeoPixel buffer, ignore rows past
+        ``HEIGHT``, pad short / missing rows with ``OFF``. No per-row string allocation and no generator.
 
         Does not call ``show()``. The caller flushes the buffer after invocation.
-
-        The mono / dict shape of ``color`` is hoisted to a top-level branch so
-        the per-cell write has no shape check per cell. The two branches share
-        the same state-machine structure with one differing line (cell write);
-        closure / callback indirection at the cell-write site would re-introduce
-        per-cell call overhead and defeat the hoist.
         """
+        # Maintainer notes:
+        # 1. Only space, tab and CR are recognized as whitespace here. In contrast, the cold-path parser ``_iter_pattern_rows(…)`` skips all whitespace
+        #    via ``split()`` and ``join()`` per row. Doing the same here would need one string allocation per row, which this single scan avoids.
+        #    Benchmarked: this scan renders a 5x5 pattern 1916 µs faster than parsing an ``Image`` and rendering its window (1598 vs 3514 µs;
+        #    98% of one ``show()``). Using ``split()`` / ``join()`` alone would cost +422 µs for four rows (22% of one ``show()``; see ``bitmap_codec``).
+        # 2. The type of ``color`` (single color or dict) is checked once, before the scan, so the per-cell write needs no check. The price is two copies
+        #    of the loop that differ only in the cell write. Do not merge them via a per-cell callback: that would add a function call per cell, which is
+        #    what this split avoids. Benchmarked: +122 µs per 25 cells (6.2% of one ``show()``).
+        # 3. Supporting the parameter ``start_col`` costs +83 µs even at start_col=0, compared with a scanner without it (4.3% of one ``show()``).
+        # Benchmark figures for 2. and 3. were done with a mock list in place of the NeoPixel pixel buffer. Comparable deltas measured on the NeoPixel
+        # came out larger, so treat these two figures as lower bounds.
         pixels = self._pixels
         lut = self._lut
         off = OFF
         width = WIDTH
         height = HEIGHT
-        x = 0
-        y = 0
-        row_has_cell = False
+
+        # We parse the pattern string row by row and write its cells (non-whitespace characters) to the ``pixels`` buffer. We do not clear the buffer
+        # first, so every pixel must be written here, including pixels outside the pattern: columns that no cell reaches (pattern shifted by ``start_col`` or
+        # narrower than the display) are blanked at the end of each row, and rows the pattern does not reach are blanked at the end.
+        x = start_col  # display column the next cell would fall onto: might be negative if shifted left, or ``≥ width`` if shifted off the right edge
+        y = 0  # display row of the next cell
+        row_has_cell = False  # True once the current row has a non-whitespace character, even one cut off by ``start_col``
 
         if isinstance(color, dict):
-            for ch in pattern:
+            for ch in pattern_str:
                 if ch == "\n":
                     if row_has_cell:
-                        while x < width:  # fill remaining positions in the row with Off
-                            pixels[lut[x * height + y]] = off
-                            x += 1
+                        # For the current row that we just reached the end of, the pattern covers columns [start_col, x), clipped to the display.
+                        # We now need to set the pixels in the row to off that are outside of [start_col, x).
+                        b = start_col if start_col < width else width  # left margin: blank [0, b); empty if start_col ≤ 0 (``range(b)`` with b ≤ 0 yields no numbers)
+                        for blank_col in range(b):
+                            pixels[lut[blank_col * height + y]] = off
+                        b = x if x > 0 else 0  # right margin: blank [b, width); empty if x ≥ width
+                        for blank_col in range(b, width):
+                            pixels[lut[blank_col * height + y]] = off
                         y += 1
                         if y >= height:
                             return
-                        x = 0
+                        x = start_col
                         row_has_cell = False
                     continue
                 if ch == " " or ch == "\t" or ch == "\r":
                     continue
 
                 row_has_cell = True
-                if x < width:
+                if 0 <= x < width:
                     pixels[lut[x * height + y]] = color.get(ch, off)
-                    x += 1
-            # reaching the following code lines means that we have parsed less than height
-            # rows with non-whitespace characters, up to and including the tailing newline.
-            # (Otherwise check `if y >= height` above would have returned).
-            # EDGE case: the pattern's last row has no trailing newline
+                x += 1
+            # End of the pattern string. The code that finishes the last row and blanks the remaining rows is shared by both branches and follows below.
 
-            if row_has_cell and y < height:  # completing last row if partially-filled
-                while x < width:
-                    pixels[lut[x * height + y]] = off
-                    x += 1
-                y += 1
-
-            while y < height:
-                for xi in range(width):
-                    pixels[lut[xi * height + y]] = off
-                y += 1
-        else:
-            for ch in pattern:
+        else:  # ``color`` is not a dictionary
+            for ch in pattern_str:
                 if ch == "\n":
                     if row_has_cell:
-                        while x < width:  # fill remaining positions in the row with Off
-                            pixels[lut[x * height + y]] = off
-                            x += 1
+                        # For the current row that we just reached the end of, the pattern covers columns [start_col, x), clipped to the display.
+                        # We now need to set the pixels in the row to off that are outside of [start_col, x).
+                        b = start_col if start_col < width else width  # left margin: blank [0, b); empty if start_col ≤ 0 (``range(b)`` with b ≤ 0 yields no numbers)
+                        for blank_col in range(b):
+                            pixels[lut[blank_col * height + y]] = off
+                        b = x if x > 0 else 0  # right margin: blank [b, width); empty if x ≥ width
+                        for blank_col in range(b, width):
+                            pixels[lut[blank_col * height + y]] = off
                         y += 1
                         if y >= height:
                             return
-                        x = 0
+                        x = start_col
                         row_has_cell = False
                     continue
                 if ch == " " or ch == "\t" or ch == "\r":
                     continue
 
                 row_has_cell = True
-                if x < width:
+                if 0 <= x < width:
                     pixels[lut[x * height + y]] = color if ch == "#" else off
-                    x += 1
-            # reaching the following code lines means that we have parsed less than height
-            # rows with non-whitespace characters, up to and including the trailing newline.
-            # (Otherwise check `if y >= height` above would have returned).
-            # EDGE case: the pattern's last row has no trailing newline
+                x += 1
+            # End of the pattern string. The code that finishes the last row and blanks the remaining rows is shared by both branches and follows below.
 
-            if row_has_cell and y < height:  # completing last row if partially-filled
-                while x < width:
-                    pixels[lut[x * height + y]] = off
-                    x += 1
-                y += 1
+        # Shared by both branches: we reach this point only after the whole pattern string was scanned. We necessarily have ``y < HEIGHT``, because every
+        # ``y += 1`` in the loops above is followed by ``if y >= height: return``. So there are still rows to fill with off.
+        # Caution EDGE CASE: the pattern's last row might have no trailing newline. Then its margins have not been blanked yet, so we finish that row first.
+        if row_has_cell:
+            # For the current row that we just reached the end of, the pattern covers columns [start_col, x), clipped to the display.
+            # We now need to set the pixels in the row to off that are outside of [start_col, x).
+            b = start_col if start_col < width else width  # left margin: blank [0, b); empty if start_col ≤ 0 (``range(b)`` with b ≤ 0 yields no numbers)
+            for blank_col in range(b):
+                pixels[lut[blank_col * height + y]] = off
+            b = x if x > 0 else 0  # right margin: blank [b, width); empty if x ≥ width
+            for blank_col in range(b, width):
+                pixels[lut[blank_col * height + y]] = off
+            y += 1
+        while y < height:  # lastly, fill the remaining rows with off
+            for blank_col in range(width):
+                pixels[lut[blank_col * height + y]] = off
+            y += 1
 
-            while y < height:
-                for xi in range(width):
-                    pixels[lut[xi * height + y]] = off
-                y += 1
+    def _render_colmajor(self, data: bytes, color: RGBcolor, start_col: int = 0) -> None:
+        """Draw the column bytes of ``data`` into ``self._pixels``, starting at the display column ``start_col``. Then ``show()``. ``data`` is not modified.
 
-    def _render_colmajor(
-        self,
-        data: bytes,
-        offset: int,
-        color: RGBcolor,
-    ) -> None:
-        """Render WIDTH column bytes from ``data`` starting at ``data[offset]`` to this instance's ``self._pixels``.
+        Each byte of ``data`` is one column of the bitmap. Bit ``y`` of the byte selects the pixel at display row ``y`` (bit 0 = top row).
+        If ``HEIGHT`` is less than 8, bits ``HEIGHT`` to 7 (the high-order bits of the byte) are ignored.
 
-        Each byte ``data[offset + x]`` for x=0, 1,…, WIDTH-1 is drawn as one column (i.e. a single
-        byte representing one column of the bitmap). Bit ``y`` of the byte selects the pixel at display
-        row ``y`` (with bit 0 = top row).
-        On the hardware level, the LEDs are addressed using a single index. The Look-Up Table
-        [``lut``] translates from logical pixels (x, y) to the physical strip index. The ``lut``
-        is organized using x-major convention, i.e. ``lut[x * HEIGHT + y]`` returns the physical
-        strip index for the logical pixel (x, y).
-        After all pixel values have been written, then we call ``show()`` once.
+        ``start_col`` is the display column where the first column of ``data`` goes (not validated here: the public entry points check that it is an
+        integer). ``start_col=0`` means ``data`` starts at the left-most display column. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off. LEDs uncovered by ``data`` are off (for example, ``start_col=2`` leaves columns 0 and 1 off). ``data`` may be shorter or longer
+        than ``WIDTH`` bytes.
 
-        Reads this instance's own buffer and LUT (``self._pixels`` / ``self._lut``).
+        On the hardware level, the LEDs are addressed using a single index. The Look-Up Table (``lut``) translates from logical pixels (column, row)
+        to the physical strip index. The ``lut`` is organized using column-major convention, i.e. ``lut[column * HEIGHT + row]`` returns the
+        physical strip index for the logical pixel (column, row). Writes ``self._pixels`` and reads ``self._lut``.
 
-        CAUTION: this method is part of the hot path and used to render many icons;
-        especially for scrolling this code is performance sensitive.
+        CAUTION: this method is part of the hot path for rendering. Especially for scrolling, this code is performance sensitive.
         """
-        # Cache attribute reads into locals before the loop: LOAD_FAST (frame-slot access) is cheaper than a
-        # repeated LOAD_ATTR (self._pixels/self._lut) or LOAD_GLOBAL (OFF) lookup per pixel. LOAD_FAST-vs-LOAD_GLOBAL
-        # is AI-verified in MicroPython's VM (`py/vm.c` MP_BC_LOAD_FAST_N / MP_BC_LOAD_GLOBAL, `py/runtime.c`
-        # mp_load_global); the LOAD_ATTR case is assumed analogous (also a dict-style lookup) but not separately
-        # re-verified.
+        # Maintainer notes:
+        # * supporting ``start_col`` (three loops instead of the single loop of a renderer without it)
+        #   costs +41 µs at start_col=0 (2.1% of one ``show()``; benchmarked on the NeoPixel).
+        # * We cache references to attributes and global values before the loops: a local (LOAD_FAST) is cheaper than ``self._pixels`` / ``self._lut``
+        #   (LOAD_ATTR) or ``OFF`` (LOAD_GLOBAL), which would otherwise be looked up for every ``_write_column`` call. Benchmarked (mock list instead of
+        #   NeoPixel) with per-pixel lookups instead: attributes +57 µs per 5x5 frame (2.9% of one ``show()``, about the size of that run's spread), a global
+        #   ``OFF`` +3.7 µs (a tie). With one lookup per column the saving here is smaller (not benchmarked; about a fifth, roughly 0.6% of one ``show()``).
+        #   Mechanism, checked against MicroPython's VM (`py/vm.c` MP_BC_LOAD_FAST_N / MP_BC_LOAD_GLOBAL, `py/runtime.c` mp_load_global).
         pixels = self._pixels
         lut = self._lut
         off = OFF
-        x_base = 0  # invariant at top of loop: x_base == x * HEIGHT (`geometry.build_lut` slot convention)
-        for x in range(WIDTH):
-            _write_column(pixels, lut, x_base, data[offset + x], color, off)
+        # Display columns showing ``data`` are [first, cutoff): ``first`` is the left-most column showing data, ``cutoff`` the first display column right of
+        # the data (exclusive). We ensure that ``0 ≤ first ≤ cutoff ≤ WIDTH``. The three loops below write [0, first), [first, cutoff), [cutoff, WIDTH),
+        # so together they cover each display column exactly once. ``first`` and ``cutoff`` are clamped with compares, not ``min()`` / ``max()``:
+        # benchmarked +91 µs per clamp for ``min()`` / ``max()`` (4.7% of one ``show()``).
+        if start_col < 0:
+            # Data starts left of the display: skip its first ``-start_col`` columns.
+            first = 0
+            src = -start_col
+            cutoff = start_col + len(data)
+            if cutoff < 0:  # all data lies off the left edge: nothing to draw
+                cutoff = 0
+            elif cutoff > WIDTH:
+                cutoff = WIDTH
+        else:
+            first = start_col if start_col < WIDTH else WIDTH  # ``start_col ≥ WIDTH`` blanks every column in the first loop below
+            src = 0
+            cutoff = start_col + len(data)
+            if cutoff > WIDTH:
+                cutoff = WIDTH
+        x_base = 0  # invariant at top of each loop: x_base == <display column> * HEIGHT (see `geometry.build_lut` convention)
+        for _ in range(first):  # blank columns left of the data
+            _write_column(pixels, lut, x_base, 0, color, off)
             x_base += HEIGHT  # advance to next column; addition avoids a per-column multiply
+        for _ in range(first, cutoff):  # data columns, starting at ``data[src]``
+            _write_column(pixels, lut, x_base, data[src], color, off)
+            src += 1
+            x_base += HEIGHT
+        for _ in range(cutoff, WIDTH):  # blank columns right of the data
+            _write_column(pixels, lut, x_base, 0, color, off)
+            x_base += HEIGHT
         pixels.show()
 
-    def _draw_text(self, reader: _ColumnReader | _FixedColumnReader, x: int, color: RGBcolor) -> None:
-        """Draw ``reader`` with its first column at display column ``x``. One ``show()``.
+    def _draw_text(self, reader: _ColumnReader | _FixedColumnReader, start_col: int, color: RGBcolor) -> None:
+        """Draw ``reader`` starting at the display column ``start_col``. Then ``show()``.
 
-        ``x < 0`` skips ``-x`` content columns and starts at display column 0.
-        Columns before the start, and columns after the reader ends, are off.
+        ``start_col`` is the display column where the first column of ``reader`` goes (not validated here: the public entry points check that it is
+        an integer). ``start_col=0`` means the text starts at the left-most display column. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off. LEDs uncovered by the text are off (for example, ``start_col=2`` leaves columns 0 and 1 off).
+
         ``next_column`` returning ``None`` is a blank column; later calls stay ``None``.
         """
         pixels = self._pixels
         lut = self._lut
         off = OFF
-        if x < 0:
-            reader.skip(-x)
+        if start_col < 0:
+            reader.skip(-start_col)
             start = 0
         else:
-            start = WIDTH if x > WIDTH else x  # deliberately not ``min(x, WIDTH)``: the builtin call costs more than a compare on the MCU VM.
+            # Deliberately not ``min(start_col, WIDTH)``: benchmarked +27 µs for ``min`` over the compare (1.4% of one ``show()``).
+            start = WIDTH if start_col > WIDTH else start_col
         split = start * HEIGHT  # x_base of the first column that shows text (x_base == column * HEIGHT)
         for x_base in range(0, split, HEIGHT):  # columns before the text starts are off
             _write_column(pixels, lut, x_base, 0, color, off)
@@ -833,24 +937,21 @@ class Display:
         read_head: int,
         color_on: RGBcolor,
     ) -> None:
-        """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``.
+        """Render a WIDTH-sized ring buffer as a left-to-right window starting at ``read_head``. Then ``show()``.
         IMPORTANT: ``read_head`` must be in 0..WIDTH-1!
 
-        The ring holds exactly ``WIDTH`` column bytes; ``read_head`` is the index
-        of the leftmost visible column. Wrap is handled by splitting the draw
-        into two loops (``read_head`` to the end, then the start up to ``read_head``),
-        with no per-column modulo, subtraction or compare (cheaper on the MCU VM).
+        The ring holds exactly ``WIDTH`` column bytes; ``read_head`` is the index of the left-most visible column. Wrap is handled by splitting the draw
+        into two loops (``read_head`` to the end, then the start up to ``read_head``), with no per-column modulo, subtraction or compare (cheaper on the
+        MCU VM).
 
-        Reads ``self._pixels`` / ``self._lut`` fresh on every call, not cached
-        once per animation. This is one of the three facts (alongside
-        set_rotation's in-place mutation and asyncio's cooperative scheduling)
-        that make rotating mid-scroll safe. See README.md § "Rotation during an
+        Reads ``self._pixels`` / ``self._lut`` fresh on every call, not cached once per animation. This is one of the three facts (alongside
+        ``set_rotation``'s in-place mutation and asyncio's cooperative scheduling) that make rotating mid-scroll safe. See README.md § "Rotation during an
         in-flight Tier 2 animation".
         """
         pixels = self._pixels
         lut = self._lut
         off = OFF
-        x_base = 0  # invariant at top of loop: x_base == x * HEIGHT
+        x_base = 0  # invariant at top of loop: x_base == <display column> * HEIGHT
         # The visible columns are ring[read_head:WIDTH], then ring[0:read_head]. We break the loop into two
         # parts to avoid tests inside the loops on whether we have wrapped around the ring. This requires
         # that ``read_head`` is in 0..WIDTH-1; when ``read_head == 0`` the second loop is empty.
@@ -868,124 +969,116 @@ class Display:
         self,
         pattern: str,
         color: RGBcolor | ColorDict = WHITE,
-        x: int = 0,
+        *,
+        start_col: int = 0,
     ) -> None:
-        """Draw a pattern string straight onto the LEDs.
-        Best for a picture you show once, because this method needs to go over the input string
-        and decode every character into a pixel (this is called "parsing" the pattern).
-        For pictures you want to show repeatedly, it is best to only parse the pattern once,
-        which is done by constructing an ``Image(pattern)`` or an ``Icon(pattern)``. Each is
-        a parsed Image / Icon, whose reference you can keep and show repeatedly.
+        """Draw a pattern string straight onto the LEDs. Leave it lit until some other call overwrites the display.
+        Best for a picture you show once, because this method needs to go over the input string and decode every character into a pixel (this is
+        called "parsing" the pattern). For pictures you want to show repeatedly, it is best to only parse the pattern once, which is done by
+        constructing an ``Image(pattern)`` or an ``Icon(pattern)``. Each is a parsed Image / Icon, whose reference you can keep and show repeatedly.
 
-        Each line of the pattern is one row of the picture, starting at the top left corner of the
-        LED matrix. A row with fewer than 5 characters is filled with off pixels on the right.
-        Extra characters on the right, and rows past the bottom of the screen, are cut off.
-        Missing rows at the bottom are off.
+        Each line of the pattern is one row of the picture, starting at the top left corner of the LED matrix by default. A row covering fewer than WIDTH
+        pixels is filled with off pixels on the right. Extra pixels on the right, and rows past the bottom of the screen, are cut off. Missing rows at
+        the bottom are off.
 
-        ``x`` is the display column where the pattern's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
+        ``start_col`` is the display column where the pattern's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the pattern starts at the left-most LED column. A positive value moves the pattern to the right, so
+        ``start_col=2`` leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of column 0, or
+        at ``WIDTH`` and further right, are cut off, and LEDs the pattern does not cover are also off. A float or a bool raises ``TypeError`` before the display
+        changes.
 
-        If ``color`` is an RGB tuple ``(red, green, blue)``, every ``#`` is an LED lit in that color
-        and every other character is off, so ``#.#`` shows "on, off, on". The default color is white.
-        If ``color`` is a dict ``{character: RGB tuple}``, you can specify different letters to represent
-        different colors, such as ``color["G"] = (0, 255, 0)`` for green and ``color["R"] = (255, 0, 0)``
-        for red (and so on). Then, writing ``G.RG`` shows "green, off, red, green". Any character that
-        is not in the dict represents off.
+        If ``color`` is an RGB tuple ``(red, green, blue)``, every ``#`` is an LED lit in that color and every other character is off, so ``#.#``
+        shows "on, off, on". The default color is white. If ``color`` is a dict ``{character: RGB tuple}``, you can specify different letters to
+        represent different colors, such as ``color["G"] = (0, 255, 0)`` for green and ``color["R"] = (255, 0, 0)`` for red (and so on). Then,
+        writing ``G.RG`` shows "green, off, red, green". Any character that is not in the dict represents off.
 
-        Spaces, tabs and carriage returns are skipped, so ``#.#`` and ``# .  #`` are the same picture.
-        Any other character takes one column.
+        Spaces, tabs and carriage returns are skipped, so ``#.#`` and ``# .  #`` are the same picture. Any other character represents one pixel.
         """
-        x = _check_x("render_pattern", x)
-        self._acquire()
-        if x == 0:
-            # Direct render via LUT — no intermediate column-major buffer. Fused one-pass scan.
-            self._write_pattern_on_the_fly(pattern, color)
-            self._pixels.show()
-        else:
-            # Any other ``x`` parses the pattern into an Image and shows that window.
-            Image(pattern, color)._render_window(self, -x)
+        self._ensure_integer_offset_and_acquire("render_pattern", start_col)
+        # Direct render via LUT: no intermediate column-major buffer and no ``Image``, for every ``start_col``.
+        self._write_pattern_on_the_fly(pattern, color, start_col)
+        self._pixels.show()
 
-    def render_icon(self, icon: Icon, color: RGBcolor = WHITE, x: int = 0) -> None:
-        """Render an ``Icon`` (e.g. ``Emojis.HEART``) to the LEDs.
-        The icon is shown in the provided ``color`` (white by default), which must be
-        explicitly stated because an ``Icon`` carries no color of its own.
+    def render_icon(self, icon: Icon, color: RGBcolor = WHITE, *, start_col: int = 0) -> None:
+        """Render an ``Icon`` (e.g. ``Emojis.HEART``) to the LEDs. Leave it lit until some other call overwrites the display.
+        The icon is shown in the provided ``color`` (white by default), which must be explicitly stated because an ``Icon`` carries no color of its own.
 
-        ``x`` is the display column where the icon's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
+        ``start_col`` is the display column where the icon's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the icon starts at the left-most LED column. A positive value moves the icon to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of column 0, or at ``WIDTH`` and
+        further right, are cut off, and LEDs the icon does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
         """
-        x = _check_x("render_icon", x)
-        self._acquire()
-        if x == 0:
-            self._render_colmajor(icon._columns, 0, color)
-        else:
-            Image._from_encoded(icon._columns, WIDTH, False, color)._render_window(self, -x)
+        columns = icon._columns
+        self._ensure_integer_offset_and_acquire("render_icon", start_col)
+        self._render_colmajor(columns, color, start_col)
 
-    def render_arrow(self, arrow: Icon, color: RGBcolor = WHITE, x: int = 0) -> None:
-        """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs.
+    def render_arrow(self, arrow: Icon, color: RGBcolor = WHITE, *, start_col: int = 0) -> None:
+        """Render an ``Icon`` from the arrow catalog (e.g. ``Arrows.NORTH``) to the LEDs. Leave it lit until some other call overwrites the display.
+        The icon is shown in the provided ``color`` (white by default), which must be explicitly stated because an ``Icon`` carries no color of its own.
 
-        The icon is shown in the provided ``color`` (white by default), which must be
-        explicitly stated because an ``Icon`` carries no color of its own.
-
-        ``x`` is the display column where the arrow's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
+        ``start_col`` is the display column where the arrow's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the arrow starts at the left-most LED column. A positive value moves the arrow to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the arrow does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
         """
         # Body of ``render_icon`` repeated on purpose: saves one method lookup and call. Keep the two in sync.
-        x = _check_x("render_arrow", x)
-        self._acquire()
-        if x == 0:
-            self._render_colmajor(arrow._columns, 0, color)
-        else:
-            Image._from_encoded(arrow._columns, WIDTH, False, color)._render_window(self, -x)
+        columns = arrow._columns
+        self._ensure_integer_offset_and_acquire("render_arrow", start_col)
+        self._render_colmajor(columns, color, start_col)
 
-    def render_string(self, text: str | ScreenText, color: RGBcolor = WHITE, x: int = 0) -> None:
+    def render_string(self, text: str | ScreenText, color: RGBcolor = WHITE, *, start_col: int = 0) -> None:
         """Draw ``text`` left-aligned and leave it lit until some other call overwrites the display.
         Text hanging over the display on the right is cut off. To scroll longer text, call ``scroll_string``.
 
-        ``x`` is the display column where the text's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
+        ``start_col`` is the display column where the text's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the text starts at the left-most display column. A positive value moves the text to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the text does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
 
         ``text`` may be a Python ``str`` or a ``ScreenText``. An empty string draws a blank screen.
 
-        A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` is pre-prepared text:
-        it counts how many columns the text needs (its ``width``) the first time you ask, and remembers
-        the answer. Use ``ScreenText`` when you draw the same text again and again, or when you want to
-        check ``width`` against the display before you choose how to show the text.
+        A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` is pre-prepared text: it counts how many columns the text needs (its
+        ``width``) the first time you ask, and remembers the answer. Use ``ScreenText`` when you draw the same text again and again, or when you want to check
+        ``width`` against the display before you choose how to show the text.
 
-        Pass ``centered(text)`` when the text should sit in the middle. ``centered(text)`` returns a
-        ``ScreenText`` too, so create it once and reuse it if you want to show the centered text repeatedly.
+        Pass ``centered(text)`` when the text should sit in the middle. ``centered(text)`` returns a ``ScreenText`` too, so create it once and reuse it if you
+        want to show the centered text repeatedly.
         """
-        x = _check_x("render_string", x)
-        self._acquire()
-        self._draw_text(_reader_for(text), x, color)
+        reader = _reader_for(text)
+        self._ensure_integer_offset_and_acquire("render_string", start_col)
+        self._draw_text(reader, start_col, color)
 
-    def render_image(self, image: Image, x: int = 0) -> None:
+    def render_image(self, image: Image, *, start_col: int = 0) -> None:
         """Draw a ``WIDTH``-column window of ``image`` and leave it lit until some other call overwrites it.
+        By default, the window starts at the image's first column, and an image wider than ``WIDTH`` is cut off on the right.
+        To scroll a wider image, call ``scroll_image``.
 
-        ``x`` is the display column where the image's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
+        ``start_col`` is the display column where the image's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the image starts at the left-most LED column. A positive value moves the image to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the image does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
         """
-        x = _check_x("render_image", x)
+        self._ensure_integer_offset_and_acquire("render_image", start_col)
+        image._render_window(self, -start_col)
+
+    def render_number(self, n: int | float, color: RGBcolor = WHITE, *, start_col: int = 0) -> None:
+        """Draws number ``n`` as text (internally converted using python's ``str(n)``) and leaves it lit until some other call overwrites the display.
+        By default, the number starts at the left-most LED column, and a longer number is cut off on the right. To scroll longer numbers, call ``scroll_number``.
+
+        ``start_col`` is the display column where the number's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the number starts at the left-most LED column. A positive value moves the number to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the number does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
+        """
+        reader = _reader_for(str(n))
+        self._ensure_integer_offset_and_acquire("render_number", start_col)
+        self._draw_text(reader, start_col, color)
+
+    def render_filled(self, color: RGBcolor = WHITE) -> None:
+        """Fill all pixels with ``color``."""
         self._acquire()
-        image._render_window(self, -x)
-
-    def render_number(self, n: int | float, color: RGBcolor = WHITE, x: int = 0) -> None:
-        """Converts number ``n`` into a string (via python's ``str(n)``) and displays it
-        starting at the left-most LED, and leaves it lit until some other call overwrites the display.
-
-        A number wider than the screen shows its first columns and crops the rest.
-        To scroll longer numbers, call ``scroll_number``.
-
-        ``x`` is the display column where the first digit goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``x`` must be an int. A float or a bool raises ``TypeError`` before the display changes.
-        """
-        x = _check_x("render_number", x)
-        self.render_string(str(n), color, x)
+        self._pixels.fill(color)
+        self._pixels.show()
 
     def clear(self) -> None:
         """Turn off all pixels."""
@@ -1006,12 +1099,6 @@ class Display:
             self._pixels[self._lut[x * HEIGHT + y]] = color
             self._pixels.show()
 
-    def render_filled(self, color: RGBcolor = WHITE) -> None:
-        """Fill all pixels with ``color``."""
-        self._acquire()
-        self._pixels.fill(color)
-        self._pixels.show()
-
     def get_pixel(self, x: int, y: int) -> RGBcolor:
         """Read the buffered pixel color at (x, y). Read-only; does not cancel ongoing animations."""
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:
@@ -1029,10 +1116,10 @@ class Display:
         The picture currently on the LEDs is drawn again in the new orientation.
         A scroll that is already running keeps going, just rotated in the new orientation.
 
-        ``degrees`` must be one of ``0``, ``90``, ``180``, ``270`` or their counter-clockwise equivalents
-        ``-270``, ``-180``, ``-90``. Other values raise ``ValueError``. Out-of-range inputs (``360``,
-        ``-360``, ...) are rejected; normalise at the call site (e.g. ``set_rotation(d % 360)``) if wrap-around
-        is needed.
+        ``degrees`` is how far to turn the picture clockwise. Allowed values are ``0``, ``90``, ``180`` and ``270``. A negative value turns it
+        counter-clockwise, so ``-90`` is the same as ``270``, ``-180`` the same as ``180`` and ``-270`` the same as ``90``. Any other value,
+        including a full turn such as ``360`` or ``-360``, raises ``ValueError`` and leaves the display as it was. To accept any angle, bring
+        it into range [-270°, 270°] yourself, for example ``set_rotation(angle % 360)``. The result must still be 0, 90, 180 or 270.
         """
         # Snapshot the current frame using the current LUT (prior to rotation), then rebuild the LUT in place to represent the new rotation, then write
         # the frame back. `build_lut` raises before it writes when degrees is rejected, so a bad value leaves the LEDs and the LUT as they were. No await
@@ -1059,17 +1146,16 @@ class Display:
     # — Lifecycle -----------------------------------------------------------
 
     def deinit(self) -> None:
-        """Release the NeoPixel hardware (RMT peripheral + data pin).
+        """Shut the display down and free the pin it uses for the LEDs.
 
-        Cancels any ongoing animation, then deinitializes the underlying NeoPixel buffer. After this call *this instance*
-        is unusable and it must be discarded (any further render call on it raises an error). There is no re-init path
-        *on this instance* — but the pin is now free, so a fresh ``Display()`` may be constructed afterward (it will claim
-        the pin again and start with a clean buffer/LUT/token; it is unrelated to and does not resurrect this deinitialized
-        instance). This is a teardown hook for code that wants to free the data pin / RMT peripheral for other use (e.g.
-        before a soft reboot, to hand the pin to a different peripheral, or to restart the display with new hardware
-        config). See ``lib/display/README.md`` § "Singleton design & ``deinit``" for the module-level ``display``
-        singleton's rationale.
+        Call this only when you are completely done with the LED display, for example when you want to use the same pin for something else.
+        It stops any animation that is running. After that, this ``Display`` object can no longer be used: any drawing call on it
+        raises an error. To the same physical LED display again, create a new ``Display()`` object for controlling it.
+
+        See ``lib/display/README.md`` § "Singleton design & ``deinit``" for why a ready-made ``display`` object exists.
         """
+        # Maintainer: releases the NeoPixel RMT peripheral and data pin. There is no re-init path on this instance. A fresh ``Display()`` claims the pin
+        # again and starts with a clean buffer, LUT and token; it does not resurrect this one.
         self._acquire()
         self._pixels.deinit()
 
@@ -1079,8 +1165,8 @@ class Display:
         """Wait ``duration_ms``, then turn every LED off, but only if this call's token has not expired.
 
         The caller has already taken over the display and drew its picture. This helper does not take over again,
-        so it cancels nothing. The wait ends early if another display call expires the token, and that call's
-        picture stays up.
+        so it cancels nothing. The wait ends early if another display call expires the token, and the display is
+        then left to that other call (nothing is blanked here).
         """
         await _sleep_pollable(token, duration_ms)
         if not token.is_expired:
@@ -1092,291 +1178,326 @@ class Display:
         self,
         pattern: str,
         color: RGBcolor | ColorDict = WHITE,
-        x: int = 0,
         *,
-        duration_ms: int | float,
+        start_col: int = 0,
+        duration_ms: int,
     ) -> Token:
         """Draw a pattern, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` draws the pattern, lets other ready tasks run
-        once, then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_pattern`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_pattern`` draws the pattern, lets other ready tasks run once, and then wipes the
+        display (if no other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the pattern's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        ``start_col`` is the display column where the pattern's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the pattern starts at the left-most LED column. A positive value moves the pattern to the right, so
+        ``start_col=2`` leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at
+        ``WIDTH`` and further right, are cut off, and LEDs the pattern does not cover are also off. A float or a bool raises ``TypeError`` before the display
+        changes.
 
         If ``color`` is an RGB tuple, every ``#`` is an LED lit in that color and every other character is off.
         If ``color`` is a dict ``{character: RGB tuple}``, each listed character lights its LED in the given color
         and any character not in the dict is off. Spaces, tabs and carriage returns are skipped; any other character
-        takes one column. See ``render_pattern`` for more detailed examples.
+        represents one pixel. See ``render_pattern`` for more detailed examples.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``,
+        before the display changes.
         """
-        duration_ms = _check_ms("show_pattern", "duration_ms", duration_ms)
-        x = _check_x("show_pattern", x)
-        self.render_pattern(pattern, color, x)
-        return await self._hold_then_blank(self._token, duration_ms)
+        token = self._ensure_duration_and_start_col_and_acquire("show_pattern", duration_ms, start_col)
+        self._write_pattern_on_the_fly(pattern, color, start_col)
+        self._pixels.show()
+        return await self._hold_then_blank(token, duration_ms)
 
-    async def show_icon(self, icon: Icon, color: RGBcolor = WHITE, x: int = 0, *, duration_ms: int | float) -> Token:
+    async def show_icon(self, icon: Icon, color: RGBcolor = WHITE, *, start_col: int = 0, duration_ms: int) -> Token:
         """Draw an ``Icon`` (e.g. ``Emojis.HEART``), hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` draws the icon, lets other ready tasks run once,
-        then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_icon`` returns at that point (leaving the display to the other caller) and
+        its returned token is expired. With ``duration_ms=0``, ``show_icon`` draws the icon, lets other ready tasks run once, and then wipes the display (if no
+        other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the icon's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        ``start_col`` is the display column where the icon's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the icon starts at the left-most LED column. A positive value moves the icon to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the icon does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``,
+        before the display changes.
         """
-        duration_ms = _check_ms("show_icon", "duration_ms", duration_ms)
-        x = _check_x("show_icon", x)
-        self.render_icon(icon, color, x)
-        return await self._hold_then_blank(self._token, duration_ms)
+        columns = icon._columns
+        token = self._ensure_duration_and_start_col_and_acquire("show_icon", duration_ms, start_col)
+        self._render_colmajor(columns, color, start_col)
+        return await self._hold_then_blank(token, duration_ms)
 
-    async def show_arrow(self, arrow: Icon, color: RGBcolor = WHITE, x: int = 0, *, duration_ms: int | float) -> Token:
+    async def show_arrow(self, arrow: Icon, color: RGBcolor = WHITE, *, start_col: int = 0, duration_ms: int) -> Token:
         """Draw an arrow ``Icon`` (e.g. ``Arrows.NORTH``), hold it, then turn the LEDs off.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` draws the arrow, lets other ready tasks run
-        once, then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_arrow`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_arrow`` draws the arrow, lets other ready tasks run once, and then wipes the display
+        (if no other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the arrow's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        ``start_col`` is the display column where the arrow's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the arrow starts at the left-most LED column. A positive value moves the arrow to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the arrow does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``,
+        before the display changes.
         """
-        duration_ms = _check_ms("show_arrow", "duration_ms", duration_ms)
-        x = _check_x("show_arrow", x)
-        self.render_arrow(arrow, color, x)
-        return await self._hold_then_blank(self._token, duration_ms)
+        columns = arrow._columns
+        token = self._ensure_duration_and_start_col_and_acquire("show_arrow", duration_ms, start_col)
+        self._render_colmajor(columns, color, start_col)
+        return await self._hold_then_blank(token, duration_ms)
 
-    async def show_filled(self, color: RGBcolor = WHITE, *, duration_ms: int | float) -> Token:
+    async def show_filled(self, color: RGBcolor = WHITE, *, duration_ms: int) -> Token:
         """Fill the display with ``color``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` fills the display, lets other ready tasks run
-        once, then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_filled`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_filled`` fills the display, lets other ready tasks run once, and then wipes the
+        display (if no other call has taken over). This is probably just a short flicker.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` is not an integer, and ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("show_filled", "duration_ms", duration_ms)
+        _ensure_non_negative_duration("show_filled", "duration_ms", duration_ms)
         self.render_filled(color)
         return await self._hold_then_blank(self._token, duration_ms)
 
-    async def show_image(self, image: Image, x: int = 0, *, duration_ms: int | float) -> Token:
+    async def show_image(self, image: Image, *, start_col: int = 0, duration_ms: int) -> Token:
         """Show a ``WIDTH``-column window of ``image``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` shows the window, lets other ready tasks run
-        once, then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_image`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_image`` shows the window, lets other ready tasks run once, and then wipes the display
+        (if no other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the image's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        By default, the window starts at the image's first column, and an image wider than ``WIDTH`` is cut off on the right.
+        To scroll a wider image, call ``scroll_image``.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        ``start_col`` is the display column where the image's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the image starts at the left-most LED column. A positive value moves the image to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the image does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
+
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        duration_ms = _check_ms("show_image", "duration_ms", duration_ms)
-        x = _check_x("show_image", x)
-        self.render_image(image, x)
-        return await self._hold_then_blank(self._token, duration_ms)
-
-    async def scroll_image(
-        self,
-        image: Image,
-        *,
-        interval_ms: int | float = 150,
-        loop: bool = False,
-        blank_edges: bool = True,
-    ) -> Token:
-        """Scroll ``image`` across the display, one column every ``interval_ms`` milliseconds.
-
-        Always pass the interval by name, for example ``interval_ms=150``. Without the name the call raises
-        ``TypeError``. ``interval_ms=0`` still lets other ready tasks run once between frames.
-
-        With the default ``blank_edges=True``, the display starts empty. The image comes in at the right-most LED,
-        moves left, leaves at the left-most LED, and the display ends empty. With ``blank_edges=False``, the first
-        frame already shows the image's first column on the left-most LED. The image moves left and stops when its
-        last column reaches the right-most LED. An image of ``WIDTH`` columns or fewer is that one still frame.
-
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
-        ``loop=True`` repeats until another display call takes over. This call then returns, and that other picture stays up.
-
-        Raises ``ValueError`` if ``interval_ms < 0``, before the display changes.
-        """
-        interval_ms = _check_ms("scroll_image", "interval_ms", interval_ms)
-        token = self._acquire()
-        n = image._width
-        if blank_edges:
-            x = WIDTH
-            last = -n
-        else:
-            span = n - WIDTH
-            if span < 0:
-                span = 0
-            x = 0
-            last = -span
-        # One sleep per frame. ``x`` runs from the first window to ``last`` inclusive, one column at a time.
-        # Marquee visits ``WIDTH .. -n``. Pan visits ``0 .. -max(0, n - WIDTH)``. The window renderer takes ``-x``.
-        sleep_ms = asyncio.sleep_ms
-        while True:
-            x_now = x
-            while True:
-                if token.is_expired:
-                    return token
-                image._render_window(self, -x_now)
-                await sleep_ms(interval_ms)
-                if token.is_expired:
-                    return token
-                if x_now == last:
-                    break
-                x_now -= 1
-            if not loop:
-                return token
+        token = self._ensure_duration_and_start_col_and_acquire("show_image", duration_ms, start_col)
+        image._render_window(self, -start_col)
+        return await self._hold_then_blank(token, duration_ms)
 
     async def show_string(
         self,
         text: str | ScreenText,
         color: RGBcolor = WHITE,
-        x: int = 0,
         *,
-        duration_ms: int | float,
+        start_col: int = 0,
+        duration_ms: int,
     ) -> Token:
         """Draw ``text`` left-aligned, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
         Text hanging over the display on the right is cut off. To scroll longer text, call ``scroll_string``.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` draws the text, lets other ready tasks run once,
-        then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_string`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_string`` draws the text, lets other ready tasks run once, and then wipes the display
+        (if no other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the text's first column goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        ``start_col`` is the display column where the text's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the text starts at the left-most display column. A positive value moves the text to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the text does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
 
         ``text`` may be a Python ``str`` or a ``ScreenText``. An empty string draws a blank screen.
         A plain ``str`` is the easy choice for text you draw once. A ``ScreenText`` remembers how many columns
         the text needs. Pass ``centered(text)`` when the text should sit in the middle.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``,
+        before the display changes.
         """
-        duration_ms = _check_ms("show_string", "duration_ms", duration_ms)
-        x = _check_x("show_string", x)
-        self.render_string(text, color, x)
-        return await self._hold_then_blank(self._token, duration_ms)
+        reader = _reader_for(text)
+        token = self._ensure_duration_and_start_col_and_acquire("show_string", duration_ms, start_col)
+        self._draw_text(reader, start_col, color)
+        return await self._hold_then_blank(token, duration_ms)
 
     async def show_number(
         self,
         n: int | float,
         color: RGBcolor = WHITE,
-        x: int = 0,
         *,
-        duration_ms: int | float,
+        start_col: int = 0,
+        duration_ms: int,
     ) -> Token:
         """Draw ``n`` left-aligned, as ``str(n)``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
         A number hanging over the display on the right is cut off. To scroll a longer number, call ``scroll_number``.
 
-        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call
-        raises ``TypeError``. This call's picture stays up for the hold duration. A later display call during the hold
-        replaces it, and this call's token expires. ``duration_ms=0`` draws the number, lets other ready tasks run
-        once, then blanks, which is probably just a short flicker.
+        Always pass the hold time parameter by name, for example ``duration_ms=1000``. Without the name the call raises ``TypeError``. The picture stays up for
+        the hold duration. If another display call takes over during the hold, ``show_number`` returns at that point (leaving the display to the other caller)
+        and its returned token is expired. With ``duration_ms=0``, ``show_number`` draws the number, lets other ready tasks run once, and then wipes the display
+        (if no other call has taken over). This is probably just a short flicker.
 
-        ``x`` is the display column where the first digit goes. ``0`` is the left-most LED.
-        Columns left of 0 or right of ``WIDTH`` are cut off. Uncovered LEDs are off.
+        ``start_col`` is the display column where the number's first column goes. It must be an integer and defaults to 0. Always pass it by name, for example
+        ``start_col=2``. ``start_col=0`` means the number starts at the left-most LED column. A positive value moves the number to the right, so ``start_col=2``
+        leaves columns 0 and 1 off. A negative value moves it to the left, partly off the screen. Columns that would land left of 0, or at ``WIDTH`` and further
+        right, are cut off, and LEDs the number does not cover are off. A float or a bool raises ``TypeError`` before the display changes.
 
-        Raises ``ValueError`` if ``duration_ms < 0``, and ``TypeError`` if ``x`` is not an int, before the display changes.
+        Raises ``TypeError`` if ``duration_ms`` or ``start_col`` is not an integer, and ``ValueError`` if ``duration_ms < 0``,
+        before the display changes.
         """
-        duration_ms = _check_ms("show_number", "duration_ms", duration_ms)
-        x = _check_x("show_number", x)
-        self.render_number(n, color, x)
-        return await self._hold_then_blank(self._token, duration_ms)
+        reader = _reader_for(str(n))
+        token = self._ensure_duration_and_start_col_and_acquire("show_number", duration_ms, start_col)
+        self._draw_text(reader, start_col, color)
+        return await self._hold_then_blank(token, duration_ms)
+
+    async def scroll_image(
+        self,
+        image: Image,
+        *,
+        interval_ms: int = 150,
+        loop: bool = False,
+        blank_edges: bool = True,
+    ) -> Token:
+        """Scroll ``image`` across the display, one column every ``interval_ms`` milliseconds.
+
+        Always pass the interval by name, for example ``interval_ms=150``. Without the name the call raises ``TypeError``. ``interval_ms=0`` still lets other
+        ready tasks run once between frames.
+
+        With the default ``blank_edges=True``, the display starts empty. The image comes in at the right-most LED, moves left, leaves at the left-most LED, and
+        the display ends empty. With ``blank_edges=False``, the first frame already shows the image's first column on the left-most LED. The image moves left
+        and stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call
+        replaces it: that is a blank display with ``blank_edges=True``, and the image's final window with ``blank_edges=False``.
+
+        An image of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
+        scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such an image is simply drawn again and again until another
+        display call takes over.
+
+        With ``loop=True``, the scroll repeats until another display call takes over and only at that point, ``scroll_image`` returns (leaving the display to
+        the other caller). So the first line below never finishes, and the code after it never runs. To keep your program going, run the scroll as a background
+        task and stop it later with any other display call, such as ``clear()``:
+
+            await display.scroll_image(my_image, loop=True)  # never returns
+
+            task = asyncio.create_task(display.scroll_image(my_image, loop=True))  # runs alongside the rest of your program
+            ...
+            display.clear()  # takes over the display: the scroll stops and its task ends
+
+        The display is not cleared after the scroll ends. To clear it after a scroll that ends on a lit frame (``blank_edges=False``), check the token this call
+        returns first. If the token is expired, another display call has taken over the display, and ``clear()`` would erase its picture. Example:
+
+            token = await display.scroll_image(my_image, blank_edges=False)
+            if not token.is_expired:
+                display.clear()
+
+        To show an image without scrolling it (images wider than the display are cut off), use ``render_image`` (it stays until the next display call) or
+        ``show_image`` (it stays for a set time).
+
+        Raises ``TypeError`` if ``interval_ms`` is not an integer, and ``ValueError`` if ``interval_ms < 0``, before the display changes.
+        """
+        n = image._width
+        token = self._ensure_non_negative_duration_and_acquire("scroll_image", "interval_ms", interval_ms)
+        # One sleep per frame. ``offset`` is the image column shown at the left-most LED, so the window moves one column per frame.
+        if blank_edges:
+            first_offset = -WIDTH  # the window starts WIDTH columns before the image's first column, so the image is off-screen at first and enters from the right
+            last_offset = n  # the window starts at column n: the image has scrolled completely off to the left
+        else:
+            first_offset = 0
+            last_offset = n - WIDTH  # columns to scroll: the last image column reaches the right-most LED
+            if last_offset < 0:
+                last_offset = 0  # the image fits: one still frame
+        # Note that it always holds: first_offset ≤ last_offset. When scrolling the image, we want to iterate over the interval
+        # [first_offset, last_offset] inclusive of both endpoints.
+        offsets = range(first_offset, last_offset + 1)  # reusable: every ``for`` makes a new iterator, no list is built
+        sleep_ms = asyncio.sleep_ms
+        while True:
+            for offset in offsets:
+                image._render_window(self, offset)
+                await sleep_ms(interval_ms)
+                if token.is_expired:
+                    return token
+            if not loop:
+                return token
 
     async def _scroll_text(
         self,
-        source: str | ScreenText,
+        token: Token,
+        reader: _ColumnReader | _FixedColumnReader,
         color: RGBcolor,
         interval_ms: int,
         loop: bool,
         blank_edges: bool,
     ) -> Token:
-        """Scroll ``source`` one column per ``interval_ms``. The caller already checked the interval.
+        """Scroll content from ``reader`` one column per ``interval_ms``. The caller has already acquired ``token``.
 
-        ``blank_edges`` selects the marquee (empty, in from the right, out to the left, empty) or the pan
-        (first column already on the left-most LED, stop when the last column reaches the right-most LED).
-        ``loop`` repeats that pass until another display call expires the token.
+        With ``blank_edges=True`` the display starts empty, the content comes in from the right, leaves at the left, and the display ends empty.
+        With ``blank_edges=False`` the first column is already on the left-most LED, and the scroll stops when the last column reaches the right-most LED
+        (content of ``WIDTH`` columns or fewer is a single still frame). The last frame stays lit: nothing is cleared at the end. On a normal return the
+        token is not expired. ``loop`` repeats the pass; the call then returns only when another display call expires the token.
+        If ``token`` is already expired on entry, yield once and return it without drawing.
         """
-        token = self._acquire()
-        reader = _reader_for(source)
         sleep_ms = asyncio.sleep_ms
+        if token.is_expired:
+            await sleep_ms(0)
+            return token
+        ring = bytearray(WIDTH)
+        # The ring starts all zero. If the user did NOT want to start and end with blank edges, we need to pre-fill the ring with text columns.
+        if not blank_edges:
+            for i in range(WIDTH):
+                col = reader.next_column()
+                if col is None:
+                    break
+                ring[i] = col
+        # Now the ring elements [0, …, WIDTH-1] contain the columns we want to show on the first frame. After the first frame has been shown, we
+        # scroll in the next column from the right; i.e. [1, …, WIDTH-1] contains the left-most columns and element ring[0] needs to be updated
+        # with the new column from the reader, becoming the right-most column on the subsequent frame. We repeat until the reader is exhausted.
         while True:
-            reader.reset()
+            read_head = 0
+            self._render_ring_window(ring, read_head, color)  # initial frame
+            await sleep_ms(interval_ms)
+            if token.is_expired:
+                return token
+            col = reader.next_column()
+            while col is not None:
+                ring[read_head] = col
+                read_head += 1
+                if read_head == WIDTH:
+                    read_head = 0
+                self._render_ring_window(ring, read_head, color)
+                await sleep_ms(interval_ms)
+                if token.is_expired:
+                    return token
+                col = reader.next_column()
+            # The reader is exhausted. If the shift loop ran, the frame just shown has the last content column on the right-most LED. If it did not run, the initial frame is still showing.
             if blank_edges:
-                # The ring starts all zero, so the first frame is blank and the first content column
-                # arrives at the right-most LED. Each new column overwrites the slot that just left
-                # the left edge. After the reader ends, WIDTH + 1 blank columns are written.
-                # ``> WIDTH`` (not ``>=``) so the last frame is fully blank; ``>=`` would stop while
-                # the last content column is still on the left-most LED.
-                ring = bytearray(WIDTH)
-                read_head = 0
-                trailing_blanks = 0
-                while True:
-                    if token.is_expired:
-                        return token
+                for _ in range(WIDTH):
+                    ring[read_head] = 0
+                    read_head += 1
+                    if read_head == WIDTH:
+                        read_head = 0
                     self._render_ring_window(ring, read_head, color)
                     await sleep_ms(interval_ms)
                     if token.is_expired:
                         return token
-                    col = reader.next_column()
-                    if col is None:
-                        col = 0
-                        trailing_blanks += 1
-                    ring[read_head] = col
-                    read_head += 1
-                    if read_head == WIDTH:
-                        read_head = 0
-                    if trailing_blanks > WIDTH:
-                        break
-            else:
-                # Prefill the first WIDTH content columns (0 where the text is shorter). That frame is
-                # x = 0. Each later frame writes the next column into the slot that becomes the right-most
-                # LED. Stop when the reader is exhausted, without writing that empty column: the frame
-                # already showing has the last content column on the right-most LED. Text of WIDTH
-                # columns or fewer is that one frame.
-                ring = bytearray(WIDTH)
+            if not loop:
+                return token
+            reader.reset()
+            # When looping, we need to re-initialize the buffer. Note: if ``blank_edges`` is True, then the buffer starts and ends in a state
+            # where all elements are zero. In other words, only if ``blank_edges`` is False, the buffer needs re-initialization.
+            if not blank_edges:
+                # In most cases, we just read WIDTH columns from the reader and write them to the buffer. However, if the reader has k < WIDTH columns, then
+                # it is guaranteed that the remaining columns [k, …, WIDTH-1] in the ring are already zero. Reasoning: in this case the pre-initialization
+                # logic at the top only filled elements [0, …, k-1] in the ring, while the remaining elements remained zero. Further, we know that the reader
+                # has no more columns to read, so the loop ``while col is not None`` that writes to ``ring`` does not run, leaving ``ring`` unmodified.
                 for i in range(WIDTH):
                     col = reader.next_column()
                     if col is None:
-                        ring[i] = 0
-                    else:
-                        ring[i] = col
-                read_head = 0
-                while True:
-                    if token.is_expired:
-                        return token
-                    self._render_ring_window(ring, read_head, color)
-                    await sleep_ms(interval_ms)
-                    if token.is_expired:
-                        return token
-                    col = reader.next_column()
-                    if col is None:
                         break
-                    ring[read_head] = col
-                    read_head += 1
-                    if read_head == WIDTH:
-                        read_head = 0
-            if not loop:
-                return token
+                    ring[i] = col
 
     async def scroll_string(
         self,
         text: str | ScreenText,
         color: RGBcolor = WHITE,
         *,
-        interval_ms: int | float = 150,
+        interval_ms: int = 150,
         loop: bool = False,
         blank_edges: bool = True,
     ) -> Token:
@@ -1385,33 +1506,51 @@ class Display:
         Always pass the interval by name, for example ``interval_ms=150``. Without the name the call raises
         ``TypeError``. ``interval_ms=0`` still lets other ready tasks run once between frames.
 
-        With the default ``blank_edges=True``, the display starts empty. The text comes in at the right-most LED,
-        moves left, leaves at the left-most LED, and the display ends empty. With ``blank_edges=False``, the first
-        frame already shows the text's first column on the left-most LED. The text moves left and stops when its
-        last column reaches the right-most LED. Text shorter than the display is one still frame, left-aligned.
+        With the default ``blank_edges=True``, the display starts empty. The text comes in at the right-most LED, moves left, leaves at the left-most LED, and
+        the display ends empty. With ``blank_edges=False``, the first frame already shows the text's first column on the left-most LED. The text moves left and
+        stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call replaces
+        it: that is a blank display with ``blank_edges=True``, and the text's final window with ``blank_edges=False``.
 
-        ``loop=True`` repeats until another display call takes over. This call then returns, and that other picture stays up.
-        An empty string is a blank marquee, or one blank frame when ``blank_edges=False``.
+        Text of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
+        scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such text is simply drawn again and again until another
+        display call takes over.
+
+        With ``loop=True``, the scroll repeats until another display call takes over and only at that point, ``scroll_string`` returns (leaving the display to
+        the other caller). So the first line below never finishes, and the code after it never runs. To keep your program going, run the scroll as a background
+        task and stop it later with any other display call, such as ``clear()``:
+
+            await display.scroll_string("Hello", loop=True)  # never returns
+
+            task = asyncio.create_task(display.scroll_string("Hello", loop=True))  # runs alongside the rest of your program
+            ...
+            display.clear()  # takes over the display: the scroll stops and its task ends
 
         ``text`` may be a Python ``str`` or a ``ScreenText``. A plain ``str`` is the easy choice for text you scroll once.
         A ``ScreenText`` remembers how many columns the text needs. Pass ``centered(text)`` when each frame should
         show the centered picture instead.
 
-        Raises ``ValueError`` if ``interval_ms < 0``, before the display changes.
+        The display is not cleared after the scroll ends. To clear it after a scroll that ends on a lit frame (``blank_edges=False``), check the token this call
+        returns first. If the token is expired, another display call has taken over the display, and ``clear()`` would erase its picture. Example:
+
+            token = await display.scroll_string("Hello", blank_edges=False)
+            if not token.is_expired:
+                display.clear()
+
+        To show text without scrolling it (text wider than the display is cut off), use ``render_string`` (it stays until the next display call) or
+        ``show_string`` (it stays for a set time).
+
+        Raises ``TypeError`` if ``interval_ms`` is not an integer, and ``ValueError`` if ``interval_ms < 0``, before the display changes.
         """
-        interval_ms = _check_ms("scroll_string", "interval_ms", interval_ms)
-        if isinstance(text, ScreenText):
-            source: str | ScreenText = text
-        else:
-            source = str(text)
-        return await self._scroll_text(source, color, interval_ms, loop, blank_edges)
+        reader = _reader_for(text)
+        token = self._ensure_non_negative_duration_and_acquire("scroll_string", "interval_ms", interval_ms)
+        return await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
 
     async def scroll_number(
         self,
         n: int | float,
         color: RGBcolor = WHITE,
         *,
-        interval_ms: int | float = 150,
+        interval_ms: int = 150,
         loop: bool = False,
         blank_edges: bool = True,
     ) -> Token:
@@ -1420,36 +1559,54 @@ class Display:
         Always pass the interval by name, for example ``interval_ms=150``. Without the name the call raises
         ``TypeError``. ``interval_ms=0`` still lets other ready tasks run once between frames.
 
-        With the default ``blank_edges=True``, the display starts empty. The number comes in at the right-most LED,
-        moves left, leaves at the left-most LED, and the display ends empty. With ``blank_edges=False``, the first
-        frame already shows the number's first column on the left-most LED. It moves left and stops when its last
-        column reaches the right-most LED. A number of ``WIDTH`` columns or fewer is that one still frame.
+        With the default ``blank_edges=True``, the display starts empty. The number comes in at the right-most LED, moves left, leaves at the left-most LED, and
+        the display ends empty. With ``blank_edges=False``, the first frame already shows the number's first column on the left-most LED. The number moves left
+        and stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call
+        replaces it: that is a blank display with ``blank_edges=True``, and the number's final window with ``blank_edges=False``.
 
-        ``loop=True`` repeats until another display call takes over. This call then returns, and that other picture stays up.
-        For a number that stays lit, call ``render_number``.
+        A number of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
+        scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such a number is simply drawn again and again until another
+        display call takes over.
 
-        Raises ``ValueError`` if ``interval_ms < 0``, before the display changes.
+        With ``loop=True``, the scroll repeats until another display call takes over and only at that point, ``scroll_number`` returns (leaving the display to
+        the other caller). So the first line below never finishes, and the code after it never runs. To keep your program going, run the scroll as a background
+        task and stop it later with any other display call, such as ``clear()``:
+
+            await display.scroll_number(12345, loop=True)  # never returns
+
+            task = asyncio.create_task(display.scroll_number(12345, loop=True))  # runs alongside the rest of your program
+            ...
+            display.clear()  # takes over the display: the scroll stops and its task ends
+
+        The display is not cleared after the scroll ends. To clear it after a scroll that ends on a lit frame (``blank_edges=False``), check the token this call
+        returns first. If the token is expired, another display call has taken over the display, and ``clear()`` would erase its picture. Example:
+
+            token = await display.scroll_number(12345, blank_edges=False)
+            if not token.is_expired:
+                display.clear()
+
+        To show a number without scrolling it (numbers wider than the display are cut off), use ``render_number`` (it stays until the next display call) or
+        ``show_number`` (it stays for a set time).
+
+        Raises ``TypeError`` if ``interval_ms`` is not an integer, and ``ValueError`` if ``interval_ms < 0``, before the display changes.
         """
-        interval_ms = _check_ms("scroll_number", "interval_ms", interval_ms)
-        return await self._scroll_text(str(n), color, interval_ms, loop, blank_edges)
+        reader = _reader_for(str(n))
+        token = self._ensure_non_negative_duration_and_acquire("scroll_number", "interval_ms", interval_ms)
+        return await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
 
-    async def pause(self, duration_ms: int | float) -> Token:
+    async def pause(self, duration_ms: int) -> Token:
         """Wait up to ``duration_ms`` milliseconds before returning. If a subsequent operation acquires the display
         before the wait elapses, this method returns immediately instead; check the returned ``Token``'s
         ``is_expired`` to tell whether the wait was cut short by another task.
 
-        Raises ``ValueError`` if ``duration_ms < 0``.
+        Raises ``TypeError`` if ``duration_ms`` is not an integer, and ``ValueError`` if ``duration_ms < 0``.
         """
-        # Not ``_check_ms``: it would truncate to ``int`` here, and ``_sleep_pollable`` truncates again right below.
-        # So only the negative check is written out. Keep this message in the format of ``_check_ms``.
-        if duration_ms < 0:
-            raise ValueError(f"pause(): duration_ms must be >= 0, got {duration_ms}")
-        token = self._acquire()
+        token = self._ensure_non_negative_duration_and_acquire("pause", "duration_ms", duration_ms)
         await _sleep_pollable(token, duration_ms)
         return token
 
     @staticmethod
-    async def repeat_until_cancelled(callback: Callable[[], Awaitable[None] | None], sleep_between_ms: int | float = 10) -> NoReturn:
+    async def repeat_until_cancelled(callback: Callable[[], Awaitable[None] | None], sleep_between_ms: int = 10) -> NoReturn:
         """Call ``callback`` again and again, until the task executing ``repeat_until_cancelled`` is cancelled.
 
         Another display operation (for example from a button handler) does not stop it: the next
@@ -1495,7 +1652,7 @@ class Display:
         leaves whatever is on the LEDs lit. Call ``display.clear()`` afterwards if you want the display cleared.
 
         After each round, ``repeat_until_cancelled`` rests for ``sleep_between_ms`` milliseconds
-        (whole milliseconds: a fraction is dropped, so 25.9 means 25). The time from one start to the
+        (a whole number of milliseconds). The time from one start to the
         next is the time ``callback`` takes plus this rest. The rest lets your other tasks (for example
         button handlers) run, even when ``callback`` finishes quickly. If your callback already waits
         (for example ``show_string`` or ``pause``), the rest is not needed, but by default it is so
@@ -1508,21 +1665,19 @@ class Display:
         reaches its next ``await``. So keep your callback short and let it ``await`` often, or
         other tasks (such as button handlers) will react late.
 
-        Raises ``ValueError`` if ``sleep_between_ms`` is negative. Because ``repeat_until_cancelled``
+        Raises ``TypeError`` if ``sleep_between_ms`` is not an integer, and ``ValueError`` if it is negative. Because ``repeat_until_cancelled``
         never returns, the only ways out are an exception in ``callback`` or cancelling
         the task executing ``repeat_until_cancelled``.
         """
-        # `sleep_between_ms` may be an `int` or a `float` (for example `1000 / 3` or `10.0`). `asyncio.sleep_ms` adds
-        # its argument to a tick count and hands the sum to the scheduler as the wake-up time. The C task queue (`_asyncio`) reads that time as
-        # a small int and only asserts it, so a float wake-up time could silently mis-order tasks (inferred from the 10.3.0 source, not tried on
-        # the board). `_check_ms` rejects a negative value, then `int()` makes sure we always pass whole milliseconds. It truncates, it does not
-        # round (25.9 becomes 25). Run it once as preprocessing of the loop.
-        rest_ms = _check_ms("repeat_until_cancelled", "sleep_between_ms", sleep_between_ms)
+        # Maintainer note, why times must be integers: `asyncio.sleep_ms` adds its argument to a tick count and hands the sum to the scheduler
+        # as the wake-up time. The C task queue (`_asyncio`) reads that time as a small int and only asserts it, so float wake-up times could
+        # silently mis-order tasks (inferred from the 10.3.0 source, not tried on the board). Check once, before the loop.
+        _ensure_non_negative_duration("repeat_until_cancelled", "sleep_between_ms", sleep_between_ms)
         while True:
             result = callback()
             if hasattr(result, "__await__"):
                 await result
-            await asyncio.sleep_ms(rest_ms)
+            await asyncio.sleep_ms(sleep_between_ms)
 
 
 # Singleton — ``from display import display``

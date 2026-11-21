@@ -35,7 +35,7 @@ The next press or release of this button has to wait until the prior call of
     from buttons import OnboardButtons
 
     async def announce_and_wait():
-        await display.display.show_string("A")
+        await display.display.show_string("A", start_col=0, duration_ms=1000)
 
     async def main():
         buttons = OnboardButtons()
@@ -55,7 +55,7 @@ is not visible to the ``scroll_hello`` handler.
     from buttons import OnboardButtons
 
     def scroll_hello():
-        asyncio.create_task(display.display.show_string("HELLO", loop=True))
+        asyncio.create_task(display.display.scroll_string("HELLO", loop=True))
 
     async def main():
         buttons = OnboardButtons()

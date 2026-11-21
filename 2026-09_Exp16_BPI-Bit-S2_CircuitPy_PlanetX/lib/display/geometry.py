@@ -76,7 +76,7 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
         lut = bytearray(WIDTH * HEIGHT)
     else:
         if len(dest) != WIDTH * HEIGHT:
-            raise ValueError(f"dest must be exactly {WIDTH * HEIGHT} bytes; got {len(dest)}")
+            raise ValueError(f"'dest' must be exactly {WIDTH * HEIGHT} bytes, got '{len(dest)}' bytes")
         lut = dest
     if rotation == 0:
         # px, py = x, y
@@ -124,7 +124,7 @@ def build_lut(rotation: int = 0, dest: bytearray | None = None) -> bytearray:
                 lut[x_base + y] = _x_offset
                 _x_offset -= HEIGHT
     else:
-        raise ValueError(f"rotation must be one of 0, 90, 180, 270, -90, -180, -270; got {rotation!r}")
+        raise ValueError(f"'rotation' must be one of 0, 90, 180, 270, -90, -180, -270, got '{rotation}'")
     return lut
 
 

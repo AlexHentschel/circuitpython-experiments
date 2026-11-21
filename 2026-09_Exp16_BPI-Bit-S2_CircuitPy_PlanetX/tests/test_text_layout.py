@@ -7,7 +7,7 @@ import pytest
 from display._constants import WIDTH
 from display.font_makecode_5.ink import FONT
 from display.font_makecode_5.ink import Font
-from display.text_layout import ScreenText, _ColumnReader, _FixedColumnReader, centered
+from display.text_layout import ScreenText, _ColumnReader, _FixedColumnReader, _column_count_wider_than, centered
 
 
 class _TableFont(Font):
@@ -248,10 +248,10 @@ def test_column_count_wider_than_rejects_a_negative_limit():
     - How: empty text and ``"A"``, each with ``limit=-1``. ``limit=0`` on empty text is false.
     """
     empty = ScreenText("")
-    with pytest.raises(ValueError, match="limit must be >= 0"):
+    with pytest.raises(ValueError, match="'limit' must be >= 0, got '-1'"):
         empty.column_count_wider_than(-1)
     assert empty.column_count_wider_than(0) is False
-    with pytest.raises(ValueError, match="limit must be >= 0"):
+    with pytest.raises(ValueError, match="'limit' must be >= 0, got '-1'"):
         ScreenText("A").column_count_wider_than(-1)
 
 
@@ -442,3 +442,15 @@ def test_str_of_a_number_has_no_tofu_in_the_shipped_font(value):
     text = str(value)
     for ch in text:
         assert FONT.glyph(ch) != _TOFU_INK, f"{ch!r} in {text!r} is tofu"
+
+
+def test_module_function_column_count_wider_than_also_rejects_a_negative_limit():
+    """The module-level counter validates ``limit`` itself, not only through ``ScreenText.column_count_wider_than``.
+
+    - Covers: the function being called directly (or by a future caller) with a negative limit and answering ``True`` for non-empty text.
+    - How: ``limit=-1`` on empty and non-empty text raises; ``limit=0`` on empty text is false.
+    """
+    for text in ("", "A"):
+        with pytest.raises(ValueError, match="'limit' must be >= 0, got '-1'"):
+            _column_count_wider_than(text, FONT, -1)
+    assert _column_count_wider_than("", FONT, 0) is False

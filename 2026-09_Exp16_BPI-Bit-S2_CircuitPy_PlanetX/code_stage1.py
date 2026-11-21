@@ -74,13 +74,13 @@ while True:
 
     # 1) render_pattern writes the grid string directly. No Image object.
     d.clear()
-    d.render_pattern(_DIAMOND, display.GREEN)
+    d.render_pattern(_DIAMOND, display.GREEN, start_col=0)
     print("1/11: render_pattern(diamond) -- direct grid string, green diamond")
     time.sleep(2)
 
     # 2) render_arrow(Arrows.NORTH). The arrow table is separate from icons.
     d.clear()
-    d.render_arrow(Arrows.NORTH, display.CYAN)
+    d.render_arrow(Arrows.NORTH, display.CYAN, start_col=0)
     print("2/11: render_arrow(Arrows.NORTH) -- arrow pointing up")
     time.sleep(2)
 
@@ -97,7 +97,7 @@ while True:
     d.clear()
     for _deg in (0, 90, 180, 270):
         d.set_rotation(_deg)
-        d.render_icon(Emojis.HAPPY, color=display.YELLOW)
+        d.render_icon(Emojis.HAPPY, color=display.YELLOW, start_col=0)
         print(f"4/11: render_icon(Emojis.HAPPY) at rotation {_deg}deg")
         time.sleep(1.5)
     d.set_rotation(0)
@@ -105,7 +105,7 @@ while True:
     # 5) The ring Icon was built once above. render_icon draws it.
     #    Icon(pattern) decoded it; step 1's render_pattern does not.
     d.clear()
-    d.render_icon(_ring_icon, color=display.ORANGE)
+    d.render_icon(_ring_icon, color=display.ORANGE, start_col=0)
     print("5/11: Icon(ring pattern) + render_icon -- Icon decode path")
     time.sleep(2)
 
@@ -121,13 +121,13 @@ while True:
 
     # 7) "A" is 4 columns. The spare column is dark, on the right. Stays lit.
     d.clear()
-    d.render_string("A")
+    d.render_string("A", start_col=0)
     print("7/11: render_string('A') -- letter stays lit, dark column on the right")
     time.sleep(2)
 
     # 8) "7" is exactly WIDTH columns. No pad, no crop. Stays lit.
     d.clear()
-    d.render_string("7")
+    d.render_string("7", start_col=0)
     print("8/11: render_string('7') -- digit fills the screen and stays lit")
     time.sleep(2)
 
@@ -135,13 +135,13 @@ while True:
     #    then the first L. H, E, the second L, and O are off the screen.
     #    Stays lit.
     d.clear()
-    d.render_string("HELLO")
+    d.render_string("HELLO", start_col=0)
     print("9/11: render_string('HELLO') -- dark column, then the first L")
     time.sleep(2)
 
     # 10) An empty string draws a blank screen and leaves it blank.
     d.render_filled(display.RED)
-    d.render_string("")
+    d.render_string("", start_col=0)
     print("10/11: render_string('') -- red goes blank and stays blank")
     time.sleep(2)
 
@@ -149,7 +149,7 @@ while True:
     #     on the right, and the number stays lit. Stage 2's show_number(42)
     #     scrolls and ends blank.
     d.clear()
-    d.render_number(42)
+    d.render_number(42, start_col=0)
     print("11/11: render_number(42) -- cropped number stays lit")
     time.sleep(2)
     print("Cycle complete (Tier 1 sync only, no asyncio).")

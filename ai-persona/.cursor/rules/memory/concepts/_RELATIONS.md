@@ -10,6 +10,9 @@ Format: `<concept A>  —<relation>—  <concept B>   (note)`
 
 - `fonts: outline-fonts-unsuitable`  —complemented-by—  `circuitpython-runtime: memoryview`   (glyph raster access goes through buffer-protocol views / `displayio.Bitmap`).
 - `circuitpython-runtime: name loading (LOAD_FAST)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (both are hot-path render-loop optimizations applied together in `_render_colmajor`).
+- `circuitpython-runtime: on-device bytecode timings (BPI-Bit-S2 2026-11-16)`  —composes-with—  `circuitpython-runtime: name loading (LOAD_FAST)`   (the timings measure the local-vs-global and local-vs-attr gaps on UID `0740D10F1BE9`; the opcode mechanism stays in name loading).
+- `circuitpython-runtime: on-device bytecode timings (BPI-Bit-S2 2026-11-16)`  —composes-with—  `circuitpython-runtime: neopixel allocation`   (`show()` of 25 pixels is the 1954 µs anchor; allocation of the buffer stays in the NeoPixel concept).
+- `circuitpython-runtime: on-device bytecode timings (BPI-Bit-S2 2026-11-16)`  —composes-with—  `circuitpython-runtime: a Python call is never inlined`   (the timings give the per-call microseconds; the no-inlining mechanism stays in the call concept).
 - `i2c: back-feeding (ESD-diode)`  —pairs-with—  `power: power-domain isolation & powered-off protection (Ioff)`   (same ESD-diode mechanism; `i2c` = the SDA/SCL-bus instantiation, `power` = the general domain-boundary framing + Ioff part-selection. Read both; neither duplicates the other).
 - `i2c: open-drain / wired-AND`  —composes-with—  `power: fuel gauge (MAX17048)`   (the MAX17048 SDA/SCL-low sleep entry is a direct consequence of open-drain line behaviour).
 - `i2c: pull-up sizing`  —pairs-with—  `power: standby current budgeting`   (held-low / idle-high pull-up current is a standby-power line item).

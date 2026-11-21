@@ -32,7 +32,7 @@ def _column_count(text: str, font: Font) -> int:
 def _column_count_wider_than(text: str, font: Font, limit: int) -> bool:
     """True when ``text`` occupies more than ``limit`` columns. Stops early."""
     if limit < 0:
-        raise ValueError(f"limit must be >= 0, got {limit}")
+        raise ValueError(f"'limit' must be >= 0, got '{limit}'")
     n = len(text)
     if n == 0:
         return False
@@ -220,7 +220,7 @@ class ScreenText:
         Raises ``ValueError`` if ``limit`` is negative.  An empty string has width 0.
         """
         if limit < 0:
-            raise ValueError(f"limit must be >= 0, got {limit}")
+            raise ValueError(f"'limit' must be >= 0, got '{limit}'")
         cached = self._width
         if cached is not None:
             return cached > limit

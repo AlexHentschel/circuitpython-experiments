@@ -130,7 +130,7 @@ class _PressCounter:
         print(f"BUTTON {self.letter.upper()} pressed (count={self.count})")
         # Tier-1 write from inside that module's ``run()``. Cancels whatever
         # Tier-2 animation the display loop is in the middle of.
-        d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter])
+        d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter], start_col=0)
 
 
 # One counter object per letter, registered explicitly by name: a typo here
@@ -198,7 +198,7 @@ async def _display_loop() -> None:
         #    this is not re-testing it, just using it under button load).
         #    The scroll ends on a blank screen.
         _status_line = f"A{press_a.count}B{press_b.count}C{press_c.count}D{press_d.count}"
-        await d.show_string(_status_line, display.WHITE, interval_ms=150)
+        await d.show_string(_status_line, display.WHITE, interval_ms=150, start_col=0)
         print(f"4/4: show_string('{_status_line}'), live press-count status")
 
         print("Cycle complete. Press A, B, C, or D any time; watch the arrow flash and the animation cut short.")

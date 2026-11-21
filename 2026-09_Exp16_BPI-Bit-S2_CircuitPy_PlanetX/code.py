@@ -46,7 +46,7 @@ d.clear()
 _i = 0
 while True:
     _name, _color = _COLORS[_i % len(_COLORS)]
-    d.render_icon(Emojis.HEART, color=_color)
+    d.render_icon(Emojis.HEART, color=_color, start_col=0)
     print(f"HEART in {_name}")
     time.sleep(_HOLD_S)
     _i += 1

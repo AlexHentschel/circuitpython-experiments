@@ -148,7 +148,7 @@ async def _trigger_rotation_after(delay_s: float, degrees: int) -> None:
 
 async def _pulse_heart() -> None:
     """One blink for ``Display.repeat_until_cancelled``: a heart, then a dark screen."""
-    d.render_icon(Emojis.HEART, color=display.RED)
+    d.render_icon(Emojis.HEART, color=display.RED, start_col=0)
     await asyncio.sleep(0.25)
     d.clear()
     await asyncio.sleep(0.25)
@@ -193,43 +193,44 @@ async def main() -> None:
             """,
             display.GREEN,
             interval_ms=1500,
+            start_col=0,
         )
         print("2/16: show_pattern(checkerboard) -- picture stays up after the wait")
 
         # 3) show_icon(Emojis.DUCK). Stage 0 used HEART and Stage 1 used HAPPY;
         #    we assume those icon paths work.
         d.clear()
-        await d.show_icon(Emojis.DUCK, color=display.YELLOW, interval_ms=1500)
+        await d.show_icon(Emojis.DUCK, color=display.YELLOW, interval_ms=1500, start_col=0)
         print("3/16: show_icon(Emojis.DUCK) -- picture stays up after the wait")
 
         # 4) show_arrow(Arrows.SOUTH). Stage 1 used NORTH; we assume that
         #    arrow path works.
         d.clear()
-        await d.show_arrow(Arrows.SOUTH, display.CYAN, interval_ms=1500)
+        await d.show_arrow(Arrows.SOUTH, display.CYAN, interval_ms=1500, start_col=0)
         print("4/16: show_arrow(Arrows.SOUTH) -- picture stays up after the wait")
 
         # 5) "K" fits. Centered for interval_ms * WIDTH (300 * 5 = 1500 ms),
         #    then the screen is blank.
         d.clear()
-        await d.show_string("K", display.MAGENTA, interval_ms=300)
+        await d.show_string("K", display.MAGENTA, interval_ms=300, start_col=0)
         print("5/16: show_string('K') -- holds about 1.5s, then the screen is blank")
         await asyncio.sleep(0.8)
 
         # 6) "STAGE2" is wider than the display, so show_string scrolls.
         #    Columns come from ScreenText.width.
         d.clear()
-        await d.show_string("STAGE2", display.WHITE, interval_ms=150)
+        await d.show_string("STAGE2", display.WHITE, interval_ms=150, start_col=0)
         print("6/16: show_string('STAGE2') -- scrolls, then the screen is blank")
 
         # 7) show_number(42) is show_string("42"). Two digits, so the scroll path.
         d.clear()
-        await d.show_number(42, display.GOLD, interval_ms=150)
+        await d.show_number(42, display.GOLD, interval_ms=150, start_col=0)
         print("7/16: show_number(42), scrolls, then the screen is blank")
 
         # 8) show_number(7) is one digit, so it fits. Centered for
         #    interval_ms * WIDTH, then the screen goes blank. Step 7 scrolled.
         d.clear()
-        await d.show_number(7, display.GOLD, interval_ms=300)
+        await d.show_number(7, display.GOLD, interval_ms=300, start_col=0)
         print("8/16: show_number(7) -- holds about 1.5s, then the screen is blank")
         await asyncio.sleep(0.8)
 
@@ -244,7 +245,7 @@ async def main() -> None:
         #    leaves this shared image PURPLE.
         _big_image.recolor(display.CYAN)
         for _offset in (0, 3, 5, -2, 8):
-            await d.show_image(_big_image, offset=_offset, interval_ms=900)
+            await d.show_image(_big_image, offset=_offset, interval_ms=900, start_col=0)
             print(f"9/16: Display.show_image(offset={_offset}) rendered")
         print("9/16: Display.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
 
@@ -293,7 +294,7 @@ async def main() -> None:
         _t0 = time.monotonic()
         try:
             await asyncio.gather(
-                d.show_string(_text_11, display.GREEN, interval_ms=_interval_ms_11),
+                d.show_string(_text_11, display.GREEN, interval_ms=_interval_ms_11, start_col=0),
                 _trigger_rotation_after(_rotate_at_s_11, 270),
             )
             _elapsed_11 = time.monotonic() - _t0
@@ -348,7 +349,7 @@ async def main() -> None:
         #     step 11: that step cuts a scroll between frames.
         d.clear()
         _held = await asyncio.gather(
-            d.show_string("K", display.MAGENTA, interval_ms=400),
+            d.show_string("K", display.MAGENTA, interval_ms=400, start_col=0),
             _trigger_cancellation_after(0.5, display.ORANGE),
         )
         _token = _held[0]
@@ -363,7 +364,7 @@ async def main() -> None:
         #     The color stays. The call does not clear the screen after the cancel.
         d.clear()
         _looped = await asyncio.gather(
-            d.show_string("A", display.GREEN, interval_ms=200, loop=True),
+            d.show_string("A", display.GREEN, interval_ms=200, loop=True, start_col=0),
             _trigger_cancellation_after(0.8, display.BLUE),
         )
         _token = _looped[0]

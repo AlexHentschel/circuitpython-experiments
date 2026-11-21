@@ -166,3 +166,15 @@ def test_negative_width_raises_in_decoder():
     """
     with pytest.raises(ValueError, match="must be non-negative"):
         colmajor_to_pattern(bytes(WIDTH), width=-1, height=HEIGHT)
+
+
+def test_decoder_width_defaults_to_the_data_length():
+    """Without ``width``, ``colmajor_to_pattern`` decodes every byte as one column.
+
+    - Covers: a default width of ``WIDTH`` that cuts off or pads data of another length.
+    - How: 2 and ``WIDTH + 3`` bytes; the result equals the call with ``width=len(data)``.
+    """
+    for length in (2, WIDTH + 3):
+        data = bytes((i % 7) + 1 for i in range(length))
+        assert colmajor_to_pattern(data, height=HEIGHT) == colmajor_to_pattern(data, width=length, height=HEIGHT)
+        assert len(colmajor_to_pattern(data, height=HEIGHT).split("\n")[0].split(" ")) == length  # cells are separated by spaces

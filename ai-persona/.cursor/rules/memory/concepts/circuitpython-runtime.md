@@ -2,7 +2,7 @@
 
 **Content scope**: `[domain:circuitpython-runtime]` `[family:circuitpython]` — applies across every CircuitPython project in this persona (exp09/11/13/14/15), with concrete-evidence anchors on the RP2040 port. Provenance: surfaced during the exp14 display-library refactor (`[project:circuitpython-exp14-display]`), but the knowledge is family-wide, so it lives centrally, not in a project folder (R-7 / *Don't guess an association into a deep, specific bucket*).
 **Status**: `evidence-supported` for the source-tagged claims; `[inferred]` / Verification-Queue items are explicitly marked below.
-**Concepts in this domain** (one `### …` section each): heap structure (RP2040 split-heap doubling) · `gc` module surface · preallocate-mutate-in-place · `memoryview` · `const()` · no native/viper · name loading (LOAD_FAST vs LOAD_GLOBAL) · `neopixel.NeoPixel` allocation · import-time vs hot-path allocation · user-facing `asyncio` vs builtin `_asyncio` · **`asyncio.sleep(0)` still yields once** · **`mpy-cross` is CircuitPython’s binary, not PyPI MicroPython** · **`#` comments and docstrings are absent from `.mpy`** · **`__slots__` not implemented on CircuitPython**. Project-application notes + known gaps + a runtime Verification Queue follow.
+**Concepts in this domain** (one `### …` section each): heap structure (RP2040 split-heap doubling) · `gc` module surface · preallocate-mutate-in-place · `memoryview` · `const()` · `@micropython.native` / `.viper` · name loading (LOAD_FAST vs LOAD_GLOBAL) · `neopixel.NeoPixel` allocation · import-time vs hot-path allocation · user-facing `asyncio` vs builtin `_asyncio` · **`asyncio.sleep(0)` still yields once** · **`mpy-cross` is CircuitPython’s binary, not PyPI MicroPython** · **`#` comments and docstrings are absent from `.mpy`** · **`__slots__` not implemented on CircuitPython**. Project-application notes + known gaps + a runtime Verification Queue follow.
 **Related concepts** (`_RELATIONS.md`): `preallocate` / `neopixel allocation` will *compose-with* a future `led-driving` domain; `memoryview` *complemented-by* `fonts` (glyph-raster access). See `_RELATIONS.md`.
 **Provenance / history**: produced 2026-04-20 (exp14 P1.7) via the Researcher + independent-Verifier + Editor loop; extended 2026-04-21 (LOAD_FAST/LOAD_GLOBAL). Reshaped from the monolithic `TECHNICAL.md § Memory Management on CircuitPython` into this concept-domain file at the 2026-06-14 warm reset (R-9 — content reproduced faithfully below; only the concept-graph wrapper is new). Source-tag legend: `[CPy-src]` = `github.com/adafruit/circuitpython` source tree, `[CPy-docs]` = `docs.circuitpython.org`, `[CPy-lib]` = Adafruit CircuitPython library repo, `[Adafruit-learn]` = learn.adafruit.com guide explicitly marked CircuitPython, `[inferred]` = reasoned from general-Python semantics or unverified MicroPython-adjacent evidence, `[on-device-experiment]` = measured on the project's YD-RP2040.
 
@@ -65,11 +65,70 @@ A packed RGB int (`(r << 16) | (g << 8) | b`, max `0xFFFFFF`) fits a small int o
 
 `const(2)` is more efficient than the plain assignment. It is not more efficient than the literal. It is that literal, and the source still has the name.
 
-**Scale, exp16 `Button.run`, not timed on UID `0740D10F1BE9`.** The loop compares `_state` once per 10 ms empty wake and a few times per delivered event. One `LOAD_GLOBAL` against a 10 ms `sleep_ms` does not move the ~5 ms average wait after an event is queued. Mechanism `evidence-supported` (this `const()` entry + *LOAD_GLOBAL*). The "noise next to the sleep" claim is that mechanism applied to this loop, `unverified` as a measured delta.
+**Scale, exp16 `Button.run`.** The loop compares `_state` once per 10 ms empty wake and a few times per delivered event. One `LOAD_GLOBAL` against a 10 ms `sleep_ms` does not move the ~5 ms average wait after an event is queued. Mechanism `evidence-supported`. A 25-add loop on UID `0740D10F1BE9` (2026-11-16, § On-device bytecode timings) did not separate `const` from a plain module int (83.4 vs 83.2 µs). A local copy of that int was 6.3 µs faster per 25 adds. The fold is still the compile-time mechanism above; that loop did not show a run-time gap between the const name and the plain global.
 
-### `@micropython.native` and `@micropython.viper` are not available
+### `@micropython.native` and `@micropython.viper`
 
-The CircuitPython `micropython` module exposes only `micropython.const` [CPy-docs, `shared-bindings/micropython`, 2026-04-20]. Native-emit (`MICROPY_EMIT_THUMB` / `MICROPY_EMIT_INLINE_THUMB`) is gated behind `CIRCUITPY_ENABLE_MPY_NATIVE` in `circuitpy_mpconfig.h`, which is not enabled for the standard RP2040 build [CPy-src, 2026-04-20]. Known broken: `adafruit/circuitpython` issue #8902; `native_if_available` is a no-op fallback introduced by PR #2282. Do not plan performance around these decorators on this port — stay in plain Python with preallocated buffers and `struct.pack_into`.
+`[family:circuitpython]`. Open when any experiment compiles with `mpy-cross` or asks whether a hot function can be native or viper. The always-read cue is `concepts/_INDEX.md`. Board names below are the chips the tags were checked on, not a single project's library.
+
+**Family rule.** With the 10.3.x `mpy-cross` (the binary is built from `adafruit/circuitpython`, not a separate project): no decorator in source that must also produce a bytecode `.mpy`. One decorated source cannot yield both a bytecode file and a native file until `optional=True`, which is on git `main` and in tag 11.0.0-alpha.3, not in any 10.3.x release. Applied to exp16: bytecode only, no decorator in `lib/`.
+
+| Question | Answer for mpy-cross 10.3.x | Where it fails or loads |
+|---|---|---|
+| Decorator in a `.py` on a board whose emitter is off (stock 10.3.0 and 10.3.1, including every espressif board and RP2350) | No. `SyntaxError: invalid micropython decorator` | On-board compiler. `CIRCUITPY_ENABLE_MPY_NATIVE` defaults to 0, so `MICROPY_EMIT_NATIVE` is 0 (`py/compile.c`, tags 10.3.0 and 10.3.1) |
+| Cross-compile with `-march=xtensawin`, deploy the `.mpy` to stock 10.3.0 espressif (BPI-Bit-S2 checked) | No. The compile succeeds. Import raises `ValueError: native code in .mpy unsupported` | 10.3.0 has no `CIRCUITPY_LOAD_NATIVE`. Firmware arch is `NONE` (`py/persistentcode.c`). 10.3.1 espressif port does not turn the loader on |
+| Cross-compile with `-march=armv7emsp`, deploy to a stock RP2350 on **10.3.1** | Yes, that `.mpy` loads. A `.py` with the decorator still does not | Whole `raspberrypi` port: `CIRCUITPY_LOAD_NATIVE ?= 1` in `ports/raspberrypi/mpconfigport.mk`. Load body is on via `MICROPY_ENABLE_NATIVE_CODE` (10.3.1 `py/persistentcode.c`). Not run on a board. RP2040 on the same port wants `-march=armv6m` instead |
+| One source → a bytecode `.mpy` and a native `.mpy` | No, on 10.3.x. No `-march` is `SyntaxError: invalid arch`. Any `-march` marks the whole file native | `@micropython.native(optional=True)` is that switch (`py/compile.c`). On git `main` and tag **11.0.0-alpha.3** (2026-11-12). Absent from 10.3.2, 10.4.0-alpha.2, and 11.0.0-alpha.1. A viper body that uses `ptr8` or `uint` is still illegal as bytecode |
+
+Plain bytecode from one source is the path that does serve both boards: one `mpy-cross` run, no decorator, header arch `NONE`. mpy version 6, native sub-version 3, on 10.3.0, 10.3.1, and `main` as read 2026-11-17 (`py/persistentcode.h`).
+
+Two different switches, often confused:
+
+| Switch | What it builds | Stock 10.3.0 `bpi_bit_s2` |
+|---|---|---|
+| `CIRCUITPY_ENABLE_MPY_NATIVE` | On-board **compiler** that turns `@micropython.native` / `.viper` in a `.py` into machine code at import. In 10.3.0 this flag turns on the **Thumb** emitter only (`MICROPY_EMIT_THUMB`), which is the wrong instruction set for ESP32-S2. | Default **0**. Not set in `ports/espressif/mpconfigport.mk` or `boards/bpi_bit_s2/mpconfigboard.mk`. |
+| `CIRCUITPY_LOAD_NATIVE` | **Loader** only: import a `.mpy` that `mpy-cross` already filled with machine code. No on-board compiler. A `.py` that contains the decorator still fails to import. | **Does not exist** in the 10.3.0 tree. 10.3.1 global default **0**. The 10.3.1 raspberrypi port sets it **1** for every RP2040 and RP2350 board (`ports/raspberrypi/mpconfigport.mk`). Espressif, including `bpi_bit_s2`, does not. |
+
+**What the names mean** (so a later firmware bump is not read as "the library can be recompiled as-is"):
+
+- `@micropython.native` — machine code for that function; values stay Python objects. Helps a tight arithmetic loop. Does not remove the cost of calling into C (`PixelBuf`, `neopixel_write`).
+- `@micropython.viper` — a restricted dialect: typed locals (`int`, `uint`, `ptr8`, `ptr16`, `ptr32`, …) and raw pointer stores. Not a faster version of ordinary library Python (no general object allocation, no `asyncio` in the typed body).
+- Both are **compile-time** decorators, not functions you call. With the emitter compiled out they are a syntax error, not a no-op.
+
+**Runtime module surface, 10.3.0.** `py/modmicropython.c` exports `const` unconditionally. `opt_level`, `heap_lock`, `mem_info`, and the rest sit behind `CIRCUITPY_MICROPYTHON_ADVANCED`, which `py/circuitpy_mpconfig.h` sets to **0**. `schedule` / `RingIO` need ROM level extra features; the default ROM level is core features. There is no `micropython.native` attribute. `native` and `viper` are never runtime names on this firmware.
+
+**On-device `.py` (emitter off).** `py/compile.c` `compile_built_in_decorator` only accepts `native` / `viper` inside `#if MICROPY_EMIT_NATIVE`. That macro is the OR of the arch emitters (`py/mpconfig.h`); all of them are 0 on this firmware, so the decorator falls through to `SyntaxError: invalid micropython decorator`. `@micropython.bytecode` remains legal and changes nothing (bytecode is already the default).
+
+**Host `mpy-cross` on this Mac (confirmed 2026-11-15).** Binary `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/mpy-cross-macos-10.3.0-arm64`, `CircuitPython 10.3.0 on 2026-08-31; mpy-cross emitting mpy v6.3`. It is a cross-compiler: the M3's CPU is not a target. `-march=host` prints `unable to determine host architecture` (no Apple ARM64 emitter). `-march` accepts `x86`, `x64`, `armv6`, `armv6m`, `armv7m`, `armv7em`, `armv7emsp`, `armv7emdp`, `xtensa`, `xtensawin`, `rv32imc`, `rv64imc`, `debug`.
+
+| Invocation | Result on this binary |
+|---|---|
+| `@micropython.native` or `.viper`, no `-march` | `SyntaxError: invalid arch` (dynamic-compiler table slot 0 is NULL) |
+| `@micropython.viper(optional=True)`, no `-march` | Same `invalid arch`. The word `optional` does not occur in 10.3.0 or 10.3.1 `py/compile.c`. The call arguments are ignored because a built-in decorator is not compiled as a call. |
+| `-march=xtensawin` with the decorator, or `-X emit=native` / `emit=viper` | Writes a native `.mpy`. Header byte 2 = `0x2b` = sub-version 3 \| arch `XTENSAWIN` (10). |
+| `-march=xtensa` | Different machine code. Header byte 2 = `0x27` (arch `XTENSA`, 9). That is the non-windowed emitter, not the ESP32-S2 ABI. |
+| Same file, one plain function and one `@micropython.native` | Whole module header is `0x2b`. One decorated function marks the `.mpy`. |
+| No decorator | Header `43 06 00 1f` (`C`, version 6, arch none, 31-bit small int), same prefix as the vendored `lib/asyncio/*.mpy`. |
+
+CircuitPython's magic byte is `C`, not MicroPython's `M` (`py/persistentcode.c`, comment `CIRCUITPY-CHANGE`). A file starting with `M` raises `MicroPython .mpy file; use CircuitPython mpy-cross`.
+
+**Why ESP32-S2 would be `xtensawin` if a loader existed.** ESP32-S2 is windowed Xtensa (`XCHAL_HAVE_WINDOWED`). On `main` (read 2026-11-15) `py/persistentcode.h` maps that to `MP_NATIVE_ARCH_XTENSAWIN` / the `-march=xtensawin` name. `xtensa` (no `win`) is the other emitter. Stock 10.3.0 never consults that mapping.
+
+**What the 10.3.0 firmware does with a native `.mpy`.** `mp_raw_code_load` (`py/persistentcode.c`) decodes the arch from header byte 2. Arch `NONE` loads as bytecode. Any other arch is tested against the firmware's own arch. With every emitter off, that arch is `NONE`, and the error is `ValueError: native code in .mpy unsupported` (the comment above it mentions enabling `MICROPY_EMIT_THUMB`, which would still be the wrong ISA here). A firmware that had a *different* emitter would say `incompatible .mpy arch` instead. The native-load body itself is inside `#if MICROPY_EMIT_MACHINE_CODE`, so this build has no loader behind the check. Not executed on UID `0740D10F1BE9`; the strings and the `#if` are the 10.3.0 tag that the board's UF2 was built from (`mpy-cross` version line `2026-08-31`, same date as that firmware).
+
+**`optional=True` (CircuitPython repo `main`, first seen in tag 11.0.0-alpha.3, 2026-11-12).** There is no separate mpy-cross project. The host binary is built from `mpy-cross/` in `adafruit/circuitpython`, and it uses the same `py/compile.c` as the firmware. "Main" means that repo's `main` branch. `docs/troubleshooting.rst` on that branch: the board cannot compile these decorators from `.py`; `optional=True` runs the function as ordinary bytecode, and `mpy-cross` without `-march` does the same. With `-march=armv7emsp` the same source still emits native, because the dynamic-compiler table slot is filled. Viper-only types (`ptr8`, `uint`, …) then raise `NameError` if that function actually runs as bytecode. Checked absent: tags 10.3.0, 10.3.1, 10.3.2, 10.4.0-alpha.2, 11.0.0-alpha.1 (`py/compile.c` has no `optional=True`). 10.4.0 was dropped; the 11.0.0-alpha.1 note says 11.0.0 is the next stable after 10.3.x. No release date. Stable spacing just before this: 10.2.0 on 2026-04-22, 10.3.0 on 2026-08-31. 11 alphas: alpha.1 2026-09-24, alpha.2 2026-10-21, alpha.3 2026-11-12. mpy version on alpha.3 is still 6, sub-version 3. The `foo.<arch>.mpy` search is written up under § `mpy-cross` (first present in 11.0.0-alpha.3 `py/builtinimport.c`; absent from every 10.3.x tag checked).
+
+**`main` / 11.0.0-alpha.3 espressif loader, not a 10.3.x release.** Tag 11.0.0-alpha.3 `ports/espressif/mpconfigport.mk` sets `CIRCUITPY_LOAD_NATIVE ?= 1` (confirmed 2026-11-17). Tag 10.3.2 has no such line. The global default in `py/circuitpy_mpconfig.mk` stays 0. `boards/bpi_bit_s2/mpconfigboard.mk` does not override it, so a future UF2 built from that alpha would load native `.mpy` on the Bit-S2 unless the board file opts out. Re-read the port mk and the board mk on the tag you actually flash. `MICROPY_PERSISTENT_CODE_LOAD_NATIVE` is that flag OR `CIRCUITPY_ENABLE_MPY_NATIVE`. Windowed Xtensa maps to `-march=xtensawin`. Viper remains a different language from ordinary library Python.
+
+**RP2350 on CircuitPython 10.3.1 (source-read 2026-11-17, not run on a board).** The loader is on for the whole `raspberrypi` port, so a stock 10.3.1 RP2350 UF2 can import a native `.mpy`. The on-board compiler stays off (`CIRCUITPY_ENABLE_MPY_NATIVE` is still unset), and 10.3.1 `compile.c` has no `optional=True`, so a `.py` with either decorator is still `SyntaxError: invalid micropython decorator` on the RP2350. The path that works is host `mpy-cross -march=armv7emsp`, then copy that `.mpy` only onto the RP2350 drive. The load body in 10.3.1 `py/persistentcode.c` is compiled in when `MICROPY_ENABLE_NATIVE_CODE` is set, and that macro is `MICROPY_EMIT_NATIVE || MICROPY_PERSISTENT_CODE_LOAD_NATIVE`, so the loader is present even though the on-board emitter is not. A 10.3.0 RP2350 UF2, or a board file that sets `CIRCUITPY_LOAD_NATIVE = 0`, still raises `native code in .mpy unsupported`.
+
+The RP2350 firmware is built `-march=armv8-m.main+fp+dsp -mcpu=cortex-m33 -mthumb -mfloat-abi=softfp` (`ports/raspberrypi/Makefile`, `CHIP_VARIANT=RP2350`). `py/persistentcode.h` turns `__thumb2__` plus single-precision `__ARM_FP` into `MP_NATIVE_ARCH_ARMV7EMSP`, and accepts any arch from `ARMV6M` up through that. The matching `mpy-cross` flag is `-march=armv7emsp`. There is no `armv8m` flag. RP2040 is `-march=armv6m` only; an `armv7emsp` file fails its arch test. One native `.mpy` cannot serve RP2040, RP2350, and ESP32-S2. mpy version is still 6, native sub-version still 3, so the 10.3.0 `mpy-cross` binary on this Mac emits a header 10.3.1 will accept. Not executed on hardware.
+
+**One source, two boards, 10.3.x `mpy-cross`.** This compiler will not ignore the decorator. No `-march` → `SyntaxError: invalid arch`. Any `-march` marks the whole module native, so a board whose loader is off (`native code in .mpy unsupported` on 10.3.0 espressif) refuses the file. `optional=True` is the ignore switch: without `-march`, or on a board whose emitter is off, the function stays bytecode; with `-march=armv7emsp` the same source emits native. It is on CircuitPython git `main` and tag 11.0.0-alpha.3, not in 10.3.x. Viper bodies that use `ptr8` / `uint` are not valid bytecode; ignoring the decorator then raises `NameError` when the function runs. A `@micropython.native` function whose body is ordinary Python can fall back. The bytecode artifact must contain zero native functions.
+
+**Act.** For a 10.3.x deploy, compile with the matching CircuitPython `mpy-cross` and no `-march`, and do not put these decorators in that source. Bytecode-level levers remain `const`, `LOAD_FAST`, and preallocated buffers. A board on 10.3.1 raspberrypi (RP2040 or RP2350) can take a second artifact, `-march=armv6m` or `-march=armv7emsp`, from a separate compilation, and only that drive gets the native `.mpy`. Do not wait on `optional=True` before 11.0.0.
+
+**Status:** `evidence-supported` for the 10.3.0, 10.3.1, 10.3.2, and 11.0.0-alpha.3 source flags, the decorator and `persistentcode` error strings, and the mpy-cross probes on this Mac (2026-11-15). On-device import of a native `.mpy` not run. `[family:circuitpython]`. Exp16 `lib/` is one application (bytecode only), recorded as a pointer in that project's `CONTEXT.md` and `CONCLUSIONS.md`. Supersedes the 2026-04-20 RP2040-only wording. Issues `#8902` (RP2040, open, long-term) and `#7966` (Thumb flag on ESP32-S3 crashes; that flag does not turn on Xtensa) stay the historical reports.
 
 ### Name loading: LOAD_FAST vs LOAD_GLOBAL
 
@@ -83,7 +142,7 @@ Happy-path cost comparison: `LOAD_FAST_*` is one array subscript; `LOAD_GLOBAL` 
 
 **Practical rule**: in any hot function, bind module-global references (`_pixels`, `_LUT`, module-scope constants, imported names) into function-local names once near the top. Every inner-loop use of those names then dispatches as `LOAD_FAST_*` rather than `LOAD_GLOBAL`. Applied example in this project: `lib/display/core.py::_render_colmajor` does `pixels = _pixels; lut = _LUT; off = OFF` before entering the `(x, y)` loops.
 
-**Scope and caveat**: this is a mechanism-verified claim (shared VM, identical opcode dispatch, identical `mp_map_lookup` in `mp_load_global`), not a cycle-counted microbenchmark on RP2040. Absolute speedup is workload-dependent and dominated by how many inner-loop references the hot function makes per iteration. See also § "`@micropython.native` and `@micropython.viper` are not available" — there is no native-compiled escape hatch on this port, so plain-Python bytecode-level optimizations like this one are the primary performance lever available. An on-device `time.monotonic_ns()` delta around a LOAD_FAST/LOAD_GLOBAL A/B remains optional follow-up in the Verification Queue if a specific hot path surfaces as a bottleneck.
+**Scope and caveat**: mechanism-verified (shared VM, identical opcode dispatch, identical `mp_map_lookup` in `mp_load_global`). Absolute speedup is workload-dependent. Stock 10.3.0 has no native emitter (§ `@micropython.native`). **Measured 2026-11-16** on UID `0740D10F1BE9` (ESP32-S2, CP 10.3.0 only; § On-device bytecode timings): a local copy beat a plain module global by 6.3 µs over 25 adds. Caching `OFF` on a 25-pixel list frame saved 3.7 µs, inside the noise. Caching `self.pixels` / `self.lut` / `self.off` saved 57 µs per frame, about the same size as that run's spread.
 
 ### `neopixel.NeoPixel` allocation behavior
 
@@ -208,9 +267,23 @@ Host probe 2026-10-02 (the bundle's pure-Python `task.py`/`core.py` 3.1.1 on CPy
 
 ### `mpy-cross` is CircuitPython’s binary, not PyPI MicroPython
 
-Host bytecode compile for a CircuitPython board must use **Adafruit’s** `mpy-cross` matching the firmware series (S3 `bin/mpy-cross/macos/`, e.g. `mpy-cross-macos-10.3.0-arm64`). Adafruit: do **not** use `pip install mpy-cross` / pypi.org — that tool is MicroPython and emits the wrong `.mpy` ([Adafruit-learn] “Creating an .mpy file”; [CPy-src] issue #10032). CP **10.3.0** emits **mpy v6.3** (binary `--version`, 2026-09-04). Installed binary, located 2026-09-27: `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/mpy-cross-macos-10.3.0-arm64`. Compiling `.py` → `.mpy` catches CP-rejected syntax; it is not an on-device run.
+Host bytecode compile for a CircuitPython board must use **Adafruit’s** `mpy-cross` matching the firmware series (S3 `bin/mpy-cross/macos/`, e.g. `mpy-cross-macos-10.3.0-arm64`). Adafruit: do **not** use `pip install mpy-cross` / pypi.org — that tool is MicroPython and emits the wrong `.mpy` ([Adafruit-learn] “Creating an .mpy file”; [CPy-src] issue #10032). CP **10.3.0** emits **mpy v6.3** (binary `--version`, 2026-09-04). Installed binary, located 2026-09-27: `/Users/alex/Development/PythonVEs/CircuitPython_3.13_VsCode/bin/mpy-cross-macos-10.3.0-arm64`. Compiling `.py` → `.mpy` catches CP-rejected syntax; it is not an on-device run. The binary is built from `mpy-cross/` inside `adafruit/circuitpython` and shares `py/compile.c` with the firmware of that tag. There is no separate mpy-cross release line.
 
-**Status:** `evidence-supported` for the warning + 10.3.0 → v6.3 on this Mac.
+**`.mpy` header (10.3.0 `py/persistentcode.c` / `.h`, still the layout on 11.0.0-alpha.3).** Four bytes: `'C'`, `MPY_VERSION`, arch-and-subversion, small-int bit width. `MPY_VERSION` is 6 and `MPY_SUB_VERSION` is 3 on tags 10.3.0, 10.3.1, 10.3.2, and 11.0.0-alpha.3 (read 2026-11-17). A bytecode file stores arch 0, so byte 2 is 0 and byte 3 is `0x1f` (31). Same prefix as vendored `lib/asyncio/*.mpy`. Do not pass `-msmall-int-bits`; the default is 31, and `header[3] >` the firmware's small-int width raises `ValueError: incompatible .mpy file`.
+
+| Header | Import result |
+|---|---|
+| First byte `'M'` | `ValueError: MicroPython .mpy file; use CircuitPython mpy-cross` |
+| Not `'C'`, or version byte ≠ 6, or small-int bits too wide | `ValueError: incompatible .mpy file` |
+| Arch 0 (bytecode) | Sub-version is not checked. One such file loads on every board of that `MPY_VERSION`, Espressif and RP2350 included |
+| Arch ≠ 0, and the firmware's own arch is `NONE` (10.3.0, and 10.3.x espressif) | `ValueError: native code in .mpy unsupported` |
+| Arch ≠ 0, firmware has a loader but for a different arch | `ValueError: incompatible .mpy arch`. Native sub-version must also equal 3 |
+
+**Native / viper** (`-march`, `-X emit=`) is a different question from bytecode. Decision table: § `@micropython.native` and `@micropython.viper`. `-X emit=native` or `emit=viper` together with `-march` compiles the whole module that way, decorators or not.
+
+**Import names, tag 11.0.0-alpha.3 only** (`py/builtinimport.c`, gated on `MICROPY_PERSISTENT_CODE_LOAD_NATIVE`). Search order is `foo.py`, then `foo.<arch>.mpy`, then `foo.mpy`. `<arch>` is the firmware's `mpy-cross -march` name (`MPY_FEATURE_ARCH_NAME`), for example `foo.armv7emsp.mpy` or `foo.xtensawin.mpy`. A `.py` wins. No 10.3.x tag has this probe (`builtinimport.c` has zero `MPY_FEATURE_ARCH_NAME` hits on 10.3.0, 10.3.1, 10.3.2). The 11.0.0-alpha.3 troubleshooting page: a `foo.<arch>.mpy` built for another architecture or CircuitPython version raises rather than falling through to `foo.mpy`. Espressif `CIRCUITPY_LOAD_NATIVE ?= 1` is in that alpha (`ports/espressif/mpconfigport.mk`) and absent from 10.3.2. 10.4.0, which announced the espressif loader, was dropped; the next stable is 11.0.0, no date.
+
+**Status:** `evidence-supported` for the PyPI warning, 10.3.0 → v6.3 on this Mac, the header checks on the 10.3.1 `persistentcode.c` (same checks as 10.3.0), and the version / import-name probes on the tags above. `[family:circuitpython]`.
 
 ### `#` comments and docstrings are absent from CircuitPython `.mpy` files
 
@@ -284,7 +357,59 @@ Every bytecode jump also runs `RUN_BACKGROUND_TASKS` (`MICROPY_VM_HOOK_LOOP` in 
 
 ### Caching `module.attr` in a local — only for tight loops
 
-`f = asyncio.sleep_ms` turns a global lookup plus an attribute lookup into one local read. That is the MicroPython speed-guide trick for tight loops. In a loop that `await`s a 10 ms sleep on every pass (exp16 `Button.run` idle poll), it saves an estimated 1–3 µs per pass, about 100 passes/s per button. That is well under 0.2 % CPU, and the scheduler work inside `sleep_ms` costs more. **Act:** do not add the alias in sleep-paced loops; prefer plain `asyncio.sleep_ms(...)`. A captured alias also ignores a later monkeypatch of `asyncio.sleep_ms` in host tests. **Status:** per-call cost `unverified` (estimate, not measured on UID `0740D10F1BE9`). `[domain:circuitpython-runtime]`
+`f = asyncio.sleep_ms` turns a global lookup plus an attribute lookup into one local read. That is the MicroPython speed-guide trick for tight loops. In a loop that `await`s a 10 ms sleep on every pass (exp16 `Button.run` idle poll), it saves an estimated 1–3 µs per pass, about 100 passes/s per button. That is well under 0.2 % CPU, and the scheduler work inside `sleep_ms` costs more. **Act:** do not add the alias in sleep-paced loops; prefer plain `asyncio.sleep_ms(...)`. A captured alias also ignores a later monkeypatch of `asyncio.sleep_ms` in host tests. **Status:** the 1–3 µs estimate for one `module.attr` alias in a sleep loop was not re-measured. A related on-device figure (UID `0740D10F1BE9`, 2026-11-16, § On-device bytecode timings): caching three attributes across a 25-pixel frame saved 57 µs versus reading them per pixel. `[domain:circuitpython-runtime]`
+
+### A Python function or method call is never inlined; merging two helpers saves one real call
+
+`[domain:circuitpython-runtime]` Question (Alex, 2026-11-15, exp16 `Display._ensure_integer_offset_and_acquire`, which merges an offset check and `_acquire`): is there compiler inlining, and what does a call cost?
+
+- **No inlining of Python calls.** `py/compile.c` / `py/emitbc.c` (adafruit/circuitpython `10.0.x`) contain "inline" only for the inline *assembler* (`@asm_thumb` etc., not available here, see § `@micropython.native`). The compiler does constant folding (`MICROPY_COMP_CONST_FOLDING`) but never substitutes a function body at a call site.
+- **What one call executes** (`py/vm.c`, `py/objfun.c::fun_bc_call`): `MP_BC_LOAD_METHOD` (`mp_load_method` finds the method without creating a bound-method object), `MP_BC_CALL_METHOD`, then `fun_bc_call` decodes the code-state size, allocates the frame (`alloca` on the C stack when `state_size <= VM_MAX_STATE_ON_STACK`, else the heap), zeroes it, runs `mp_setup_code_state` (argument binding), and calls `mp_execute_bytecode` recursively; on return it frees a heap frame. `MICROPY_STACKLESS` defaults to 0 in `py/mpconfig.h`, so a call recurses the C VM; whether the espressif port overrides that was not checked.
+- **Consequence.** A call is a fixed per-call cost of that setup, paid again for every call regardless of the callee's size. Merging two always-paired helpers removes one such setup per use.
+- **Measured 2026-11-16** on UID `0740D10F1BE9` only (§ On-device bytecode timings): one extra Python call was **9.4 µs** (`_ensure_integer_offset` then `_acquire` vs the merged function). A `_write_column` call was **9.5 µs** on a list stand-in and **24 µs** when the body wrote a real `NeoPixel`. A per-cell callback was **4.9 µs** above the inlined conditional. A `xy_to_index` call was **5.9 µs** per pixel above `lut[x_base + y]`.
+- **Act.** A docstring may say "saves one method call" and may cite those microseconds with the board and date. Apply the 2026-11-16 compounding rule in § On-device bytecode timings: a local, low-risk rewrite of about 1% of a frame is worth taking. A once-per-frame merge of about 9 µs (0.5% of one `show()`) is already that kind of edit when it does not duplicate a body. Inlining `_write_column` is not: the call is 6.1% of one `show()`, and the edit copies the body at every site.
+
+**Status:** `evidence-supported` for "no inlining" (source read, `10.0.x` branch; 10.3.0 tag not re-read) and for the 2026-11-16 call times on this one board.
+
+### On-device bytecode timings (BPI-Bit-S2, CP 10.3.0, 2026-11-16)
+
+**Platform limit.** One board: BPI-Bit-S2, ESP32-S2, UID `0740D10F1BE9`, CircuitPython 10.3.0 built 2026-08-31, 25 onboard WS2812, brightness 0.02. These numbers are for that platform. They are not a measurement of RP2040, RP2350, or any other firmware. Repeat recipe, compiler, and raw CSV: exp16 `ai-notes/2026-11-16_perf-benchmark/EXPERIMENT.md` (gitignored; if absent, the table below is the record). Verdicts for the display library: `RESULTS.md` in that same folder.
+
+**How a number was taken.** `mpy-cross` 10.3.0 bytecode, header `43 06 00 1f`, no `-march`. `time.monotonic_ns` step on this board was **30504 ns** (one 32768 Hz tick). `gc.collect()` before every sample. Per-call µs = (work loop − empty `while` loop) / n. Seven rounds, median. Samples aimed at 250 ms. The figure still includes one outer Python call; paired deltas cancel that when both functions have the same shape. `show()` was timed alone.
+
+**Anchor.** `NeoPixel.show()` of 25 pixels: **1954 µs** (min 1949). One empty `while` step 1.94 µs. One list store 18.7 µs. One `monotonic_ns()` call 21.1 µs. One `NeoPixel` store 40.2 µs. `NeoPixel.fill` of 25: 69.6 µs.
+
+**Yardstick (Alex, 2026-11-16).** State every cost in µs and as a fraction of one `show()` of 25 pixels (1954 µs), the base cost every frame pays anyway. Icon/pattern frames were tried as a yardstick and dropped. Fractions in the table below are of that `show()`. The same figures, with hardware and firmware named, sit in the code as the maintainer note on performance numbers at the top of exp16 `lib/display/core.py` (after the module docstring); the cost notes there say "benchmarked". Update both places if a run is repeated.
+
+**Deltas that clear the noise**, as a fraction of that 1954 µs `show()`:
+
+| What | Delta | Fraction of one `show()` |
+|---|---|---|
+| Single pattern scan vs `Image` + window render, list, x=0 mono | scan faster by 1559 µs. NeoPixel: 1916 µs. x=2 and dict color match this shape | 80% list, 98% NeoPixel |
+| `"".join(raw.split())` vs space/tab/CR `replace`, 4 short rows | join slower by 422 µs. Design-time codec. `join` still strips every whitespace class | 22% |
+| `xy_to_index` call vs `lut[x_base + y]`, 25 pixels | call slower by 148 µs (5.9 µs/pixel) | 7.6% |
+| Per-cell function vs inlined conditional, 25 cells | call slower by 122 µs (4.9 µs/cell) | 6.2% |
+| `_write_column` call vs inlined body, 5 columns | +48 µs on a list (9.5 µs/call), +119 µs on NeoPixel (24 µs/call) | 2.4%, 6.1% |
+| `min`/`max` clamp vs two compares | `min`/`max` slower by 91 µs per clamp | 4.7% |
+| New `x` scanner vs pre-change scanner, x=0 | new slower by 83 µs | 4.3% |
+| Early column-count exit vs full count, long text, limit 5 | early faster by 63 µs. Short text under the limit: tie (39 vs 41 µs) | 3.2% |
+| Ring `%` vs two loops | modulo slower by 44 µs/frame | 2.2% |
+| Three column loops vs the pre-change single loop, x=0 | three loops slower by 25 µs list, 41 µs NeoPixel | 1.3%, 2.1% |
+| `isinstance` vs `type(x) is int` | `isinstance` slower by 25 µs | 1.3% |
+| `min` vs one compare | `min` slower by 27 µs | 1.4% |
+| Second Python call around the token swap | +9.4 µs | 0.5% |
+| Per-column multiply vs `x_base += HEIGHT` | multiply slower by 14–16 µs/frame | under 1% |
+| Fresh 25-byte LUT vs in-place fill | fresh +18 µs and 48 bytes temporary, 0 bytes retained after `gc.collect` | 0.9% |
+
+**Ties (do not cite a winner).** `const` vs a plain module int over 25 adds (83.4 vs 83.2 µs). Local `OFF` vs global `OFF` on a 25-pixel frame (3.7 µs). `while` margin loops vs `for` (24 µs at x=0, inside that run's spread; tie at x=2). Three loops vs one loop with a per-column branch at x=0 (0.4 µs). `.mpy` function vs the same source `exec`'d on device (0.4 µs). Import time of a `.py` file was not measured.
+
+**Heap, one call, then `gc.collect`.** `Image` construction: 720 bytes temporary for a mono pattern, 976 for a dict pattern, 0 retained. The scan's own allocation was not measured; the raw CSV repeats the Image figures on the scan row.
+
+**Decision rule (Alex, 2026-11-16).** A hot-path saving of about 1% of one `show()` (1954 µs) or of one full frame (icon 2733 µs, pattern scan 3552 µs) is worth taking when the edit is a local rewrite, low risk, and adds very little code. Ten such edits are about 10%. A tie, inside the run's median-to-min spread, is not a saving. Copying a helper into every call site, or narrowing which characters count as whitespace, fails that test even when the percent is larger. Open this section before editing an exp16 display hot path.
+
+**Act for this display library.** The fast local forms are already in the source: compares instead of `min`/`max`, running add instead of a per-column multiply, `type(x) is int`, the merged offset check, the in-place LUT, the early column count, the two ring loops, the inlined index, the pattern scan, and the duplicated cell loops. They stay, including the ones near 1%. Do not inline `_write_column` (6.1% of one `show()`; the edit copies the body). Do not split out an `x == 0` scanner to win back 83 µs (4.3% of one `show()`). Do not switch `while`/`for` (a tie). Correct the `bitmap_codec` sentence that calls `join` overhead negligible; keep `join` because it strips every whitespace class. No algorithm was changed from this run. Comments only (2026-11-16 later): the stale "speed gain is unmeasured" and "builtin call costs more" notes in `core.py`, and "Join only adds negligible overhead" in `bitmap_codec.py` (measured +422 µs for four rows), now cite these numbers.
+
+**Status:** `evidence-supported` for this board and this firmware on 2026-11-16. `[domain:circuitpython-runtime]` `[project:circuitpython-exp16-planetx]`.
 
 ### Import-time vs. hot-path allocation
 
