@@ -239,13 +239,12 @@ which are also `Icon`s). Because a bitmap has no display, the same bitmap can be
 
 For drawing a section of an image, `Image` has a type-specific helper, `Image._render_window(disp, offset)`. It draws the
 image columns `offset` to `offset + WIDTH - 1` onto the given `Display` `disp`; display columns the image does not reach are off,
-and a negative `offset` leaves the first display columns off. `Display.render_image` calls it once (with `offset = -start_col`),
-`Display.show_image` does the same through `render_image`, and `Display.scroll_image` calls it once per step with `offset` moved
-by one column.
+and a negative `offset` leaves the first display columns off. `Display.render_image` calls it once (with `offset = -start_col`).
+`Display.show_image` calls `_render_window` the same way. It does not call `render_image`. `Display.scroll_image` calls it once per frame,
+moving `offset` by one column.
 
-`Icon` has no such helper. `Display.render_icon` with `start_col=0` writes the icon's column bytes (`icon._columns`) straight to the
-pixels. For any other `start_col` it wraps those bytes in a temporary `Image` and uses the same `_render_window`, so `start_col` places an
-`Icon` exactly as it places an `Image`.
+`Icon` has no such helper. `Display.render_icon` and `Display.show_icon` draw `icon._columns` through `_render_colmajor` for every
+`start_col`, including `0`. They do not build a temporary `Image`. `render_arrow` / `show_arrow` do the same for arrow `Icon`s.
 
 ## Singleton design & `deinit`
 

@@ -9,39 +9,53 @@ buffer and coordinate Look-Up Table [LUT] (populated via
 
 Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number,
-                   set_pixel, render_filled, set_rotation, set_brightness, get_pixel, clear.
-  Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
-                   show_string, show_number, hold, repeat_until_cancelled.  Require ``await`` from
-                   asyncio code.
+                   render_image, set_pixel, render_filled, set_rotation, set_brightness,
+                   get_pixel, clear.
+  Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, show_filled, show_string,
+                   show_number, scroll_image, scroll_string, scroll_number, hold,
+                   repeat_until_cancelled. Require ``await`` from asyncio code.
   Lifecycle:      deinit — releases the data pin / RMT peripheral; *this instance*
                    is unusable afterwards (no re-init path on it), but the pin is
                    now free for a newly-constructed ``Display()``.
 
-Cancellation policy:
-* any display-mutating method cancels an in-progress Tier 2 animation, and starting a new
-  Tier 2 animation cancels any earlier one. The exceptions are ``get_pixel`` (pure read),
-  ``set_brightness``, and ``set_rotation``; in other words running animation is not disturbed
-  when the user dims the matrix or rotates the frame.
-* Consistent with the general rule of in-progress Tier 2 animation being cancelled
-  by any display-mutating method, ``set_pixel`` and ``show_string`` also cancel a
-  Tier 2 operation:
-  - ``set_pixel`` leaves the display on the most recent frame only with the set pixel
-    being updated. If the coordinate is outside the LED matrix, the latest frame is
-    left unchanged and kept on the display.
-  - ``show_string`` scrolls the string across the display, one column at a time, replacing
-    whatever was showing. A scroll leaves the screen blank unless it got cancelled (in
-    which case the cancelling operation specifies the display's new content). A string
-    short enough to fit is drawn from the left and held (no scrolling for convenience of reading),
-    and very roughly held for a similar time as if the text was scrolled and thereafter
-    cleared. An empty string shows that blank frame. ``loop=True`` keeps scrolling (or
-    holding a short string) until another display operation cancels the call.
-* Every Tier 2 method returns a ``Token``. ``Token.was_completed`` stays true once the call has run to its own end
-  (a later operation taking over the display does not change it). ``Token.is_expired`` becomes true when a later
-  display operation takes the display (no matter whether the Token's display operation completed or was cancelled).
-  After the ``await`` for a display operation returns, when ``Token.is_expired`` is False, the display is still as
-  that operation left it.
-* Tier 1 methods (and ``deinit``) do not return a token: there is nothing to
-  await after them, so there is nothing meaningful to have been cancelled.
+Contract:
+* ``render_<noun>`` is sync. It puts the picture up and returns. The picture stays until
+  something else uses the display.
+* ``show_<noun>`` is async. It does the matching render, waits ``duration_ms``, then blanks,
+  unless something else took the display during the wait. It returns a ``Token``.
+  Text or a number wider than the display is cut off on the right. To move it, call
+  ``scroll_string`` or ``scroll_number``.
+* ``scroll_<noun>`` is async. It moves one column every ``interval_ms`` and returns a ``Token``.
+  ``loop=True`` repeats until something else takes the display.
+  ``blank_edges=True``: the display starts empty, content enters at the right-most LED,
+  leaves at the left-most LED, and the display ends empty.
+  ``blank_edges=False``: the first frame already shows the content's first column on the
+  left-most LED. Content moves left and stops when its last column reaches the right-most LED.
+* ``start_col`` is keyword-only on ``render_*`` and ``show_*`` except ``render_filled``,
+  ``show_filled``, ``set_pixel``, and ``clear``. ``scroll_*`` has no ``start_col``. It is the
+  display column where the content's first column goes. ``0`` is the left-most LED. The default
+  is ``0``.
+* ``hold(duration_ms)`` keeps the current frame. It does not draw and it does not wipe.
+  It does take over the display.
+* Times are integers ``>= 0``. A float or a bool raises ``TypeError``. A negative value raises
+  ``ValueError``. Both happen before the display changes.
+* The verb predicts ``await``: ``render_*``, ``get_pixel``, ``set_brightness``, ``set_rotation``,
+  and ``clear`` are sync. ``show_*``, ``scroll_*``, and ``hold`` are async.
+
+Cancellation:
+* Any display-mutating call expires the running Tier 2 ``Token``: ``render_*``, ``show_*``,
+  ``scroll_*``, ``set_pixel``, ``clear``, and ``hold``. ``get_pixel``, ``set_brightness``, and
+  ``set_rotation`` do not. Dimming or rotating leaves the running animation going.
+* ``set_pixel`` leaves the latest frame, with that pixel updated when ``(x, y)`` is on the
+  matrix. A coordinate outside the matrix leaves the frame unchanged and still expires the
+  running token.
+* Every Tier 2 method returns a ``Token``. ``Token.was_completed`` stays true once the call
+  has run to its own end (a later call taking the display does not change it).
+  ``Token.is_expired`` becomes true when a later display call takes the display, including
+  after completion. After the ``await`` returns, when ``Token.is_expired`` is false, the
+  display is still as that call left it.
+* Tier 1 methods (and ``deinit``) do not return a token: there is nothing to await after
+  them, so there is nothing meaningful to have been cancelled.
 
 Bitmap encoding (used throughout this module): images are stored one column
 at a time (not one row at a time). Monochrome icons/arrows (``Icon``), glyphs, and
@@ -1142,7 +1156,7 @@ class Display:
         The display stays on the most recent frame. When ``(x, y)`` is on the matrix, that pixel is changed and
         flushed. When it is outside, nothing is written and the frame is left as it was. Writing to coordinates
         ``(x, y)`` outside the matrix draws nothing visible, but it still cancels any Tier 2 call that is running
-        (such as a ``show_string`` scroll), as every other display-changing call does.
+        (such as ``scroll_string``), as every other display-changing call does.
         """
         self._acquire()
         if 0 <= x < WIDTH and 0 <= y < HEIGHT:

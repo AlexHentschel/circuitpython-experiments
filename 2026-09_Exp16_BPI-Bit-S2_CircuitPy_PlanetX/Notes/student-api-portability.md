@@ -14,7 +14,7 @@
 
 | Layer | First milestone | Full LightTower | Portable? |
 |-------|-----------------|-----------------|-----------|
-| Display (`show_icon` / `show_string` / `show_number` / `show_arrow`, plus `render_string` / `render_number`) | yes | yes | **yes** — 5×5 vs 8×8 is asset swap, not API change |
+| Display (verb grid: `render_*` / `show_*` / `scroll_*`, plus `hold`, `clear`, `centered`, `start_col`) | yes | yes | **yes** — 5×5 vs 8×8 is asset swap, not API change |
 | Buttons A/B/C/D as press events | yes | yes | **yes** — `button_a` … `button_d` then `.on_pressed` (one handler; a later call replaces it; `None` clears it); constructor seam is *which object* (`buttons.OnboardButtons` vs `planetx.PlanetXButtonSensor`) plus pin or `port=` args |
 | Mast motor / light sensor | no | Watch II / III | **conditional** — semantic `mast` / `is_dark`, not Nezha2 `M4` or a raw pin |
 
@@ -26,7 +26,7 @@ MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: stude
 |----|-----------|
 | G1 | Semantic names for operations, not hardware names in logic. Press handlers are `button_a` / `button_b` on `OnboardButtons` and `button_c` / `button_d` on each `PlanetXButtonSensor`, then `.on_pressed`. One function per press; the student composes anything further inside that function. Icons YES/NO/DIAMOND; arrows by compass. GPIO as **constructor/config arguments** is allowed. |
 | G2 | Constructors and config are the seam. Pins, LUT, font directory live in swap files and/or constructor args. Button wiring is two (or more) objects, not four pins on one dispatcher. Onboard A/B import from ``buttons``; PlanetX C/D from ``planetx`` (``port=J3`` or explicit pins). |
-| G3 | MakeCode-shaped display API is the student API (`show_icon`, `show_string`, `show_number`, `show_arrow`, `hold`). `hold` keeps the current frame; it replaces `pause` in the planned display refactor (not built). Tier 1 (`render_*`, `set_pixel`, patterns) may remain for tests; LightTower examples must not need them. Exception: `render_string` and `render_number` are student-facing Tier 1 methods and have no MakeCode counterpart. |
+| G3 | The display API is a verb grid, and it is the student API. `render_*` draws and returns (stays lit). `show_*` draws, holds for `duration_ms`, then blanks. `scroll_*` moves content one column at a time, at `interval_ms` per column (`blank_edges` chooses marquee or pan). Tier 0 (`get_pixel`, `set_brightness`, `set_rotation`) never interrupts. Also `clear`, `hold`, and `repeat_until_cancelled`. Content is left-aligned by default. `start_col` places it. `centered(...)` centers text on request. Names follow MakeCode where a counterpart exists (`show_icon`, `show_string`, `show_number`, `show_arrow`). `hold` is this library's name for MakeCode's `pause`: it keeps the current frame and does not wipe. Contracts are the library's own, and MakeCode compatibility is no longer a goal (Alex, 2026-10-17). LightTower examples are ported by hand: a MakeCode `show icon` that persists is `render_icon`; one followed by MakeCode `pause(n)` is `show_icon(…, duration_ms=n)`; a long `show string` is `scroll_string`. The verb predicts `await` (render sync; show, scroll, and hold async). |
 | G4 | Same icon/arrow *names* on 5×5 and 8×8 for the LightTower set. Extra 8×8-only names may exist only on 8×8. |
 | G5 | Library internals may be rewritten at the platform switch as long as student call sites still use the same operation names. Constructor signatures may gain/change wiring parameters. |
 | G6 | Anticipate, don't over-build. Motor/light APIs are known-unknowns this milestone. |
@@ -60,7 +60,7 @@ Hardcoded 8×8 `#`/`.` pattern strings and `set_pixel(x,y)` with literal coords 
 
 ## Overnight P1–P6 (host, 2026-09-04)
 
-G1–G4, G6 **confirm** (names + seam). G5 n/a (no platform switch). G7 stand-in only (Watch I sketch deferred). A2/A4 still P8.
+G1, G2, G4, and G6 **confirm** (names + seam) for the guidelines as they stood that night. G5 n/a (no platform switch). G7 stand-in only (Watch I sketch deferred). A2/A4 still P8. G3 was rewritten 2026-11-20 to the verb grid (`start_col`, `hold`, `was_completed`, `is_expired`, `scroll_*`). That rewrite is not part of the 2026-09-04 confirm. Plan: `ai-notes/2026-10-17_display-api-uniformity/05_execution_plan_v1.1.md` § 7, with the names in § Current code.
 
 ## See also
 

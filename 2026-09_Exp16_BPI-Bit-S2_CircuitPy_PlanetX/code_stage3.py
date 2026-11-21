@@ -2,12 +2,11 @@
 
 ``OnboardButtons.run()`` and ``PlanetXButtonSensor.run()`` deliver press
 events while a display loop scrolls an image, then a short status string.
-A press handler calls ``Display.render_arrow``, which cancels whichever
-Tier-2 animation is in flight.
+A press handler calls ``Display.render_arrow``, which takes over the display
+and expires the running token.
 
 Stage 2 walked the async display calls, including a timer-triggered
-cancellation check. We assume that works, and use ``show_string`` /
-``Display.scroll_image`` here as the background animation.
+takeover. This stage assumes that works.
 
   (a) Each button owns its scanner. That button's ``run()`` keeps reading
       the scanner and calling the one handler registered for the press or
@@ -25,26 +24,31 @@ cancellation check. We assume that works, and use ``show_string`` /
       ``asyncio.gather``. A press handler runs inside that button's
       ``run()`` and writes the same ``display`` object the animation coroutine
       uses. CircuitPython asyncio is single-threaded and cooperative:
-      coroutines interleave only at ``await``, so ``Display._acquire`` / the
-      returned ``Token``'s ``is_expired`` (see ``core.py``) is not updated
-      from two places at once.
+      coroutines interleave only at ``await``, so the display token is not
+      updated from two places at once.
 
-What runs:
+Maintainer checklist:
 
   1. Construct both modules and register one press handler per letter.
+     Happens once, before the cycle loop.
   2. Each cycle, ``asyncio.sleep(0.5)`` while both ``run()`` coroutines
-     are running. Serial prints elapsed time and ``[OK]`` when it is
-     within +/-10 ms.
-  3. ``Display.scroll_image`` — the long animation a press can cut short.
-     Restarted every cycle, after rotation 0 and brightness 0.10.
-     When a press cuts it short, the arrow stays up for ``_ARROW_HOLD_MS``
-     of quiet (``pause``). A later press starts that wait over.
-  4. ``show_string`` of the press counts (``A0B0C0D0``). No spaces, so the
-     scroll stays short. The scroll ends on a blank screen. A press can
-     cut this animation short too.
+     are running. ``[OK]`` when elapsed time is within +/-10 ms.
+  3. Idle scroll. With ``_IDLE = "loop"`` (the default):
+     ``token = await scroll_image(..., interval_ms=300, loop=True)``.
+     A press ends it. Then ``while token.is_expired: token = await hold(800)``.
+     The arrow stays up. A later press starts that 800 ms wait over.
+     With ``_IDLE = "repeat"``: ``repeat_until_cancelled`` of one
+     ``scroll_image`` pass. A press does not end it (the next pass draws
+     over the arrow). Step 4 does not run in this mode.
+  4. ``scroll_string`` of the press counts (``A0B0C0D0``). The marquee
+     ends on a blank screen. A press can cut it short. The arrow then
+     stays until the next cycle clears the display.
   5. A press increments that letter's count, prints it, and renders that
      letter's arrow. Presses are delivered whenever those coroutines are
      running, including during steps 2-4.
+
+There is no ``step`` argument. ``hold`` keeps the current frame and does
+not wipe. ``scroll_image`` / ``scroll_string`` take ``interval_ms``.
 
 The three tasks do not return, so both ``run()`` coroutines keep
 listening and the script does not fall through to the REPL.
@@ -61,17 +65,16 @@ from planetx import PlanetXButtonSensor, J3
 
 d = display.display
 
+# "loop": a press ends the idle scroll, then step 4 runs.
+# "repeat": a press does not end the scroll. Step 4 does not run.
+_IDLE = "loop"
+
 print("Stage 3: import display + buttons + planetx OK")
 
-# Built once, not per cycle. Onboard A/B use pin defaults; PlanetX C/D use J3.
 ab = OnboardButtons()
 px = PlanetXButtonSensor(port=J3)
 print("Stage 3: OnboardButtons() + PlanetXButtonSensor(port=J3) constructed OK")
 
-# Background animation, built once. 10 columns x 5 rows (2 * WIDTH x HEIGHT),
-# same shape family as Stage 2's so a human comparing the two stages
-# visually recognizes it as "the same kind of thing," just now
-# interruptible by a real button instead of a synthetic timer.
 _BIG_PATTERN = """
 # . . . . # . . . #
 . # # # . # # . . #
@@ -81,11 +84,6 @@ _BIG_PATTERN = """
 """
 _big_image = display.Image(_BIG_PATTERN, display.CYAN)
 
-# Per-letter feedback: a distinct color + arrow direction so a human
-# watching can tell at a glance which button just fired, purely by what
-# appears on the matrix. A/B point outward (west/east) to loosely mirror
-# their left/right position on the board; C/D (PlanetX, no natural
-# direction) get north/south for visual distinctness from A/B and each other.
 _LETTER_ARROW = {
     "a": Arrows.WEST,
     "b": Arrows.EAST,
@@ -99,26 +97,16 @@ _LETTER_COLOR = {
     "d": display.GOLD,
 }
 
-# Duration of time the arrow stays up after a button press cuts the scroll short (step 3 or 4).
-# A later button press starts this wait over.
+# How long the arrow stays up after a press ends the idle scroll.
+# A later press starts this wait over.
 _ARROW_HOLD_MS = 800
 
 
 class _PressCounter:
     """Stateful, per-letter press handler.
 
-    Each instance owns its own ``letter`` and running ``count`` as plain
-    instance attributes. A callable instance satisfies the
-    ``Callable[[], None]`` handler contract exactly like a function would:
     ``__call__`` takes no arguments beyond ``self``. Sync only: no ``await``
-    inside ``__call__``, matching every other handler in this file.
-
-    Safe without a lock even though four instances all end up calling
-    ``d.render_arrow(...)``: CircuitPython asyncio is single-threaded and
-    cooperative (see module docstring, part (b)). A handler only ever runs
-    to completion between two ``await`` points, never concurrently with the
-    display loop's own writes. Each instance's ``count`` is private to that
-    instance; the only thing shared between letters is ``d`` itself.
+    inside ``__call__``.
     """
 
     def __init__(self, letter: str) -> None:
@@ -128,15 +116,9 @@ class _PressCounter:
     def __call__(self) -> None:
         self.count += 1
         print(f"BUTTON {self.letter.upper()} pressed (count={self.count})")
-        # Tier-1 write from inside that module's ``run()``. Cancels whatever
-        # Tier-2 animation the display loop is in the middle of.
         d.render_arrow(_LETTER_ARROW[self.letter], _LETTER_COLOR[self.letter], start_col=0)
 
 
-# One counter object per letter, registered explicitly by name: a typo here
-# is a NameError/AttributeError at read time, not a silent no-op at runtime.
-# Matches the MakeCode screenshot's idiom of one distinctly-named handler
-# wired individually per event, now on the module that owns that letter.
 press_a = _PressCounter("a")
 press_b = _PressCounter("b")
 press_c = _PressCounter("c")
@@ -148,22 +130,20 @@ px.button_d.on_pressed(press_d)
 print("Stage 3: button_a/b and button_c/d press handlers registered")
 
 
+async def _one_image_pass() -> None:
+    """One ``scroll_image`` pass, for the ``repeat_until_cancelled`` contrast."""
+    await d.scroll_image(_big_image, interval_ms=300)
+
+
 async def _display_loop() -> None:
     cycle = 0
     while True:
         cycle += 1
-        # Each cycle starts from the same empty screen with reset rotation and brightness, independent
-        # of what the previous cycle's animation or a press left on screen (matching Stage 0-2).
         d.clear()
         d.set_rotation(0)
-        d.set_brightness(0.10)  # dimmer than the library default 0.20
-        print(f"\n=== cycle {cycle} ===")
+        d.set_brightness(0.10)
+        print(f"\n=== cycle {cycle} idle={_IDLE!r} ===")
 
-        # 1) Construction + handler registration already happened above.
-
-        # 2) Sleep 0.5 s while both run() coroutines are already running.
-        #    [OK] means the elapsed time stayed within 10 ms, so those
-        #    coroutines did not starve this one.
         _sleep_target_s = 0.5
         _tolerance_s = 0.010
         _t0 = time.monotonic()
@@ -177,41 +157,32 @@ async def _display_loop() -> None:
             f"(concurrent with OnboardButtons.run() + PlanetXButtonSensor.run())"
         )
 
-        # 3) Continuous background animation: the long-running Tier-2 op that
-        #    step 5 (a physical button press, whenever it happens) interrupts.
-        #    Restarted fresh every cycle, matching the "reset at top of cycle"
-        #    convention used throughout this test series.
-        #    A press draws an arrow and the scroll's token is not completed. hold leaves those
-        #    pixels up. A later press cuts that hold short, and the loop starts it
-        #    over, so the status line waits for a 800ms gap without any button presses.
         d.clear()
         _big_image.recolor(display.CYAN)
-        token = await d.scroll_image(_big_image, step=1, interval_ms=300)
-        while not token.was_completed:
-            token = await d.hold(_ARROW_HOLD_MS)
-        print("3/4: Display.scroll_image (a press during it keeps its arrow up for 800 ms)")
+        if _IDLE == "repeat":
+            print(
+                "3/4: repeat_until_cancelled(scroll_image). A press does not end this. "
+                "Step 4 does not run."
+            )
+            await d.repeat_until_cancelled(_one_image_pass)
+        else:
+            token = await d.scroll_image(_big_image, interval_ms=300, loop=True)
+            while token.is_expired:
+                token = await d.hold(_ARROW_HOLD_MS)
+            print(
+                "3/4: scroll_image(loop=True). A press keeps its arrow up for 800 ms, "
+                "restarted by a later press."
+            )
 
-        # 4) Status line: live per-letter press counts, confirming Tier 2
-        #    keeps rendering fresh frames every cycle regardless of whether
-        #    any button has fired yet. Compact, no spaces, to keep the scroll
-        #    short (show_string's scroll path was already proven by Stage 2;
-        #    this is not re-testing it, just using it under button load).
-        #    The scroll ends on a blank screen.
-        _status_line = f"A{press_a.count}B{press_b.count}C{press_c.count}D{press_d.count}"
-        await d.show_string(_status_line, display.WHITE, interval_ms=150, start_col=0)
-        print(f"4/4: show_string('{_status_line}'), live press-count status")
+            _status_line = f"A{press_a.count}B{press_b.count}C{press_c.count}D{press_d.count}"
+            await d.scroll_string(_status_line, display.WHITE, interval_ms=150)
+            print(f"4/4: scroll_string('{_status_line}'), live press-count status")
 
-        print("Cycle complete. Press A, B, C, or D any time; watch the arrow flash and the animation cut short.")
-        await asyncio.sleep(1)
+            print("Cycle complete. Press A, B, C, or D any time; watch the arrow and the scroll cut short.")
+            await asyncio.sleep(1)
 
 
 async def main() -> None:
-    # Three sibling coroutines, none of which ever return: each module's
-    # ``run()`` drains that module's hardware queue forever; ``_display_loop()``
-    # animates forever. ``asyncio.gather`` on never-ending coroutines is the
-    # "run concurrently, forever" shape this stage's claim needs. ``gather``
-    # itself was already confirmed on this device's bundled asyncio by Stage 2's
-    # timer-triggered cancellation check.
     await asyncio.gather(ab.run(), px.run(), _display_loop())
 
 

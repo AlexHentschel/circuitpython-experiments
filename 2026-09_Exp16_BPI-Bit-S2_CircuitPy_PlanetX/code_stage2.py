@@ -4,81 +4,107 @@
 button modules. Stage 3 runs those ``run()`` coroutines beside a display
 animation.
 
-Stage 0 and Stage 1 walked the sync calls (``render_filled`` / ``clear`` /
-``set_pixel`` / ``render_icon`` / ``render_pattern`` / ``render_arrow`` /
-``render_string`` / ``render_number`` / ``get_pixel`` / ``set_rotation`` /
-``Icon(pattern)`` / ``colorwheel``).
-We assume that works, and use those calls here as setup around the async
-steps.
+Stage 0 and Stage 1 walked the sync calls. This stage assumes those work.
 
-What runs:
+Maintainer checklist. Each step prints ``n/25`` and ``[OK|MISMATCH]`` where
+the timing or the token can be checked on the board. Visual-only steps say
+what to watch. Edit ``_PARTS`` to re-run one part (``"A"``, ``"B"``, ``"C"``,
+or ``"ABC"``).
 
-  1. ``asyncio.sleep(0.5)``. Serial prints ``[OK]`` when the elapsed time
-     stays within 10 ms.
-  2. ``show_pattern`` — a green checkerboard, held by ``interval_ms``.
-     The picture stays up after the wait.
-  3. ``show_icon(Emojis.DUCK)``. The picture stays up after the wait.
-  4. ``show_arrow(Arrows.SOUTH)``. The picture stays up after the wait.
-  5. ``show_string("K")`` — fits. Centered for ``interval_ms * WIDTH``,
-     then the screen goes blank.
-  6. ``show_string("STAGE2")`` — wider than the display, so the scrolling
-     path (a column reader into a ring buffer). Ends blank.
-  7. ``show_number(42)`` — ``show_string(str(42))``, also the scroll path.
-     Ends blank.
-  8. ``show_number(7)`` — one digit, so the fit path. Holds, then blank.
-  9. ``Display.show_image`` on a 10-column image at offsets 0, 3, 5, -2,
-     and 8 (left half, straddling both halves, right half, off the left
-     edge, off the right edge). The picture stays up after each wait.
-  10. ``Display.scroll_image`` of that same image.
-  11. A slow ``scroll_image`` gathered with a Tier-1 ``render_filled`` after 1 s.
-      ``render_filled`` cancels the animation (``Display._acquire``), so elapsed
-      time should fall short of the uninterrupted length. Serial prints
-      ``[OK]`` when it does.
-  12. ``show_string("ROTATE")`` gathered with ``set_rotation(270)`` after
-      2.5s. Rotation does not cancel, so the scroll should run out, and
-      the motion should turn from horizontal to vertical. The ``[OK]``
-      check compares elapsed time with ``_scroll_sleep_s``: one empty
-      frame, then one frame per text column, then ``WIDTH`` empty columns,
-      each held for ``interval_ms``.
-  13. ``Display.scroll_image`` gathered with ``set_rotation(180)`` after 1 s.
-      Same non-cancel check, through ``Image._render_window`` rather than
-      step 12's ring buffer. 180 mirrors in place. The estimate is
-      ``(width - WIDTH) // step + 1`` frames.
-  14. ``show_string("K")`` gathered with a ``render_filled`` during the hold.
-      The color stays lit. A blank screen means the hold cleared itself
-      after being cut short. Serial prints ``[OK]`` when the token expired.
-      This is the fit-path hold, not step 11's scroll.
-  15. ``show_string("A", loop=True)`` gathered with a ``render_filled``. The letter
-      would stay up until cancelled. The color stays. Serial prints ``[OK]``
-      when the token expired.
-  16. ``Display.repeat_until_cancelled`` blinks a heart until the task is cancelled.
-      The last picture stays up.
+Part A, show/scroll contract (1-17):
 
-A rotate-then-start-a-new-scroll case is not here. It would only compose
-``set_rotation`` (Stages 0 and 1) with a scroll that starts at a fixed
-rotation (steps 6, 7, and 10).
+  1. ``asyncio.sleep(0.5)``. ``[OK]`` within +/-10 ms.
+  2. ``show_pattern(..., duration_ms=1500)``. Picture, then blank.
+     Elapsed close to 1.5 s. Last frame blank (``get_pixel`` scan).
+  3. ``show_icon(Emojis.DUCK, duration_ms=1500)``. Same checks.
+  4. ``show_arrow(Arrows.SOUTH, duration_ms=1500)``. Same checks.
+  5. ``show_string("K", duration_ms=1500)``. Left-aligned, then blank.
+  6. ``scroll_string("STAGE2")``. Marquee: in from the right, out the left.
+     Elapsed close to ``(1 + columns + WIDTH) * interval_ms``.
+     ``columns`` is ``ScreenText("STAGE2").width``.
+  7. ``scroll_number(42)``. Same marquee check.
+  8. ``show_number(7, duration_ms=1500)``. Hold, then blank.
+  9. ``show_image(img, start_col=k, duration_ms=900)`` for ``k`` in
+     ``0, -3, -5, 2, -8``. A window, then blank, each time.
+  10. ``scroll_image(img)`` marquee. Blank, in, out, blank.
+      Elapsed close to ``(1 + width + WIDTH) * interval_ms``.
+  11. ``scroll_image(img, blank_edges=False)``. Starts on content, ends on
+      the last window, and that window stays lit.
+      Elapsed close to ``(1 + max(0, width - WIDTH)) * interval_ms``.
+  12. Slow ``scroll_image`` gathered with ``render_filled`` at 1 s.
+      Cut short, the fill stays, token ``is_expired``.
+  13. ``scroll_string("ROTATE")`` gathered with ``set_rotation(270)``.
+      The axis turns vertical. Elapsed is not shorter than the marquee.
+  14. ``scroll_image`` gathered with ``set_rotation(180)``. Mirrored in
+      place. Elapsed is not shorter than the marquee.
+  15. ``show_string("K", duration_ms=2000)`` cut by ``render_filled`` at
+      0.5 s. The fill stays. Token ``is_expired``.
+  16. ``scroll_string("HI", loop=True)`` cut by ``render_filled`` after
+      2.5 s. The fill stays. Token ``is_expired``.
+  17. ``repeat_until_cancelled`` blinks a heart (``show_icon`` for 250 ms,
+      then ``clear``). Cancel leaves the last picture up.
+
+Part B, placement (18-22), plus an unnumbered timing print:
+
+  18. Hand-built marquee: ``render_image`` at ``start_col`` from ``WIDTH``
+      down through ``-width``, ``hold(150)`` between frames.
+      Frame count ``== 1 + width + WIDTH``.
+  19. Hand-built pan that jumps two columns:
+      ``start_col`` in ``range(0, -(width - WIDTH) - 1, -2)``,
+      ``hold(200)`` between frames. Watch the jump.
+  20. ``render_icon(HEART, start_col=k)`` for ``k`` from ``WIDTH`` down to
+      ``0``, ``hold(100)`` between frames. Watch the heart slide in.
+  21. ``render_string("HELLO", start_col=k)`` across the display, then
+      ``render_string(centered("1"))`` beside ``render_string("1")``.
+      ``hold`` keeps each still picture visible.
+  22. ``show_filled(RED, duration_ms=500)``. Red, then blank.
+  B-timing. 100 ``render_string("HELLO")`` and 100 ``render_string`` of a
+  prepared ``ScreenText``. Prints elapsed ms and ``gc.mem_free`` delta.
+
+Part C, takeover and argument errors (23-25):
+
+  23. ``scroll_string("IDLE", loop=True)`` gathered with ``render_arrow``
+      after 2.5 s. The scroll stops, the arrow stays, token ``is_expired``.
+  24. ``repeat_until_cancelled(lambda: scroll_string("IDLE"))`` with the
+      same arrow after 2.5 s. The arrow is overwritten and the scroll
+      resumes. The task is still running, then ``task.cancel()`` stops it.
+  25. Argument errors, each with the display left unchanged:
+      ``show_icon(HEART)`` (missing ``duration_ms``);
+      ``show_icon(HEART, duration_ms=-1)``;
+      ``show_icon(HEART, RED, 0, 1000)`` (positional time);
+      ``scroll_string("A", interval_ms=-1)``;
+      ``render_icon(HEART, start_col=1.5)``.
+      ``[OK]`` when the exception type matches and the frame is unchanged.
+      The message text is printed so the board's wording can be copied down.
+
+``show_*`` takes ``duration_ms``. ``scroll_*`` takes ``interval_ms``.
+Placement is ``start_col``. ``hold`` keeps the current frame.
+There is no ``step`` argument.
 
 Each cycle starts at rotation 0 and brightness 0.10. The sequence repeats
 so the script does not fall through to the REPL.
 """
 
 import asyncio
+import gc
 import time
 
 import display
-from display import Emojis, Arrows
-from display.text_layout import ScreenText
+from display import Arrows, Emojis, ScreenText, centered
 
 d = display.display
 
+# Edit to "A", "B", or "C" to re-run one part.
+_PARTS = "ABC"
+
+_HOLD_TOLERANCE_S = 0.10
+_SCROLL_TOLERANCE_S = 0.35
+_SLEEP_TOLERANCE_S = 0.010
+
 print("Stage 2: import asyncio OK")
 
-# Constants for steps 8-10, built once (not per-cycle), matching Stage 1's
-# own allocate-once pattern. 10 columns x 5 rows (2 * WIDTH x HEIGHT):
-# left half is a diamond (distinct shape), right half is a solid block, so
-# `Display.show_image` at offset 0 vs. offset 5 renders two visually
-# distinct windows and `Display.scroll_image` shows a clear transition
-# between them.
+# 10 columns x 5 rows. Left half is a diamond, right half is a solid block,
+# so the show_image windows and the scroll are visually distinct.
 _BIG_PATTERN = """
 . . # . . # # # # #
 . # # # . # # # # #
@@ -89,304 +115,447 @@ _BIG_PATTERN = """
 _big_image = display.Image(_BIG_PATTERN, display.CYAN)
 
 
-def _scroll_sleep_s(text: str, interval_ms: int) -> float:
-    """Seconds that ``Display.show_string(text)`` spends waiting, with no cancellation.
+def _scroll_sleep_s(columns: int, interval_ms: int, blank_edges: bool) -> float:
+    """Seconds of frame waits for one scroll pass, with no cancellation.
 
-    ``c`` is how many columns ``ScreenText(text).width`` reports.
-    Each frame is held for ``interval_ms`` milliseconds. An uninterrupted
-    scroll of text wider than the display waits three groups of frames:
-
-    * 1 frame shows the empty screen before the first column comes in.
-    * ``c`` frames bring the text in, one column at a time.
-    * ``WIDTH`` frames bring in empty columns, one column at a time, until
-      the last text column has left the screen.
-
-    The wait is therefore ``(1 + c + WIDTH) × interval_ms`` milliseconds.
-    Text that fits (``c <= WIDTH``, including an empty string) is centered
-    and held for ``interval_ms × WIDTH`` instead, then the screen is cleared.
-    That clear is not part of this wait. Both formulas are for ``loop=False``.
-    With ``loop=True``, the call runs until cancelled: text that fits stays
-    up, and wider text keeps scrolling.
+    ``columns`` is ``ScreenText(text).width`` or ``image.width``.
+    Marquee (``blank_edges=True``): ``1 + columns + WIDTH`` frames.
+    Pan (``blank_edges=False``): ``1 + max(0, columns - WIDTH)`` frames.
+    One ``interval_ms`` sleep per frame.
     """
-    columns = ScreenText(str(text)).width
-    if columns <= display.WIDTH:
-        return interval_ms * display.WIDTH / 1000
-    return (1 + columns + display.WIDTH) * interval_ms / 1000
+    if blank_edges:
+        frames = 1 + columns + display.WIDTH
+    else:
+        extra = columns - display.WIDTH
+        if extra < 0:
+            extra = 0
+        frames = 1 + extra
+    return frames * interval_ms / 1000
 
 
-async def _trigger_cancellation_after(delay_s: float, color=display.RED) -> None:
-    """Wait ``delay_s`` seconds, then ``render_filled`` with ``color``.
+def _is_blank() -> bool:
+    """True when every LED in the buffer is off."""
+    off = display.OFF
+    for x in range(display.WIDTH):
+        for y in range(display.HEIGHT):
+            if d.get_pixel(x, y) != off:
+                return False
+    return True
 
-    ``render_filled`` calls ``Display._acquire``, which expires the display's current
-    cancellation ``Token``. A Tier-2 call still holding that token returns
-    on its next check (see ``core.py``, "Cancellation policy").
 
-    Used by the scroll-cancel step and by the fit-hold preempt step.
-    """
+def _frame() -> tuple:
+    """One color per LED, row by row, for a before/after compare."""
+    cells = []
+    for y in range(display.HEIGHT):
+        for x in range(display.WIDTH):
+            cells.append(d.get_pixel(x, y))
+    return tuple(cells)
+
+
+def _close(elapsed_s: float, expected_s: float, tolerance_s: float) -> str:
+    if abs(elapsed_s - expected_s) <= tolerance_s:
+        return "OK"
+    return "MISMATCH"
+
+
+async def _trigger_filled_after(delay_s: float, color) -> None:
+    """Wait, then ``render_filled``. That expires the running token."""
     await asyncio.sleep(delay_s)
     d.render_filled(color)
 
 
 async def _trigger_rotation_after(delay_s: float, degrees: int) -> None:
-    """Wait ``delay_s`` seconds, then rotate -- the non-cancelling counterpart
-    to ``_trigger_cancellation_after`` above.
-
-    ``set_rotation`` does not call ``Display._acquire`` (see ``core.py``'s
-    module docstring, "Cancellation policy"). The in-flight Tier-2 animation
-    keeps its token; only the next frame's coordinate mapping changes.
-
-    Runs concurrently with a slow Tier-2 scroll (via ``asyncio.gather``) in
-    the two rotate-while-scrolling steps, changing the display's orientation
-    mid-animation instead of interrupting it. See ``lib/display/README.md``'s
-    "Rotation during an in-flight Tier 2 animation" section for why this is safe:
-    in-place ``_LUT`` mutation + every render primitive re-reading ``_LUT``
-    fresh each frame + ``asyncio``'s cooperative, single-threaded scheduling.
-    """
+    """Wait, then rotate. ``set_rotation`` does not expire the running token."""
     await asyncio.sleep(delay_s)
     d.set_rotation(degrees)
 
 
-async def _pulse_heart() -> None:
-    """One blink for ``Display.repeat_until_cancelled``: a heart, then a dark screen."""
-    d.render_icon(Emojis.HEART, color=display.RED, start_col=0)
-    await asyncio.sleep(0.25)
+async def _trigger_arrow_after(delay_s: float) -> None:
+    """Wait, then draw an arrow. ``render_arrow`` expires the running token."""
+    await asyncio.sleep(delay_s)
+    d.render_arrow(Arrows.NORTH, display.ORANGE)
+
+
+async def _blink_heart() -> None:
+    """One blink: a heart for 250 ms, then a dark screen."""
+    await d.show_icon(Emojis.HEART, display.RED, duration_ms=250)
     d.clear()
-    await asyncio.sleep(0.25)
+
+
+async def _show_then_blank(label: str, call, expected_s: float) -> None:
+    """Await one ``show_*``, then check the elapsed time and a blank frame."""
+    _t0 = time.monotonic()
+    await call
+    _elapsed = time.monotonic() - _t0
+    _time = _close(_elapsed, expected_s, _HOLD_TOLERANCE_S)
+    _blank = "OK" if _is_blank() else "MISMATCH"
+    print(
+        f"{label} elapsed={_elapsed:.2f}s expected={expected_s:.2f}s [{_time}] "
+        f"last frame blank [{_blank}]"
+    )
+
+
+async def _scroll_elapsed(label: str, call, columns: int, interval_ms: int, blank_edges: bool) -> None:
+    """Await one scroll pass and compare elapsed time with the frame law."""
+    _expected = _scroll_sleep_s(columns, interval_ms, blank_edges)
+    _t0 = time.monotonic()
+    await call
+    _elapsed = time.monotonic() - _t0
+    _time = _close(_elapsed, _expected, _SCROLL_TOLERANCE_S)
+    print(
+        f"{label} elapsed={_elapsed:.2f}s expected={_expected:.2f}s "
+        f"(columns={columns}, interval_ms={interval_ms}, blank_edges={blank_edges}) [{_time}]"
+    )
+
+
+async def _check_error(label: str, exc_type: type, invoke) -> None:
+    """Call ``invoke``. ``[OK]`` when the exception type matches and the frame is unchanged."""
+    d.render_filled(display.GREEN)
+    _before = _frame()
+    try:
+        _result = invoke()
+        if hasattr(_result, "__await__"):
+            await _result
+    except exc_type as exc:
+        _intact = _frame() == _before
+        _status = "OK" if _intact else "MISMATCH"
+        print(f"25/25: {label} -> {type(exc).__name__}: {exc} [{_status}] (display unchanged)")
+        return
+    except Exception as exc:
+        print(
+            f"25/25: {label} -> {type(exc).__name__}: {exc} [MISMATCH] "
+            f"(expected {exc_type.__name__})"
+        )
+        return
+    print(f"25/25: {label} -> no exception [MISMATCH]")
+
+
+async def _part_a() -> None:
+    print("\n--- A: show/scroll contract (1-17) ---")
+
+    _sleep_target_s = 0.5
+    _t0 = time.monotonic()
+    await asyncio.sleep(_sleep_target_s)
+    _elapsed = time.monotonic() - _t0
+    _deviation = abs(_elapsed - _sleep_target_s)
+    _status = "OK" if _deviation <= _SLEEP_TOLERANCE_S else "MISMATCH"
+    print(
+        f"1/25: asyncio.sleep({_sleep_target_s}) returned after {_elapsed:.4f}s "
+        f"(deviation={_deviation * 1000:.1f}ms) [{_status}]"
+    )
+
+    _checker = """
+            . # . # .
+            # . # . #
+            . # . # .
+            # . # . #
+            . # . # .
+            """
+    await _show_then_blank(
+        "2/25: show_pattern checkerboard, then blank",
+        d.show_pattern(_checker, display.GREEN, duration_ms=1500),
+        1.5,
+    )
+    await _show_then_blank(
+        "3/25: show_icon(DUCK), then blank",
+        d.show_icon(Emojis.DUCK, display.YELLOW, duration_ms=1500),
+        1.5,
+    )
+    await _show_then_blank(
+        "4/25: show_arrow(SOUTH), then blank",
+        d.show_arrow(Arrows.SOUTH, display.CYAN, duration_ms=1500),
+        1.5,
+    )
+    await _show_then_blank(
+        "5/25: show_string('K') left-aligned, then blank",
+        d.show_string("K", display.MAGENTA, duration_ms=1500),
+        1.5,
+    )
+
+    _stage2_columns = ScreenText("STAGE2").width
+    await _scroll_elapsed(
+        "6/25: scroll_string('STAGE2') marquee, then blank",
+        d.scroll_string("STAGE2", display.WHITE, interval_ms=150),
+        _stage2_columns,
+        150,
+        True,
+    )
+    _forty_two_columns = ScreenText("42").width
+    await _scroll_elapsed(
+        "7/25: scroll_number(42) marquee, then blank",
+        d.scroll_number(42, display.GOLD, interval_ms=150),
+        _forty_two_columns,
+        150,
+        True,
+    )
+    await _show_then_blank(
+        "8/25: show_number(7), then blank",
+        d.show_number(7, display.GOLD, duration_ms=1500),
+        1.5,
+    )
+
+    _big_image.recolor(display.CYAN)
+    for _start_col in (0, -3, -5, 2, -8):
+        await _show_then_blank(
+            f"9/25: show_image(start_col={_start_col}), then blank",
+            d.show_image(_big_image, start_col=_start_col, duration_ms=900),
+            0.9,
+        )
+
+    _big_image.recolor(display.PURPLE)
+    await _scroll_elapsed(
+        "10/25: scroll_image marquee (blank, in, out, blank)",
+        d.scroll_image(_big_image, interval_ms=250),
+        _big_image.width,
+        250,
+        True,
+    )
+    _big_image.recolor(display.CYAN)
+    _t0 = time.monotonic()
+    await d.scroll_image(_big_image, interval_ms=150, blank_edges=False)
+    _elapsed = time.monotonic() - _t0
+    _expected = _scroll_sleep_s(_big_image.width, 150, False)
+    _time = _close(_elapsed, _expected, _SCROLL_TOLERANCE_S)
+    _lit = "MISMATCH" if _is_blank() else "OK"
+    print(
+        f"11/25: scroll_image pan, last window stays lit [{_lit}] "
+        f"elapsed={_elapsed:.2f}s expected={_expected:.2f}s [{_time}]"
+    )
+
+    _big_image.recolor(display.WHITE)
+    _full = _scroll_sleep_s(_big_image.width, 400, True)
+    _t0 = time.monotonic()
+    try:
+        _held = await asyncio.gather(
+            d.scroll_image(_big_image, interval_ms=400),
+            _trigger_filled_after(1.0, display.RED),
+        )
+        _elapsed = time.monotonic() - _t0
+        _token = _held[0]
+        _cut = _elapsed < (_full - 0.4)
+        _fill = d.get_pixel(0, 0) == display.RED
+        _status = "OK" if _cut and _token.is_expired and _fill else "MISMATCH"
+        print(
+            f"12/25: scroll_image cut by render_filled, elapsed={_elapsed:.2f}s "
+            f"full={_full:.2f}s is_expired={_token.is_expired} fill_stays={_fill} [{_status}]"
+        )
+    except AttributeError as exc:
+        print(f"12/25: SKIPPED, {exc!r} (bundled asyncio API gap)")
+
+    _rotate_columns = ScreenText("ROTATE").width
+    _full = _scroll_sleep_s(_rotate_columns, 200, True)
+    d.set_rotation(0)
+    _t0 = time.monotonic()
+    try:
+        await asyncio.gather(
+            d.scroll_string("ROTATE", display.GREEN, interval_ms=200),
+            _trigger_rotation_after(2.5, 270),
+        )
+        _elapsed = time.monotonic() - _t0
+        _status = "OK" if _elapsed >= (_full - _SCROLL_TOLERANCE_S) else "MISMATCH"
+        print(
+            f"13/25: scroll_string('ROTATE') with set_rotation(270), "
+            f"elapsed={_elapsed:.2f}s full={_full:.2f}s [{_status}] "
+            f"-- watch the axis turn vertical"
+        )
+    except AttributeError as exc:
+        print(f"13/25: SKIPPED, {exc!r} (bundled asyncio API gap)")
+    d.set_rotation(0)
+
+    _big_image.recolor(display.BLUE)
+    _full = _scroll_sleep_s(_big_image.width, 200, True)
+    d.set_rotation(0)
+    _t0 = time.monotonic()
+    try:
+        await asyncio.gather(
+            d.scroll_image(_big_image, interval_ms=200),
+            _trigger_rotation_after(1.0, 180),
+        )
+        _elapsed = time.monotonic() - _t0
+        _status = "OK" if _elapsed >= (_full - _SCROLL_TOLERANCE_S) else "MISMATCH"
+        print(
+            f"14/25: scroll_image with set_rotation(180), "
+            f"elapsed={_elapsed:.2f}s full={_full:.2f}s [{_status}] "
+            f"-- watch the motion mirrored in place"
+        )
+    except AttributeError as exc:
+        print(f"14/25: SKIPPED, {exc!r} (bundled asyncio API gap)")
+    d.set_rotation(0)
+
+    _held = await asyncio.gather(
+        d.show_string("K", display.MAGENTA, duration_ms=2000),
+        _trigger_filled_after(0.5, display.ORANGE),
+    )
+    _token = _held[0]
+    _fill = d.get_pixel(0, 0) == display.ORANGE
+    _status = "OK" if _token.is_expired and _fill else "MISMATCH"
+    print(
+        f"15/25: show_string('K') cut by render_filled, "
+        f"is_expired={_token.is_expired} fill_stays={_fill} [{_status}]"
+    )
+    await asyncio.sleep(0.8)
+
+    _held = await asyncio.gather(
+        d.scroll_string("HI", display.GREEN, interval_ms=200, loop=True),
+        _trigger_filled_after(2.5, display.BLUE),
+    )
+    _token = _held[0]
+    _fill = d.get_pixel(0, 0) == display.BLUE
+    _status = "OK" if _token.is_expired and _fill else "MISMATCH"
+    print(
+        f"16/25: scroll_string('HI', loop=True) cut by render_filled, "
+        f"is_expired={_token.is_expired} fill_stays={_fill} [{_status}]"
+    )
+    await asyncio.sleep(0.8)
+
+    _repeat = asyncio.create_task(d.repeat_until_cancelled(_blink_heart))
+    await asyncio.sleep(2.0)
+    _repeat.cancel()
+    try:
+        await _repeat
+    except asyncio.CancelledError:
+        pass
+    print("17/25: repeat_until_cancelled blinked a heart; cancel leaves the last picture up")
+    await asyncio.sleep(0.8)
+
+
+async def _part_b() -> None:
+    print("\n--- B: placement and student-built animations (18-22) ---")
+    _width = _big_image.width
+    _big_image.recolor(display.PURPLE)
+    _frames = 0
+    for _start_col in range(display.WIDTH, -_width - 1, -1):
+        d.render_image(_big_image, start_col=_start_col)
+        await d.hold(150)
+        _frames += 1
+    _expected = 1 + _width + display.WIDTH
+    _status = "OK" if _frames == _expected else "MISMATCH"
+    print(
+        f"18/25: hand-built marquee frames={_frames} expected={_expected} [{_status}] "
+        f"-- watch: looks like scroll_image"
+    )
+
+    _shown = []
+    for _start_col in range(0, -(_width - display.WIDTH) - 1, -2):
+        d.render_image(_big_image, start_col=_start_col)
+        await d.hold(200)
+        _shown.append(_start_col)
+    print(
+        f"19/25: hand-built two-column pan, start_col={_shown} "
+        f"-- watch the jump (no scroll parameter; the range strides by 2)"
+    )
+
+    for _start_col in range(display.WIDTH, -1, -1):
+        d.render_icon(Emojis.HEART, display.RED, start_col=_start_col)
+        await d.hold(100)
+    print("20/25: render_icon(HEART) slide-in, start_col from WIDTH down to 0 -- watch the smoothness")
+
+    _hello = ScreenText("HELLO")
+    for _start_col in range(display.WIDTH, -_hello.width - 1, -1):
+        d.render_string(_hello, display.WHITE, start_col=_start_col)
+        await d.hold(80)
+    d.render_string(centered("1"), display.YELLOW)
+    await d.hold(1000)
+    d.render_string("1", display.YELLOW)
+    await d.hold(1000)
+    print("21/25: HELLO sweeps, then a centered '1', then a left-aligned '1' -- watch the crop and the centering")
+
+    await _show_then_blank(
+        "22/25: show_filled(RED), then blank",
+        d.show_filled(display.RED, duration_ms=500),
+        0.5,
+    )
+
+    gc.collect()
+    _free_0 = gc.mem_free()
+    _t0 = time.monotonic()
+    for _ in range(100):
+        d.render_string("HELLO")
+    _ms_plain = (time.monotonic() - _t0) * 1000
+    _free_plain = gc.mem_free() - _free_0
+    _prepared = ScreenText("HELLO")
+    gc.collect()
+    _free_1 = gc.mem_free()
+    _t0 = time.monotonic()
+    for _ in range(100):
+        d.render_string(_prepared)
+    _ms_prepared = (time.monotonic() - _t0) * 1000
+    _free_prepared = gc.mem_free() - _free_1
+    print(
+        f"B-timing: 100 render_string('HELLO') {_ms_plain:.0f} ms, mem_free delta {_free_plain}; "
+        f"100 render_string(ScreenText) {_ms_prepared:.0f} ms, mem_free delta {_free_prepared}"
+    )
+
+
+async def _part_c() -> None:
+    print("\n--- C: takeover and argument errors (23-25) ---")
+    _held = await asyncio.gather(
+        d.scroll_string("IDLE", display.WHITE, loop=True),
+        _trigger_arrow_after(2.5),
+    )
+    _token = _held[0]
+    _status = "OK" if _token.is_expired else "MISMATCH"
+    print(
+        f"23/25: scroll_string('IDLE', loop=True) cut by render_arrow, "
+        f"is_expired={_token.is_expired} [{_status}] -- the arrow stays"
+    )
+    await asyncio.sleep(0.8)
+
+    _repeat = asyncio.create_task(d.repeat_until_cancelled(lambda: d.scroll_string("IDLE")))
+    await _trigger_arrow_after(2.5)
+    await asyncio.sleep(0.8)
+    _still = "OK" if not _repeat.done() else "MISMATCH"
+    _repeat.cancel()
+    try:
+        await _repeat
+        _stopped = "MISMATCH"
+    except asyncio.CancelledError:
+        _stopped = "OK"
+    print(
+        f"24/25: repeat_until_cancelled(scroll_string('IDLE')) still running after the arrow [{_still}], "
+        f"stopped on cancel [{_stopped}] -- the arrow flashes, then the scroll resumes"
+    )
+
+    await _check_error(
+        "show_icon(HEART) missing duration_ms",
+        TypeError,
+        lambda: d.show_icon(Emojis.HEART),
+    )
+    await _check_error(
+        "show_icon duration_ms=-1",
+        ValueError,
+        lambda: d.show_icon(Emojis.HEART, duration_ms=-1),
+    )
+    await _check_error(
+        "show_icon positional time",
+        TypeError,
+        lambda: d.show_icon(Emojis.HEART, display.RED, 0, 1000),
+    )
+    await _check_error(
+        "scroll_string interval_ms=-1",
+        ValueError,
+        lambda: d.scroll_string("A", interval_ms=-1),
+    )
+    await _check_error(
+        "render_icon start_col=1.5",
+        TypeError,
+        lambda: d.render_icon(Emojis.HEART, start_col=1.5),
+    )
 
 
 async def main() -> None:
     cycle = 0
     while True:
         cycle += 1
-        # Each cycle starts at rotation 0 and brightness 0.10, independent
-        # of what the previous cycle left set. 0.10 is dimmer than the
-        # library default 0.20.
         d.set_rotation(0)
         d.set_brightness(0.10)
-        print(f"\n=== cycle {cycle} ===")
-
-        # 1) asyncio.sleep(0.5). [OK] means elapsed time stayed within 10 ms,
-        #    so the scheduler honored the delay.
-        _sleep_target_s = 0.5
-        _tolerance_s = 0.010
-        _t0 = time.monotonic()
-        await asyncio.sleep(_sleep_target_s)
-        _elapsed = time.monotonic() - _t0
-        _timing_deviation = abs(_elapsed - _sleep_target_s)
-        _status = "OK" if _timing_deviation <= _tolerance_s else "MISMATCH"
-        print(
-            f"1/16: asyncio.sleep({_sleep_target_s}) returned after {_elapsed:.4f}s "
-            f"(deviation={_timing_deviation * 1000:.1f}ms, tolerance=+/-{_tolerance_s * 1000:.0f}ms) [{_status}] "
-            f"(asyncio.sleep honored the delay)"
-        )
-
-        # 2) show_pattern holds the checkerboard for interval_ms. Stage 1's
-        #    render_pattern returned immediately and the script slept itself.
-        d.clear()
-        await d.show_pattern(
-            """
-            . # . # .
-            # . # . #
-            . # . # .
-            # . # . #
-            . # . # .
-            """,
-            display.GREEN,
-            interval_ms=1500,
-            start_col=0,
-        )
-        print("2/16: show_pattern(checkerboard) -- picture stays up after the wait")
-
-        # 3) show_icon(Emojis.DUCK). Stage 0 used HEART and Stage 1 used HAPPY;
-        #    we assume those icon paths work.
-        d.clear()
-        await d.show_icon(Emojis.DUCK, color=display.YELLOW, interval_ms=1500, start_col=0)
-        print("3/16: show_icon(Emojis.DUCK) -- picture stays up after the wait")
-
-        # 4) show_arrow(Arrows.SOUTH). Stage 1 used NORTH; we assume that
-        #    arrow path works.
-        d.clear()
-        await d.show_arrow(Arrows.SOUTH, display.CYAN, interval_ms=1500, start_col=0)
-        print("4/16: show_arrow(Arrows.SOUTH) -- picture stays up after the wait")
-
-        # 5) "K" fits. Centered for interval_ms * WIDTH (300 * 5 = 1500 ms),
-        #    then the screen is blank.
-        d.clear()
-        await d.show_string("K", display.MAGENTA, interval_ms=300, start_col=0)
-        print("5/16: show_string('K') -- holds about 1.5s, then the screen is blank")
-        await asyncio.sleep(0.8)
-
-        # 6) "STAGE2" is wider than the display, so show_string scrolls.
-        #    Columns come from ScreenText.width.
-        d.clear()
-        await d.show_string("STAGE2", display.WHITE, interval_ms=150, start_col=0)
-        print("6/16: show_string('STAGE2') -- scrolls, then the screen is blank")
-
-        # 7) show_number(42) is show_string("42"). Two digits, so the scroll path.
-        d.clear()
-        await d.show_number(42, display.GOLD, interval_ms=150, start_col=0)
-        print("7/16: show_number(42), scrolls, then the screen is blank")
-
-        # 8) show_number(7) is one digit, so it fits. Centered for
-        #    interval_ms * WIDTH, then the screen goes blank. Step 7 scrolled.
-        d.clear()
-        await d.show_number(7, display.GOLD, interval_ms=300, start_col=0)
-        print("8/16: show_number(7) -- holds about 1.5s, then the screen is blank")
-        await asyncio.sleep(0.8)
-
-        # 9) show_image on the 10-column image:
-        #      0   left half (diamond), fully on screen
-        #      3   window straddling both halves
-        #      5   right half (solid block)
-        #     -2   two columns off the left edge, drawn OFF
-        #      8   past the right edge, trailing columns drawn OFF
-        #    _render_window writes OFF for uncovered columns, so there is no
-        #    clear between offsets. Recolor to CYAN first: step 10
-        #    leaves this shared image PURPLE.
-        _big_image.recolor(display.CYAN)
-        for _offset in (0, 3, 5, -2, 8):
-            await d.show_image(_big_image, offset=_offset, interval_ms=900, start_col=0)
-            print(f"9/16: Display.show_image(offset={_offset}) rendered")
-        print("9/16: Display.show_image(offset), aligned/in-between/negative/overhang windows of a 10-wide image")
-
-        # 10) scroll_image walks the same image one column per frame.
-        #    PURPLE so it is distinct from step 9's CYAN. Step 9 recolors
-        #    back to CYAN at the start of the next cycle.
-        d.clear()
-        _big_image.recolor(display.PURPLE)
-        await d.scroll_image(_big_image, step=1, interval_ms=250)
-        print("10/16: Display.scroll_image, full-width scroll animation (PURPLE, vs. step 9's CYAN)")
-
-        # 11) Slow white scroll gathered with a Tier-1 render_filled after 1 s.
-        #     render_filled calls _acquire, so the scroll should return early.
-        #     [OK] means elapsed time is at least 0.5 s under the
-        #     uninterrupted length (6 frames x 400 ms). WHITE so this
-        #     scroll is distinct from step 10, and render_filled turns it RED.
-        d.clear()
-        _big_image.recolor(display.WHITE)
-        _full_length_s = 6 * 0.4  # 6 renders (offsets 0..5) x 400 ms/frame, uninterrupted
-        _interrupt_at_s = 1.0
-        _t0 = time.monotonic()
-        try:
-            await asyncio.gather(
-                d.scroll_image(_big_image, step=1, interval_ms=400),
-                _trigger_cancellation_after(_interrupt_at_s),
-            )
-            _elapsed = time.monotonic() - _t0
-            _cancelled_early = _elapsed < (_full_length_s - 0.5)
-            _status = "OK" if _cancelled_early else "MISMATCH"
-            print(f"11/16: cancellation check, elapsed={_elapsed:.2f}s vs interrupt-at={_interrupt_at_s:.2f}s vs uninterrupted-full-length={_full_length_s:.2f}s [{_status}]")
-        except AttributeError as exc:
-            # A missing gather (or similar) is printed and the cycle continues.
-            print(f"11/16: cancellation check SKIPPED, {exc!r} (bundled asyncio API gap)")
-
-        # 12) show_string("ROTATE") gathered with set_rotation(270) after 2.5 s.
-        #     set_rotation does not call _acquire, so the scroll should run
-        #     out, and 270 swaps axes so the motion turns vertical.
-        #     _scroll_sleep_s counts one empty frame, then one frame per
-        #     text column, then WIDTH empty columns.
-        d.clear()
-        d.set_rotation(0)
-        _text_11 = "ROTATE"
-        _interval_ms_11 = 200
-        _full_length_s_11 = _scroll_sleep_s(_text_11, _interval_ms_11)
-        _rotate_at_s_11 = 2.5
-        _t0 = time.monotonic()
-        try:
-            await asyncio.gather(
-                d.show_string(_text_11, display.GREEN, interval_ms=_interval_ms_11, start_col=0),
-                _trigger_rotation_after(_rotate_at_s_11, 270),
-            )
-            _elapsed_11 = time.monotonic() - _t0
-            _not_cancelled_11 = _elapsed_11 >= (_full_length_s_11 - 0.5)
-            _status_11 = "OK" if _not_cancelled_11 else "MISMATCH"
-            print(
-                f"12/16: rotate-while-scrolling (show_string), elapsed={_elapsed_11:.2f}s "
-                f"vs rotate-at={_rotate_at_s_11:.2f}s vs uninterrupted-full-length={_full_length_s_11:.2f}s "
-                f"[{_status_11}] (set_rotation must NOT shorten the scroll, contrast step 11) "
-                f"-- watch for the scroll axis turning horizontal->vertical partway through"
-            )
-        except AttributeError as exc:
-            # Same as step 11: print a missing gather and keep the cycle going.
-            print(f"12/16: rotate-while-scrolling SKIPPED, {exc!r} (bundled asyncio API gap)")
-        d.set_rotation(0)
-
-        # 13) scroll_image gathered with set_rotation(180) after 1 s.
-        #     Same non-cancel as step 12, through Image._render_window.
-        #     180 mirrors in place (step 12's 270 turns the axis).
-        #     The estimate is (width - WIDTH) // step + 1 frames, taken
-        #     from this image's width. [OK] means elapsed time reaches it.
-        d.clear()
-        d.set_rotation(0)
-        _big_image.recolor(display.BLUE)
-        _step_12 = 1
-        _interval_ms_12 = 400
-        _max_start_12 = _big_image.width - display.WIDTH
-        _full_length_s_12 = ((_max_start_12 // _step_12) + 1) * _interval_ms_12 / 1000
-        _rotate_at_s_12 = 1.0
-        _t0 = time.monotonic()
-        try:
-            await asyncio.gather(
-                d.scroll_image(_big_image, step=_step_12, interval_ms=_interval_ms_12),
-                _trigger_rotation_after(_rotate_at_s_12, 180),
-            )
-            _elapsed_12 = time.monotonic() - _t0
-            _not_cancelled_12 = _elapsed_12 >= (_full_length_s_12 - 0.5)
-            _status_12 = "OK" if _not_cancelled_12 else "MISMATCH"
-            print(
-                f"13/16: rotate-while-scrolling (Display.scroll_image), elapsed={_elapsed_12:.2f}s "
-                f"vs rotate-at={_rotate_at_s_12:.2f}s vs uninterrupted-full-length={_full_length_s_12:.2f}s "
-                f"[{_status_12}] (set_rotation must NOT shorten the scroll, contrast step 11) "
-                f"-- watch for the same motion mirrored in place (not turned 90 degrees, unlike step 12)"
-            )
-        except AttributeError as exc:
-            print(f"13/16: rotate-while-scrolling SKIPPED, {exc!r} (bundled asyncio API gap)")
-        d.set_rotation(0)
-
-        # 14) Fitting show_string, loop=False. The full hold would be
-        #     interval_ms * WIDTH (400 * 5 = 2000 ms), then a blank screen.
-        #     A render_filled at 0.5 s cuts that short. The orange stays. This is not
-        #     step 11: that step cuts a scroll between frames.
-        d.clear()
-        _held = await asyncio.gather(
-            d.show_string("K", display.MAGENTA, interval_ms=400, start_col=0),
-            _trigger_cancellation_after(0.5, display.ORANGE),
-        )
-        _token = _held[0]
-        _status = "OK" if not _token.was_completed else "MISMATCH"
-        print(
-            f"14/16: show_string('K') hold cut short by an orange render_filled [{_status}] "
-            "-- the orange stays; a blank screen means the hold cleared itself"
-        )
-        await asyncio.sleep(1.2)
-
-        # 15) loop=True on a fitting letter holds until cancelled. The blue
-        #     The color stays. The call does not clear the screen after the cancel.
-        d.clear()
-        _looped = await asyncio.gather(
-            d.show_string("A", display.GREEN, interval_ms=200, loop=True, start_col=0),
-            _trigger_cancellation_after(0.8, display.BLUE),
-        )
-        _token = _looped[0]
-        _status = "OK" if not _token.was_completed else "MISMATCH"
-        print(
-            f"15/16: show_string('A', loop=True) cut short by a blue render_filled [{_status}] "
-            "-- the blue stays; a blank screen means the hold cleared itself"
-        )
-        await asyncio.sleep(1.2)
-
-        # 16) repeat_until_cancelled repeats _pulse_heart until the task is cancelled.
-        #     The last picture stays on the LEDs.
-        _repeat = asyncio.create_task(d.repeat_until_cancelled(_pulse_heart, sleep_between_ms=50))
-        await asyncio.sleep(2.0)
-        _repeat.cancel()
-        try:
-            await _repeat
-        except asyncio.CancelledError:
-            pass
-        print("16/16: Display.repeat_until_cancelled blinked a heart, then cancel left the last picture up")
-        await asyncio.sleep(1.0)
-
+        print(f"\n=== cycle {cycle} parts={_PARTS!r} ===")
+        if "A" in _PARTS:
+            await _part_a()
+        if "B" in _PARTS:
+            await _part_b()
+        if "C" in _PARTS:
+            await _part_c()
         d.clear()
         print("Cycle complete (Tier 2 async, display only).")
         await asyncio.sleep(1)
