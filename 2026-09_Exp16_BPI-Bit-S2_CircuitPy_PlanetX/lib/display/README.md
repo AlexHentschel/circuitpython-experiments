@@ -62,7 +62,7 @@ before the display changes. To convert a `float`, write `int(1000 / 3)` or use i
 - `show_pattern(pattern, color=WHITE, *, start_col=0, duration_ms)` / `show_icon(icon, color=WHITE, *, start_col=0, duration_ms)` /
   `show_arrow(arrow, color=WHITE, *, start_col=0, duration_ms)` / `show_image(image, *, start_col=0, duration_ms)` /
   `show_filled(color=WHITE, *, duration_ms)` / `show_string(text, color=WHITE, *, start_col=0, duration_ms)` /
-  `show_number(n, color=WHITE, *, start_col=0, duration_ms)` — draw, hold for `duration_ms`, then blank. Always pass the hold time parameter
+  `show_number(n, color=WHITE, *, start_col=0, duration_ms)` — draw, hold for `duration_ms`, then wipe. Always pass the hold time parameter
   by name, for example `duration_ms=1000`. Without the name the call raises `TypeError`. The picture stays up for
   the hold duration. If another display call takes over during the hold, the `show_*` call returns at that point, within 47 ms and not only
   after the full hold, leaving the display to the other caller. With `duration_ms=0`, the call draws, lets other ready tasks run once, and then
@@ -73,12 +73,11 @@ before the display changes. To convert a `float`, write `int(1000 / 3)` or use i
   `scroll_number(n, color=WHITE, *, interval_ms=150, loop=False, blank_edges=True)` — move the picture left across the display,
   one column every `interval_ms`. With `blank_edges=True` it enters from the right-most LED and the display ends empty. With
   `blank_edges=False` it starts with the first column on the left-most LED and stops when the last column reaches the
-  right-most LED (a picture no wider than the display does not move: its first frame is also its last). A scroll ends on its last frame,
+  right-most LED (a picture no wider than the display does not move: its first frame is also its last). When the scroll runs through to its end, it stops on its last frame,
   which stays on the display until another call replaces it. With `loop=True` the scroll repeats until another display call takes over,
   and only then does the scroll call return (leaving the display to the other caller). `interval_ms=0` still lets other ready tasks run once
   between frames. For a letter that stays lit, call `render_string`.
-- `pause(duration_ms)` — cancellable async sleep; returns early if a later
-  display call supersedes this one first.
+- `hold(duration_ms)` — keep the current frame up to `duration_ms`. The call takes over the display, so a running scroll or `show_*` stops. It does not draw and it does not wipe. It returns early if a later display call takes over.
 - `repeat_until_cancelled(callback, sleep_between_ms=10)` — an `async` helper that calls
   `callback` again and again. It ends only when its task is cancelled; display takeover does not stop it.
   `callback` is a function with
@@ -103,35 +102,22 @@ if token.is_expired:
 
 ## Cooperative multitasking & `Token`
 
-`Token` (`__slots__ = ("_is_expired",)`) is a self-contained cancellation
-marker — no back-reference to `Display`, no sequence number to compare.
-`is_expired` is a read-only property backed by `_is_expired`; only
-`Display._acquire()` (module-internal) writes it, so a `Token` is
-immutable from outside `core.py`. `_acquire()`, called internally by
-every display-mutating method, expires the *previous* token in place
-(`self._token._is_expired = True`), mints a fresh one, stores it, and
-returns it.
+`Token` stores two bits in one small int (`_EXPIRED_MASK` is 1, `_COMPLETED_MASK` is 2). `was_completed` and `is_expired` are read-only properties. A claim calls `Token._expire()` on the previous token, which sets the expired bit and leaves the completed bit as it is. `_complete_unless_expired()` sets the completed bit only when the expired bit is still clear. Callers, including the frame loop and `_sleep_pollable`, read `token.is_expired`.
 
-Every **Tier 2** method returns the `Token` its own `_acquire()` call
-produced, so any caller can check `token.is_expired` afterwards. **Tier
-1** methods (and `deinit`) do not return a token — there is nothing to
-`await` after them, so a caller couldn't have anything meaningful to
-check for cancellation against. A Tier 2 method that renders via a Tier
-1 method (e.g. `show_pattern` → `render_pattern`) reads `self._token`
-right after that call to recover the token its internal `_acquire()` minted.
+The public method that owns the display operation is the one that acquires the token and the one that marks it completed. It acquires before it changes a pixel (`_acquire()` or an `_ensure_*_and_acquire()` method). A Tier 2 method calls `_complete_unless_expired()` right before it returns. That call sets `was_completed` to true when the token is not already expired. A helper the operation calls (`_hold_then_blank`, `_scroll_text`, `_sleep_pollable`, and the private draw primitives) does not acquire a token and does not call `_complete_unless_expired()`. That helper can be one step inside a larger operation, so the operation is what takes the display and what reaches its own end. The helper receives the token the caller already holds.
 
-Tier 2 animations capture the token at start and re-check
-`token.is_expired` between frames. This lets a new render cancel an
-ongoing scroll without explicit task cancellation; the scroll coroutine
-simply returns early, returning the (now-expired) token, so the caller
-can tell the two cases apart.
+A public Tier 1 method such as `render_filled` acquires because that call is itself the operation. `show_filled` calls `render_filled` and does not acquire again: it keeps the token `render_filled` minted and marks that token completed when the show ends. The other `show_*` methods draw through private helpers, so they acquire and complete themselves.
 
-**Holds** (`pause` and the waits after `show_pattern` / `show_icon` /
+Every **Tier 2** method returns the `Token` its operation acquired, so any caller can check `token.is_expired` afterwards. **Tier 1** methods (and `deinit`) do not return a token — there is nothing to `await` after them, so a caller couldn't have anything meaningful to check for cancellation against.
+
+Tier 2 animations capture the token at start and re-check the expired bit between frames. A new render sets that bit, so the scroll returns early and `was_completed` stays false. A scroll that reaches its own end sets `was_completed`. A later display call can still set `is_expired`.
+
+**Holds** (`hold` and the waits after `show_pattern` / `show_icon` /
 `show_arrow` / `show_image` / `show_filled` / `show_string` / `show_number`)
 use `core.py`'s `_sleep_pollable(token, total_ms)` instead of a single bare
 `await asyncio.sleep_ms(...)`. The `show_*` methods hold through
 `Display._hold_then_blank(token, duration_ms)`: wait, then wipe the display,
-unless a later call took the display. `_sleep_pollable`
+unless a later call took the display. Like the other helpers, it neither acquires nor marks the token completed. `_sleep_pollable`
 is a free function — it takes a
 `Token` and has no dependency on any `Display` instance's state — that
 chunks the wait into 47 ms pieces and

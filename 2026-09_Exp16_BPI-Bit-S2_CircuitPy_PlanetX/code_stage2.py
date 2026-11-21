@@ -353,7 +353,7 @@ async def main() -> None:
             _trigger_cancellation_after(0.5, display.ORANGE),
         )
         _token = _held[0]
-        _status = "OK" if _token.is_expired else "MISMATCH"
+        _status = "OK" if not _token.was_completed else "MISMATCH"
         print(
             f"14/16: show_string('K') hold cut short by an orange render_filled [{_status}] "
             "-- the orange stays; a blank screen means the hold cleared itself"
@@ -368,7 +368,7 @@ async def main() -> None:
             _trigger_cancellation_after(0.8, display.BLUE),
         )
         _token = _looped[0]
-        _status = "OK" if _token.is_expired else "MISMATCH"
+        _status = "OK" if not _token.was_completed else "MISMATCH"
         print(
             f"15/16: show_string('A', loop=True) cut short by a blue render_filled [{_status}] "
             "-- the blue stays; a blank screen means the hold cleared itself"

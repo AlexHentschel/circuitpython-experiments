@@ -31,7 +31,7 @@ MCU change (ESP32-S2 → RP2350) is hidden by CircuitPython except wiring: stude
 | G5 | Library internals may be rewritten at the platform switch as long as student call sites still use the same operation names. Constructor signatures may gain/change wiring parameters. |
 | G6 | Anticipate, don't over-build. Motor/light APIs are known-unknowns this milestone. |
 | G7 | Student examples are the portability test. One LightTower sketch is the oracle. |
-| G8 | Display `Token` and motor `Token` are separate classes (2026-11-15, not built). **Current recommendation, not accepted (2026-11-17):** two read-only properties, `was_completed` (sticky) and `is_expired` (live; a later operation can set it after completion). Not methods. `was_cancelled` is not a third name. The 2026-11-16 pair `was_completed` / `was_cancelled` is superseded by that recommendation. Docstrings name that device's operations. `task.cancel()` is not this pair. If the working note is absent, persona `projects/circuitpython-exp16-planetx/CONTEXT.md` § Resumption point (2026-11-17) is the status. Working note: `ai-notes/design/token-equivalence.md`. Plan: `ai-notes/design/token-and-hold-plan.md` (read its top banner; the sections under it are the older model). |
+| G8 | Display `Token` and motor `Token` are separate classes. Display (2026-11-20): read-only properties `was_completed` (sticky) and `is_expired` (live; a later display call can set it after completion). Not methods. One small int, bits 1 and 2. `hold` replaced `pause`. Motor `Token` is still the older `is_expired`-only class. `task.cancel()` is not this pair. |
 
 **Confirm** = student **logic** unchanged; constructor args / config may change. **Refute** = a required rewrite of handlers, state machine, or display sequence.
 

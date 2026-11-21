@@ -61,7 +61,7 @@ def test_display_student_ops_exist_on_display_class():
     - How: AST of ``core.py`` (no import); membership of the name list.
     """
     methods = _class_methods(_module_ast(CORE), "Display")
-    for name in ("show_string", "pause", "show_icon", "show_number", "show_arrow", "clear"):
+    for name in ("show_string", "hold", "show_icon", "show_number", "show_arrow", "clear"):
         assert name in methods, name
 
 

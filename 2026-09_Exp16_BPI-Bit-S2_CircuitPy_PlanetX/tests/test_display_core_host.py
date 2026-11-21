@@ -317,10 +317,10 @@ def test_recolor_does_not_redraw(host):
 
 
 def test_zero_hold_yields_once(host):
-    """``pause(0)`` lets a sibling task run. ``pause(100)`` sleeps 47+47+6.
+    """``hold(0)`` lets a sibling task run. ``hold(100)`` sleeps 47+47+6.
 
     - Covers: a 0 ms hold returning with no ``await``, or the chunk sum drifting.
-    - How: create a task that sets a flag; ``await pause(0)``; flag is set. Then sum the millisecond sleeps for 100.
+    - How: create a task that sets a flag; ``await hold(0)``; flag is set. Then sum the millisecond sleeps for 100.
     """
     disp = host.disp
 
@@ -332,11 +332,11 @@ def test_zero_hold_yields_once(host):
 
         asyncio.create_task(other())
         host.sleeps.clear()
-        await disp.pause(0)
+        await disp.hold(0)
         assert flag["ran"] is True
         assert ("ms", 0) in host.sleeps
         host.sleeps.clear()
-        await disp.pause(100)
+        await disp.hold(100)
         assert sum(ms for kind, ms in host.sleeps if kind == "ms") == 100
 
     asyncio.run(run())
@@ -449,7 +449,7 @@ def test_sleep_pollable_expired_at_entry_never_waits(host, poll_ms):
     """
     for total_ms in range(301):
         token = host.core.Token()
-        token._is_expired = True
+        token._expire()
         sleeps, elapsed = _run_sleep_pollable(host, token, total_ms, poll_ms)
         assert sleeps == [0], (total_ms, sleeps)
         assert elapsed == 0
@@ -486,7 +486,7 @@ def test_sleep_pollable_token_expiring_during_the_hold(host, total_ms, expire_du
 
     def expire(call_number):
         if call_number == expire_during_call:
-            token._is_expired = True
+            token._expire()
 
     sleeps, _ = _run_sleep_pollable(host, token, total_ms, on_sleep=expire)
     assert sleeps == expected_sleeps
@@ -545,18 +545,18 @@ def test_sleep_pollable_survives_tick_counter_wraparound(host):
     assert elapsed == 100
 
 
-def test_negative_pause_does_not_cancel(host):
-    """``pause(-1)`` raises before acquiring, so the current token stays.
+def test_negative_hold_does_not_cancel(host):
+    """``hold(-1)`` raises before acquiring, so the current token stays.
 
-    - Covers: a negative pause expiring an in-flight animation.
-    - How: remember ``_token``; ``pause(-1)`` raises ``ValueError``; same token, not expired.
+    - Covers: a negative hold expiring an in-flight animation.
+    - How: remember ``_token``; ``hold(-1)`` raises ``ValueError``; same token, not expired.
     """
     disp = host.disp
     token = disp._token
 
     async def run():
         with pytest.raises(ValueError):
-            await disp.pause(-1)
+            await disp.hold(-1)
 
     asyncio.run(run())
     assert disp._token is token
@@ -1091,7 +1091,7 @@ def test_image_and_icon_are_built_from_a_pattern_only(host):
         ("scroll_string", lambda d, c: d.scroll_string("A", interval_ms=-1)),
         ("scroll_number", lambda d, c: d.scroll_number(7, interval_ms=-1)),
         ("scroll_image", lambda d, c: d.scroll_image(c.Image("#"), interval_ms=-1)),
-        ("pause", lambda d, c: d.pause(-1)),
+        ("hold", lambda d, c: d.hold(-1)),
         ("repeat_until_cancelled", lambda d, c: c.Display.repeat_until_cancelled(lambda: None, -1)),
     ],
 )
@@ -1119,7 +1119,7 @@ def test_negative_time_error_names_method_and_parameter(host, method, call):
         ("scroll_string", lambda d, c, bad: d.scroll_string("A", interval_ms=bad)),
         ("scroll_number", lambda d, c, bad: d.scroll_number(7, interval_ms=bad)),
         ("scroll_image", lambda d, c, bad: d.scroll_image(c.Image("#"), interval_ms=bad)),
-        ("pause", lambda d, c, bad: d.pause(bad)),
+        ("hold", lambda d, c, bad: d.hold(bad)),
         ("repeat_until_cancelled", lambda d, c, bad: c.Display.repeat_until_cancelled(lambda: None, bad)),
     ],
 )
@@ -2429,31 +2429,78 @@ def test_loop_stops_on_takeover_but_repeat_draws_again(host):
     assert asyncio.run(repeat_case()) is True
 
 
-def test_pause_after_an_expired_token_mints_a_fresh_one(host):
-    """A quiet ``pause`` expires the previous token and returns a new one.
+def test_hold_completion_stays_when_a_later_call_expires_the_token(host):
+    """A finished ``hold`` stays ``was_completed`` after the next call sets ``is_expired``.
 
-    - Covers: ``pause`` handing back the token it found, including one a render already replaced.
-    - How: two ``pause(0)`` calls. The first is expired; the second is a different current token.
-      Then ``render_filled`` and one more ``pause`` inside ``while token.is_expired``.
+    - Covers: treating a later claim as "the hold was cut short", or ``hold`` returning the previous token.
+    - How: two ``hold(0)`` calls. The first is completed and then expired. ``render_filled`` expires the second
+      without clearing ``was_completed``. A further quiet ``hold`` is a new completed token.
     """
     disp = host.disp
 
     async def run():
-        first = await disp.pause(0)
-        second = await disp.pause(0)
-        assert first.is_expired is True
+        first = await disp.hold(0)
+        assert first.was_completed is True and first.is_expired is False
+        second = await disp.hold(0)
+        assert first.was_completed is True and first.is_expired is True
         assert second is not first
         assert second is disp._token
+        assert second.was_completed is True and second.is_expired is False
         disp.render_filled(RED)
-        assert second.is_expired is True
-        while second.is_expired:
-            second = await disp.pause(0)
-            break
-        return second
+        assert second.was_completed is True and second.is_expired is True
+        third = await disp.hold(0)
+        return second, third
 
-    token = asyncio.run(run())
-    assert token.is_expired is False
+    finished, token = asyncio.run(run())
+    assert finished.was_completed is True and finished.is_expired is True
+    assert token.was_completed is True and token.is_expired is False
     assert token is disp._token
+
+
+def test_was_completed_survives_a_later_claim_and_a_cut_short_scroll_does_not_set_it(host):
+    """``was_completed`` and ``is_expired`` are independent, and neither property can be assigned.
+
+    - Covers: a finished ``show_icon`` or ``scroll_string`` losing ``was_completed`` when the next call expires it,
+      a ``loop=True`` scroll reporting completion, ``hold`` changing the frame, or a student setting a property.
+    - How: ``show_icon(duration_ms=0)`` then ``render_filled``. ``scroll_string(loop=True)`` cancelled by ``render_filled``.
+      ``hold(0)`` after a white fill. Assigning either property raises ``AttributeError``.
+    """
+    disp = host.disp
+    icon = host.core.Icon._from_columns(b"\x1f\x00\x00\x00\x00")
+
+    async def show_then_fill():
+        token = await disp.show_icon(icon, duration_ms=0)
+        assert token.was_completed is True and token.is_expired is False
+        disp.render_filled(RED)
+        return token
+
+    shown = asyncio.run(show_then_fill())
+    assert shown.was_completed is True and shown.is_expired is True
+    with pytest.raises(AttributeError):
+        shown.was_completed = False
+    with pytest.raises(AttributeError):
+        shown.is_expired = False
+
+    async def cut_short():
+        seen = disp._pixels.shows
+        task = asyncio.create_task(disp.scroll_string("HELLO", interval_ms=0, loop=True))
+        while disp._pixels.shows == seen:
+            await asyncio.sleep(0)
+        disp.render_filled(RED)
+        return await task
+
+    cut = asyncio.run(cut_short())
+    assert cut.was_completed is False and cut.is_expired is True
+
+    async def hold_keeps_the_frame():
+        disp.render_filled(WHITE)
+        before = host.logical()
+        token = await disp.hold(0)
+        return token, before, host.logical()
+
+    held, before, after = asyncio.run(hold_keeps_the_frame())
+    assert held.was_completed is True and held.is_expired is False
+    assert after == before
 
 
 def test_scroll_negative_interval_does_not_take_over(host):

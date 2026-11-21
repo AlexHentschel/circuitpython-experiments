@@ -181,14 +181,14 @@ async def _display_loop() -> None:
         #    step 5 (a physical button press, whenever it happens) interrupts.
         #    Restarted fresh every cycle, matching the "reset at top of cycle"
         #    convention used throughout this test series.
-        #    A press draws an arrow and expires the scroll token. pause leaves those
-        #    pixels up. A later press expires that pause, and the loop starts the hold
+        #    A press draws an arrow and the scroll's token is not completed. hold leaves those
+        #    pixels up. A later press cuts that hold short, and the loop starts it
         #    over, so the status line waits for a 800ms gap without any button presses.
         d.clear()
         _big_image.recolor(display.CYAN)
         token = await d.scroll_image(_big_image, step=1, interval_ms=300)
-        while token.is_expired:
-            token = await d.pause(_ARROW_HOLD_MS)
+        while not token.was_completed:
+            token = await d.hold(_ARROW_HOLD_MS)
         print("3/4: Display.scroll_image (a press during it keeps its arrow up for 800 ms)")
 
         # 4) Status line: live per-letter press counts, confirming Tier 2

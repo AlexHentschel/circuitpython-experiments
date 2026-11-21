@@ -11,7 +11,7 @@ Two-tier API:
   Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number,
                    set_pixel, render_filled, set_rotation, set_brightness, get_pixel, clear.
   Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, scroll_image,
-                   show_string, show_number, pause, repeat_until_cancelled.  Require ``await`` from
+                   show_string, show_number, hold, repeat_until_cancelled.  Require ``await`` from
                    asyncio code.
   Lifecycle:      deinit — releases the data pin / RMT peripheral; *this instance*
                    is unusable afterwards (no re-init path on it), but the pin is
@@ -35,9 +35,12 @@ Cancellation policy:
     and very roughly held for a similar time as if the text was scrolled and thereafter
     cleared. An empty string shows that blank frame. ``loop=True`` keeps scrolling (or
     holding a short string) until another display operation cancels the call.
-* Every Tier 2 method returns a ``Token``; check ``token.is_expired`` to see
-  whether a later display operation has since superseded it. Tier 1
-  methods (and ``deinit``) do not return a token — there is nothing to
+* Every Tier 2 method returns a ``Token``. ``Token.was_completed`` stays true once the call has run to its own end
+  (a later operation taking over the display does not change it). ``Token.is_expired`` becomes true when a later
+  display operation takes the display (no matter whether the Token's display operation completed or was cancelled).
+  After the ``await`` for a display operation returns, when ``Token.is_expired`` is False, the display is still as
+  that operation left it.
+* Tier 1 methods (and ``deinit``) do not return a token: there is nothing to
   await after them, so there is nothing meaningful to have been cancelled.
 
 Bitmap encoding (used throughout this module): images are stored one column
@@ -82,6 +85,14 @@ except ImportError:
     pass
 
 import asyncio
+
+try:
+    from micropython import const
+except ImportError:  # host tests; CircuitPython always provides micropython.const
+
+    def const(value):
+        return value
+
 
 import board
 from adafruit_ticks import ticks_add, ticks_diff, ticks_ms
@@ -522,33 +533,64 @@ Arrows = _build_icon_namespace(ARROW_NAMES, ARROWS)
 
 
 # ---------------------------------------------------------------------------
-# Cancellation token
+# Cancellation token. The two facts are bits in one small int (``_state``).
 # ---------------------------------------------------------------------------
+_EXPIRED_MASK = const(1)
+_COMPLETED_MASK = const(2)
+
+
 class Token:
-    """Tells you whether another display operation has taken over the display since yours started.
-    The ``show_*``, ``scroll_*`` and ``pause`` methods return a ``Token`` when their ``await`` finishes.
-    Check ``is_expired`` on it:
+    """Reports two facts about one display operation, such as a ``show_*``, ``scroll_*``, or ``hold`` call.
+    ``Token.was_completed`` stays true once the call has run to its own end (a later operation taking over the display
+    does not change it). ``Token.is_expired`` becomes true when a later display operation takes the display (no matter
+    whether this call completed or was cancelled). After the ``await`` for a display operation returns, when
+    ``Token.is_expired`` is False, the display is still as that operation left it.
+    You can read ``Token.was_completed`` and ``Token.is_expired``, but not set them.
 
-        token = await display.show_string("Hello", duration_ms=2000)
-        if token.is_expired:
-            print("Another task took over the display while the text was showing")
+        token = await display.scroll_string("Hello", blank_edges=False)  # the scroll's last frame stays lit, with the text ending at the right display edge
+        if token.was_completed and not token.is_expired:
+            display.clear()
 
-    ``is_expired`` is ``False`` while your operation still owns the display. It turns ``True`` as soon as another
-    display operation starts, and never goes back to ``False``. You can read it but not set it.
+    ``clear()`` runs only when the scroll finished and that last frame is still up. Otherwise another display call has already
+    overwritten the display, either during the scroll or after it finished.
     """
 
-    __slots__ = ("_is_expired",)
+    # __slots__ = ("_state",)
+
+    # Formally we use the trailing two bits of the integer ``_state`` to encode two boolean values ``COMPLETED`` and ``EXPIRED``;
+    # in binary representation:  _state ≡ … 0 0 0 [COMPLETED] [EXPIRED].
+    # State machine:
+    #  - when a display operation successfully completes, it sets the COMPLETED bit of its own token to True, by calling ``Token._complete_unless_expired``.
+    #    This should never happen if the display operation was already cancelled, i.e. the token expired. Therefore, ``_complete_unless_expired`` sets
+    #    the COMPLETED bit to True, only if the EXPIRED bit is still clear. (Possible TODO: consider error in case the token is expired).
+    #  - ``_acquire`` and the ``_ensure_*_and_acquire`` methods set the EXPIRED bit of the previous token always to True.
+    #     (irrespective of whether the previous display operation was completed or not, thereby cancelling it if it is still ongoing).
+    _state: int
 
     def __init__(self) -> None:
-        # Read-only from outside this module: ``is_expired`` is a property backed by ``_is_expired``, so external code can check it
-        # but not set it. ``Display._acquire()`` and the ``_ensure_*_and_acquire()`` methods are the only code allowed to
-        # expire a token. They write ``_is_expired`` directly (module-internal access, not the public property).
-        self._is_expired = False
+        self._state = 0  # COMPLETED = EXPIRED ≡ False
+
+    @property
+    def was_completed(self) -> bool:
+        """True once the display operation associated with this token has run to its own end. For a cancelled display operation,
+        this remains False. Once it is True, a later operation taking over the display does not change it."""
+        return (self._state & _COMPLETED_MASK) != 0
 
     @property
     def is_expired(self) -> bool:
-        """True once a later ``_acquire`` or ``_ensure_*_and_acquire`` call has superseded this token."""
-        return self._is_expired
+        """True when a later operation has already taken control of the display, no matter whether the token's own operation was completed or
+        cancelled. After the ``await`` for a display operation returns, False means the display is still as this call left it."""
+        return (self._state & _EXPIRED_MASK) != 0
+
+    def _expire(self) -> None:
+        """Set the expired bit. A completed bit that is already set stays set. Idempotent."""
+        self._state |= _EXPIRED_MASK
+
+    def _complete_unless_expired(self) -> None:
+        """Set the completed bit only when this Token's display operation was not already cancelled. A cancelled call already has the
+        expired bit set and must stay ``was_completed`` false. Repeated calls are harmless."""
+        if not (self._state & _EXPIRED_MASK):
+            self._state |= _COMPLETED_MASK
 
 
 # ---------------------------------------------------------------------------
@@ -632,10 +674,18 @@ class Display:
     LUT reflects current rotation and is updated when rotation is changed by method ``set_rotation``."""
 
     _token: Token
-    """The token of the current display-operation generation. Every display-mutating operation must acquire its own token
-    internally (``_acquire()`` or an ``_ensure_*_and_acquire()`` method) before it changes a pixel. That expires the
-    previous token, which cancels any Tier 2 animation still holding it. The only methods that do not acquire are the
-    non-cancelling ones named in the class docstring: ``get_pixel``, ``set_brightness`` and ``set_rotation``."""
+    """The token of the current display operation. The public method that performs the display-mutating operation acquires a
+    token first (``_acquire()`` or an ``_ensure_*_and_acquire()`` method) before it changes a pixel. 
+    By convention, a Tier 2 method must call ``Token._complete_unless_expired()`` right before it returns. The call sets the
+    token's ``was_completed`` to True iff the token is not already expired.
+
+    Important: A helper the display operation calls, such as ``_hold_then_blank`` or ``_scroll_text``, does not acquire a token
+    and does not call ``Token._complete_unless_expired()``. That helper could be one step inside a larger operation, so the top-level
+    operation is what acquires the display and what declares that the display operation has reached its end.
+
+    Acquiring expires the previous token, which cancels any Tier 2 animation still holding it. See
+    ``lib/display/README.md`` § "Cooperative multitasking & ``Token``". ``get_pixel``, ``set_brightness`` and
+    ``set_rotation`` do not acquire, so they leave a running Tier 2 animation alone. ``set_rotation`` still rewrites the pixels."""
 
     _frame: list[RGBcolor]
     """Scratch buffer for temporarily storing a snapshot of the current frame. For example, ``set_rotation`` uses it to avoid memory
@@ -666,7 +716,7 @@ class Display:
         Expires the previous token (specifically setting ``is_expired`` to True) and creates a new one which is then returned. Any
         Tier 2 animation holding the previous token will see its ``is_expired`` become True on its next check, and should return early.
         """
-        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token._expire()
         self._token = Token()
         return self._token
 
@@ -683,7 +733,7 @@ class Display:
         # ``type(start_col) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
         if type(start_col) is not int:
             raise TypeError(f"{method_name}(): 'start_col' must be an integer, got '{start_col}'")
-        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token._expire()
         self._token = Token()
         return self._token
 
@@ -702,7 +752,7 @@ class Display:
             raise TypeError(f"{method_name}(): '{param_name}' must be an integer, got '{duration}'")
         if duration < 0:
             raise ValueError(f"{method_name}(): '{param_name}' must be >= 0, got '{duration}'")
-        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token._expire()
         self._token = Token()
         return self._token
 
@@ -724,7 +774,7 @@ class Display:
             raise ValueError(f"{method_name}(): 'duration_ms' must be >= 0, got '{duration_ms}'")
         if type(start_col) is not int:
             raise TypeError(f"{method_name}(): 'start_col' must be an integer, got '{start_col}'")
-        self._token._is_expired = True  # module-internal write; public side is read-only
+        self._token._expire()
         self._token = Token()
         return self._token
 
@@ -1164,14 +1214,16 @@ class Display:
     async def _hold_then_blank(self, token: Token, duration_ms: int) -> Token:
         """Wait ``duration_ms``, then turn every LED off, but only if this call's token has not expired.
 
-        The caller has already taken over the display and drew its picture. This helper does not take over again,
-        so it cancels nothing. The wait ends early if another display call expires the token, and the display is
-        then left to that other call (nothing is blanked here).
+        The caller has already taken over the display and drawn its picture. This helper does not mutate the state of the token:
+        a caller may compose this wait into a larger operation. See ``lib/display/README.md`` § "Cooperative multitasking & ``Token``".
+        The token is read only to see whether another display call has expired it. If so, the wait ends early and the display is not
+        touched (the wipe that would follow a finished wait is skipped). The display is left to that other call.
         """
         await _sleep_pollable(token, duration_ms)
-        if not token.is_expired:
-            self._pixels.fill(OFF)
-            self._pixels.show()
+        if token.is_expired:
+            return token
+        self._pixels.fill(OFF)
+        self._pixels.show()
         return token
 
     async def show_pattern(
@@ -1206,7 +1258,9 @@ class Display:
         token = self._ensure_duration_and_start_col_and_acquire("show_pattern", duration_ms, start_col)
         self._write_pattern_on_the_fly(pattern, color, start_col)
         self._pixels.show()
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_icon(self, icon: Icon, color: RGBcolor = WHITE, *, start_col: int = 0, duration_ms: int) -> Token:
         """Draw an ``Icon`` (e.g. ``Emojis.HEART``), hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
@@ -1227,7 +1281,9 @@ class Display:
         columns = icon._columns
         token = self._ensure_duration_and_start_col_and_acquire("show_icon", duration_ms, start_col)
         self._render_colmajor(columns, color, start_col)
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_arrow(self, arrow: Icon, color: RGBcolor = WHITE, *, start_col: int = 0, duration_ms: int) -> Token:
         """Draw an arrow ``Icon`` (e.g. ``Arrows.NORTH``), hold it, then turn the LEDs off.
@@ -1248,7 +1304,9 @@ class Display:
         columns = arrow._columns
         token = self._ensure_duration_and_start_col_and_acquire("show_arrow", duration_ms, start_col)
         self._render_colmajor(columns, color, start_col)
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_filled(self, color: RGBcolor = WHITE, *, duration_ms: int) -> Token:
         """Fill the display with ``color``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
@@ -1262,7 +1320,10 @@ class Display:
         """
         _ensure_non_negative_duration("show_filled", "duration_ms", duration_ms)
         self.render_filled(color)
-        return await self._hold_then_blank(self._token, duration_ms)
+        token = self._token
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_image(self, image: Image, *, start_col: int = 0, duration_ms: int) -> Token:
         """Show a ``WIDTH``-column window of ``image``, hold it for ``duration_ms`` milliseconds, then turn the LEDs off.
@@ -1284,7 +1345,9 @@ class Display:
         """
         token = self._ensure_duration_and_start_col_and_acquire("show_image", duration_ms, start_col)
         image._render_window(self, -start_col)
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_string(
         self,
@@ -1317,7 +1380,9 @@ class Display:
         reader = _reader_for(text)
         token = self._ensure_duration_and_start_col_and_acquire("show_string", duration_ms, start_col)
         self._draw_text(reader, start_col, color)
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def show_number(
         self,
@@ -1346,7 +1411,9 @@ class Display:
         reader = _reader_for(str(n))
         token = self._ensure_duration_and_start_col_and_acquire("show_number", duration_ms, start_col)
         self._draw_text(reader, start_col, color)
-        return await self._hold_then_blank(token, duration_ms)
+        await self._hold_then_blank(token, duration_ms)
+        token._complete_unless_expired()
+        return token
 
     async def scroll_image(
         self,
@@ -1363,8 +1430,8 @@ class Display:
 
         With the default ``blank_edges=True``, the display starts empty. The image comes in at the right-most LED, moves left, leaves at the left-most LED, and
         the display ends empty. With ``blank_edges=False``, the first frame already shows the image's first column on the left-most LED. The image moves left
-        and stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call
-        replaces it: that is a blank display with ``blank_edges=True``, and the image's final window with ``blank_edges=False``.
+        and stops when its last column reaches the right-most LED. When the scroll runs through to its end, it stops on its last frame, which stays on the
+        display until another call replaces it: a blank display with ``blank_edges=True``, and the image's final window with ``blank_edges=False``.
 
         An image of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
         scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such an image is simply drawn again and again until another
@@ -1400,9 +1467,9 @@ class Display:
             last_offset = n  # the window starts at column n: the image has scrolled completely off to the left
         else:
             first_offset = 0
-            last_offset = n - WIDTH  # columns to scroll: the last image column reaches the right-most LED
-            if last_offset < 0:
-                last_offset = 0  # the image fits: one still frame
+            last_offset = n - WIDTH  # columns to scroll, if the image is wider than WIDTH: the last image column then reaches the right-most LED
+            if last_offset < 0:  # the image is narrower than WIDTH and fits on the display
+                last_offset = 0  # so there is nothing to scroll: one still frame
         # Note that it always holds: first_offset ≤ last_offset. When scrolling the image, we want to iterate over the interval
         # [first_offset, last_offset] inclusive of both endpoints.
         offsets = range(first_offset, last_offset + 1)  # reusable: every ``for`` makes a new iterator, no list is built
@@ -1412,8 +1479,10 @@ class Display:
                 image._render_window(self, offset)
                 await sleep_ms(interval_ms)
                 if token.is_expired:
+                    # Already expired, so ``_complete_unless_expired()`` would leave ``was_completed`` false.
                     return token
             if not loop:
+                token._complete_unless_expired()
                 return token
 
     async def _scroll_text(
@@ -1425,13 +1494,19 @@ class Display:
         loop: bool,
         blank_edges: bool,
     ) -> Token:
-        """Scroll content from ``reader`` one column per ``interval_ms``. The caller has already acquired ``token``.
+        """Scroll content from ``reader`` one column per ``interval_ms``.
 
-        With ``blank_edges=True`` the display starts empty, the content comes in from the right, leaves at the left, and the display ends empty.
-        With ``blank_edges=False`` the first column is already on the left-most LED, and the scroll stops when the last column reaches the right-most LED
-        (content of ``WIDTH`` columns or fewer is a single still frame). The last frame stays lit: nothing is cleared at the end. On a normal return the
+        The caller has already acquired ``token``. This helper does not mutate the state of the token:
+        a caller may compose this scroll into a larger operation. See ``lib/display/README.md`` § "Cooperative multitasking & ``Token``".
+        The token is read only to see whether another display call has expired it. If so, the scroll returns at that check and the display
+        is not touched (no further frame is drawn). The display is left to that other call. If ``token`` is already expired on entry,
+        the helper yields once and returns without drawing.
+
+        With ``blank_edges=True`` the display starts empty, the content comes in from the right, leaves at the left, and, when the scroll runs
+        through to its end, the display ends empty. With ``blank_edges=False`` the first column is already on the left-most LED, and the scroll
+        stops when the last column reaches the right-most LED (content of ``WIDTH`` columns or fewer is a single still frame). If the scroll
+        runs through to its end, that last frame stays lit and nothing is cleared. On a return where the scroll ran through to its end, the
         token is not expired. ``loop`` repeats the pass; the call then returns only when another display call expires the token.
-        If ``token`` is already expired on entry, yield once and return it without drawing.
         """
         sleep_ms = asyncio.sleep_ms
         if token.is_expired:
@@ -1508,8 +1583,8 @@ class Display:
 
         With the default ``blank_edges=True``, the display starts empty. The text comes in at the right-most LED, moves left, leaves at the left-most LED, and
         the display ends empty. With ``blank_edges=False``, the first frame already shows the text's first column on the left-most LED. The text moves left and
-        stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call replaces
-        it: that is a blank display with ``blank_edges=True``, and the text's final window with ``blank_edges=False``.
+        stops when its last column reaches the right-most LED. When the scroll runs through to its end, it stops on its last frame, which stays on the display
+        until another call replaces it: a blank display with ``blank_edges=True``, and the text's final window with ``blank_edges=False``.
 
         Text of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
         scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such text is simply drawn again and again until another
@@ -1543,7 +1618,9 @@ class Display:
         """
         reader = _reader_for(text)
         token = self._ensure_non_negative_duration_and_acquire("scroll_string", "interval_ms", interval_ms)
-        return await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
+        await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
+        token._complete_unless_expired()
+        return token
 
     async def scroll_number(
         self,
@@ -1561,8 +1638,8 @@ class Display:
 
         With the default ``blank_edges=True``, the display starts empty. The number comes in at the right-most LED, moves left, leaves at the left-most LED, and
         the display ends empty. With ``blank_edges=False``, the first frame already shows the number's first column on the left-most LED. The number moves left
-        and stops when its last column reaches the right-most LED. A scroll always ends on its last frame, which stays on the display until another call
-        replaces it: that is a blank display with ``blank_edges=True``, and the number's final window with ``blank_edges=False``.
+        and stops when its last column reaches the right-most LED. When the scroll runs through to its end, it stops on its last frame, which stays on the
+        display until another call replaces it: a blank display with ``blank_edges=True``, and the number's final window with ``blank_edges=False``.
 
         A number of ``WIDTH`` columns or fewer does not move with ``blank_edges=False``: its first frame is also its last. With ``blank_edges=True`` it still
         scrolls in and out like any other. With ``loop=True`` and ``blank_edges=False``, such a number is simply drawn again and again until another
@@ -1592,17 +1669,30 @@ class Display:
         """
         reader = _reader_for(str(n))
         token = self._ensure_non_negative_duration_and_acquire("scroll_number", "interval_ms", interval_ms)
-        return await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
+        await self._scroll_text(token, reader, color, interval_ms, loop, blank_edges)
+        token._complete_unless_expired()
+        return token
 
-    async def pause(self, duration_ms: int) -> Token:
-        """Wait up to ``duration_ms`` milliseconds before returning. If a subsequent operation acquires the display
-        before the wait elapses, this method returns immediately instead; check the returned ``Token``'s
-        ``is_expired`` to tell whether the wait was cut short by another task.
+    async def hold(self, duration_ms: int) -> Token:
+        """Keep the picture that is on the display for ``duration_ms`` milliseconds, then return.
 
-        Raises ``TypeError`` if ``duration_ms`` is not an integer, and ``ValueError`` if ``duration_ms < 0``.
+        ``hold`` does not draw anything, and it does not wipe the display afterwards. Use it after a ``render_*`` call to keep that
+        picture up for a set time:
+
+            display.render_number(7)
+            await display.hold(2000)  # the 7 stays up for 2 seconds and is not wiped afterwards
+
+        Calling ``hold`` takes over the display. A scroll or ``show_*`` that is still running stops, and the picture it had drawn stays up.
+        If another display call takes over during the wait, ``hold`` returns at that point (leaving the display to the other caller).
+
+        The returned token tells you which of the two happened: ``token.was_completed`` is True if the whole wait passed, and False if
+        another display call cut it short. It stays True even if another display call takes over later (``token.is_expired`` is then True).
+
+        Raises ``TypeError`` if ``duration_ms`` is not an integer, and ``ValueError`` if ``duration_ms < 0``, before the display changes.
         """
-        token = self._ensure_non_negative_duration_and_acquire("pause", "duration_ms", duration_ms)
+        token = self._ensure_non_negative_duration_and_acquire("hold", "duration_ms", duration_ms)
         await _sleep_pollable(token, duration_ms)
+        token._complete_unless_expired()
         return token
 
     @staticmethod
@@ -1655,7 +1745,7 @@ class Display:
         (a whole number of milliseconds). The time from one start to the
         next is the time ``callback`` takes plus this rest. The rest lets your other tasks (for example
         button handlers) run, even when ``callback`` finishes quickly. If your callback already waits
-        (for example ``show_string`` or ``pause``), the rest is not needed, but by default it is so
+        (for example ``show_string`` or ``hold``), the rest is not needed, but by default it is so
         short (10 ms) that you will probably not notice. Set ``sleep_between_ms=0`` only if the repeat
         must be as fast or as regular as your own callback makes it, for example a repeat every
         1000 ms. Even with ``0``, other ready tasks still get one turn per round.
