@@ -50,7 +50,7 @@ Added 2026-10-02 (Alex). Not started.
   1. Pyright's `reportUnusedCoroutine` already flags a *call statement* whose coroutine result is unused (docs: default `"error"` in basic/standard mode, source `microsoft/pyright` `docs/configuration.md`, fetched 2026-10-02). Does it cover our case in Cursor/VS Code with the CircuitPython stubs (the `async def` methods of `display` must resolve to real coroutine types)? Does it miss "assigned but never used" (`x = display.show_string(...)`)?
   2. Which other tools have a rule (Ruff, flake8-async, Pylint)? Can a custom rule be written, and how hard is a small AST check (`Expr(Call)` statement whose callee resolves to an `async def`)?
   3. Is the diagnostic visible to a 12-year-old: wording, severity (error squiggle vs hint), and does it run in the editor the student uses without setup?
-  4. False positives: fire-and-forget `create_task(...)` returns a Task (not a coroutine), so it is not flagged; `lambda: display.show_string(...)` passed to `forever` must not be flagged.
+  4. False positives: fire-and-forget `create_task(...)` returns a Task (not a coroutine), so it is not flagged; `lambda: display.show_string(...)` passed to `repeat_until_cancelled` must not be flagged.
   5. Where does the config live (per-experiment `pyrightconfig.json` or workspace settings; note VS Code does not merge arrays across settings layers)?
   Outcome wanted: a recommendation plus, if viable, the config or rule file shipped with the student project template. Related: persona concept `concepts/tooling.md` (stub completion, Pyright) and exp16 `ai-notes/`.
 
@@ -60,7 +60,7 @@ Items the tutor persona should screen for when reviewing Alice's programs or err
 ### S1 — Forgotten `await` (added 2026-10-02): silent failure, no error message
 - **Symptom Alice reports**: "the display does nothing", "the text never shows", "my delay is ignored", "the program just ends". No traceback.
 - **Cause**: calling an `async def` function without `await` (or without `asyncio.run(...)` / `asyncio.create_task(...)` at the top level) only *creates* a coroutine object. Its body never starts. Desktop Python prints a "coroutine ... was never awaited" warning. The board is expected to print nothing (`unverified` on the board; see Exp16 persona memory `concepts/circuitpython-runtime.md`).
-- **Where it bites in the Exp16 library**: every Tier 2 display call (`show_string`, `show_icon`, `show_number`, `scroll_image`, `pause`, ...) and `display.forever(cb)` (being made `async`). Each needs `await` inside a coroutine, or `asyncio.run(...)` at top level. Sync Tier 1 calls (`render_icon`, `set_pixel`, ...) must *not* be awaited. Likewise `asyncio.sleep(1)` with no `await` gives no delay, and the button `run()` methods need `await` / `gather` / `create_task`.
+- **Where it bites in the Exp16 library**: every Tier 2 display call (`show_string`, `show_icon`, `show_number`, `scroll_image`, `hold`, ...) and `display.repeat_until_cancelled(cb)`. Each needs `await` inside a coroutine, or `asyncio.run(...)` at top level. Sync Tier 1 calls (`render_icon`, `set_pixel`, ...) must *not* be awaited. Likewise `asyncio.sleep(1)` with no `await` gives no delay, and the button `run()` methods need `await` / `gather` / `create_task`.
 - **Screen for**:
   1. a bare `display.show_...(...)` or `asyncio.sleep(...)` statement inside a coroutine with no `await`;
   2. `async def` handlers that are registered but never reached;

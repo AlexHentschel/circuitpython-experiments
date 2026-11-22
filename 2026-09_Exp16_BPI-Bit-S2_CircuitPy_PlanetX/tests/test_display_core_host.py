@@ -3086,63 +3086,78 @@ def test_icon_rejects_a_row_wider_than_the_display(host):
 
 
 @pytest.mark.parametrize(
-    "x, y, name",
+    "x, y, lit",
     [
-        (True, 0, "x"),
-        (0, True, "y"),
-        (False, 1, "x"),
-        (1.5, 0, "x"),
-        (0, 1.5, "y"),
+        (True, 0, (1, 0)),
+        (0, True, (0, 1)),
+        (False, 1, (0, 1)),
     ],
 )
-@pytest.mark.xfail(strict=True, reason="F5: set_pixel must reject a non-integer before it expires the token")
-def test_set_pixel_rejects_a_non_integer_before_takeover(host, x, y, name):
-    """``set_pixel`` raises ``TypeError`` for a bool or a float coordinate and leaves the display alone.
+def test_set_pixel_bool_follows_int_equality(host, x, y, lit):
+    """A bool coordinate is outside the specification. Today it is used as 0 or 1 (F5, not a defect).
 
-    - Covers: ``True`` lighting column 1, or a float expiring the token and then failing on the buffer index.
-    - How: fill red; one of ``x`` or ``y`` is the bad value; same token, not expired, frame still red, no new ``show``.
+    Alex, 2026-11-22: do not turn this into a ``TypeError`` unless a spec says so. The test records what the code does
+    so a silent change is visible.
+
+    - Covers: ``True`` lighting column 1, ``False`` lighting column 0, and the call expiring the previous token.
+    - How: fill red; ``set_pixel`` with one bool; that logical pixel is white and the old token is expired.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    token = disp._token
+    disp.set_pixel(x, y, WHITE)
+    assert token.is_expired is True
+    assert disp.get_pixel(lit[0], lit[1]) == WHITE
+
+
+@pytest.mark.parametrize("x, y", [(1.5, 0), (0, 1.5)])
+def test_set_pixel_float_expires_then_raises(host, x, y):
+    """A float coordinate is outside the specification. Today the call expires the token, then the index raises.
+
+    No new ``show``. Not a request to reject the float before ``_acquire`` (F5, Alex 2026-11-22).
+
+    - Covers: the frame changing, or the token surviving the exception.
+    - How: fill red; ``set_pixel`` raises ``TypeError``; old token expired; show count and frame unchanged.
     """
     disp = host.disp
     disp.render_filled(RED)
     before = host.logical()
     token = disp._token
     shows = disp._pixels.shows
-    bad = x if name == "x" else y
-    with pytest.raises(TypeError, match=rf"^set_pixel\(\): '{name}' must be an integer, got '{bad}'$"):
+    with pytest.raises(TypeError):
         disp.set_pixel(x, y, WHITE)
-    assert disp._token is token
-    assert token.is_expired is False
+    assert token.is_expired is True
     assert host.logical() == before
     assert disp._pixels.shows == shows
 
 
 @pytest.mark.parametrize(
-    "x, y, name",
+    "x, y, at",
     [
-        (True, 0, "x"),
-        (0, True, "y"),
-        (False, 1, "x"),
+        (True, 0, (1, 0)),
+        (0, True, (0, 1)),
+        (False, 1, (0, 1)),
     ],
 )
-@pytest.mark.xfail(strict=True, reason="F5: get_pixel must reject a bool instead of reading column 0 or 1")
-def test_get_pixel_rejects_a_bool(host, x, y, name):
-    """``get_pixel`` raises ``TypeError`` for a bool coordinate.
+def test_get_pixel_bool_follows_int_equality(host, x, y, at):
+    """A bool coordinate is outside the specification. Today ``get_pixel`` reads it as 0 or 1 and does not expire.
 
-    - Covers: ``True`` reading the neighbouring pixel because ``bool`` is a subclass of ``int``.
-    - How: fill red; the bad coordinate raises, and the token is unchanged.
+    - Covers: ``True`` reading column 0, or the read acquiring a token.
+    - How: one white pixel at the int equivalent; ``get_pixel`` with the bool returns white; the token is unchanged.
     """
     disp = host.disp
     disp.render_filled(RED)
+    disp.set_pixel(at[0], at[1], WHITE)
     token = disp._token
-    bad = x if name == "x" else y
-    with pytest.raises(TypeError, match=rf"^get_pixel\(\): '{name}' must be an integer, got '{bad}'$"):
-        disp.get_pixel(x, y)
+    assert disp.get_pixel(x, y) == WHITE
     assert disp._token is token
     assert token.is_expired is False
 
 
 def test_get_pixel_float_raises_without_taking_over(host):
-    """A float ``get_pixel`` raises ``TypeError`` and does not expire the token.
+    """A float ``get_pixel`` raises ``TypeError`` from the buffer index and does not expire the token.
+
+    Outside the specification (F5). The pin is that a read does not take over the display.
 
     - Covers: a read that acquires, or a float that returns a color.
     - How: fill red; ``get_pixel(1.5, 0)`` and ``get_pixel(0, 1.5)`` raise; same token, not expired.
@@ -3158,21 +3173,41 @@ def test_get_pixel_float_raises_without_taking_over(host):
     assert token.is_expired is False
 
 
-@pytest.mark.parametrize("degrees", (False, True, 90.0))
-@pytest.mark.xfail(strict=True, reason="F5: set_rotation must reject a non-integer before it rebuilds the LUT")
-def test_set_rotation_rejects_a_non_integer(host, degrees):
-    """``set_rotation`` raises ``TypeError`` for a bool or a float and does not ``show``.
+@pytest.mark.parametrize("degrees, same_as", [(False, 0), (90.0, 90)])
+def test_set_rotation_false_and_whole_float_follow_equality(host, degrees, same_as):
+    """``False`` and ``90.0`` are outside the specification. Today they compare equal to ``0`` and ``90``.
 
-    - Covers: ``False`` applying rotation 0, ``90.0`` applying 90, or ``True`` raising ``ValueError`` instead of ``TypeError``.
-    - How: paint at 90; call with the bad value; same token, same LUT bytes, show count unchanged.
+    ``set_rotation`` does not expire the token. Not a request to raise ``TypeError`` (F5, Alex 2026-11-22).
+
+    - Covers: ``False`` leaving a 90° table in place, or ``90.0`` producing a different table from ``90``.
+    - How: from rotation 90, apply the non-integer, then the int it matches; the LUT bytes are the same and one ``show`` happened.
+    """
+    disp = host.disp
+    disp.set_rotation(90)
+    token = disp._token
+    shows = disp._pixels.shows
+    disp.set_rotation(degrees)
+    got = bytes(disp._lut)
+    assert disp._pixels.shows == shows + 1
+    disp.set_rotation(same_as)
+    assert got == bytes(disp._lut)
+    assert disp._token is token
+    assert token.is_expired is False
+
+
+def test_set_rotation_true_raises_value_error(host):
+    """``True`` is outside the angle set. Today it raises ``ValueError`` and does not ``show``.
+
+    - Covers: ``True`` being accepted as rotation 1, or a rejected value rewriting the LUT.
+    - How: at rotation 90, ``set_rotation(True)`` raises; LUT bytes and show count stay put; the token is not expired.
     """
     disp = host.disp
     disp.set_rotation(90)
     token = disp._token
     lut = bytes(disp._lut)
     shows = disp._pixels.shows
-    with pytest.raises(TypeError, match=rf"^set_rotation\(\): 'degrees' must be an integer, got '{degrees}'$"):
-        disp.set_rotation(degrees)
+    with pytest.raises(ValueError):
+        disp.set_rotation(True)
     assert disp._token is token
     assert token.is_expired is False
     assert bytes(disp._lut) == lut

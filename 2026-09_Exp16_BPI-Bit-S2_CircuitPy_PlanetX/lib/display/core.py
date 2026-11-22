@@ -1,61 +1,70 @@
 """
-Runtime display engine for the 5x5 WS2812 NeoPixel matrix (BPI-Bit-S2).
+Draw text, pictures and icons on the 5×5 LED matrix of the BPI-Bit-S2.
+``Display`` does the drawing, and text uses a built-in 5×5 font. ``Image`` and ``Icon`` hold pictures you can draw.
 
-Owns the MakeCode-style 5×5 font (sibling ``font_makecode_5/`` spaced
-table, laid out by ``text_layout``), and the ``Display``, ``Image``, and
-``Icon`` classes. Each ``Display`` instance owns its own live NeoPixel
-buffer and coordinate Look-Up Table [LUT] (populated via
-``geometry.build_lut``).
-
-Two-tier API:
-  Tier 1 (sync):  render_pattern, render_icon, render_arrow, render_string, render_number,
+Two kinds of methods, called tiers:
+  Tier 1, immediate (no ``await``): draws the display content, called a *frame*, once and returns right away. No other task runs meanwhile:
+                   render_pattern, render_icon, render_arrow, render_string, render_number,
                    render_image, set_pixel, render_filled, set_rotation, set_brightness,
                    get_pixel, clear.
-  Tier 2 (async): show_pattern, show_icon, show_arrow, show_image, show_filled, show_string,
+  Tier 2, awaited (calling an ``async def`` method): the code that awaits it waits until it ends, while your other tasks keep running. Run it the usual
+                   asyncio way, for example with ``await`` inside your own ``async def``. All but ``repeat_until_cancelled``, which never returns,
+                   return a ``Token``:
+                   show_pattern, show_icon, show_arrow, show_image, show_filled, show_string,
                    show_number, scroll_image, scroll_string, scroll_number, hold,
-                   repeat_until_cancelled. Require ``await`` from asyncio code.
-  Lifecycle:      deinit — releases the data pin / RMT peripheral; *this instance*
-                   is unusable afterwards (no re-init path on it), but the pin is
-                   now free for a newly-constructed ``Display()``.
+                   repeat_until_cancelled.
+  Lifecycle:      deinit — frees the LED data pin. This ``Display`` object is unusable
+                   afterwards, but a newly created ``Display()`` can use the pin.
 
-Contract:
-* ``render_<noun>`` is sync. It puts the picture up and returns. The picture stays until
+
+Contract (``<content>`` stands for ``pattern``, ``icon``, ``arrow``, ``image``, ``string``, ``number`` or ``filled``;
+``scroll_`` takes only ``image``, ``string`` and ``number``):
+* ``render_<content>`` is immediate. It puts the content up and returns. The content stays until
   something else uses the display.
-* ``show_<noun>`` is async. It does the matching render, waits ``duration_ms``, then blanks,
-  unless something else took the display during the wait. It returns a ``Token``.
-  Text or a number wider than the display is cut off on the right. To move it, call
-  ``scroll_string`` or ``scroll_number``.
-* ``scroll_<noun>`` is async. It moves one column every ``interval_ms`` and returns a ``Token``.
-  ``loop=True`` repeats until something else takes the display.
-  ``blank_edges=True``: the display starts empty, content enters at the right-most LED,
-  leaves at the left-most LED, and the display ends empty.
+* ``show_<content>`` is awaited. It puts the content up, waits ``duration_ms`` (other tasks keep running),
+  then wipes the display, unless some other operation took the display during the wait (then it
+  leaves the display alone). Content wider than the display is cut off on the right.
+  At the end (after the wipe or after losing the display), a ``show_<content>`` call returns a ``Token``
+  to its caller. The token is a report: ``Token.was_completed`` tells whether the display operation ran to its
+  end. ``Token.is_expired`` tells whether another operation has since taken the display.
+  To move content, use ``scroll_<content>`` (only ``image``, ``string`` and ``number`` can scroll).
+* ``scroll_<content>`` is awaited. It moves the content to the left, one column at a time,
+  waiting ``interval_ms`` between the frames (other tasks keep running). By default, the call returns
+  when the scroll has run its course, or when some other operation takes the display (the call then
+  leaves the display alone).
+  ``blank_edges=True``: the display starts wiped, content enters at the right-most LED,
+  leaves at the left-most LED, and the display ends wiped.
   ``blank_edges=False``: the first frame already shows the content's first column on the
   left-most LED. Content moves left and stops when its last column reaches the right-most LED.
-* ``start_col`` is keyword-only on ``render_*`` and ``show_*`` except ``render_filled``,
-  ``show_filled``, ``set_pixel``, and ``clear``. ``scroll_*`` has no ``start_col``. It is the
-  display column where the content's first column goes. ``0`` is the left-most LED. The default
-  is ``0``.
-* ``hold(duration_ms)`` keeps the current frame. It does not draw and it does not wipe.
+  ``loop=True`` repeats the scroll, so the call returns only when some other operation takes the display.
+  At the end, the call returns a ``Token`` to its caller, like ``show_<content>``.
+* ``start_col`` chooses where the content starts: the display column (LED column) that gets the
+  content's first column. ``0`` is the left-most LED and is the default, so
+  ``render_string("Hi", start_col=2)`` starts the text two LEDs further right. Parts of the content
+  that land outside the display are cut off. Always write the parameter with its name: ``start_col=2``.
+  All ``render_*`` and ``show_*`` methods accept it, except ``render_filled`` and
+  ``show_filled`` (they fill the whole display). ``scroll_*``, ``set_pixel`` and ``clear`` do not.
+* ``hold(duration_ms)`` keeps the current frame. It does not draw and it does not wipe the display.
   It does take over the display.
 * Times are integers ``>= 0``. A float or a bool raises ``TypeError``. A negative value raises
   ``ValueError``. Both happen before the display changes.
-* The verb predicts ``await``: ``render_*``, ``get_pixel``, ``set_brightness``, ``set_rotation``,
-  and ``clear`` are sync. ``show_*``, ``scroll_*``, and ``hold`` are async.
+* The method name tells you whether to ``await``. Names starting with ``show_``, ``scroll_`` or ``hold``
+  are awaited. All others (``render_*``, ``set_pixel``, ``get_pixel``, ``clear``, ``set_brightness``,
+  ``set_rotation``) are immediate.
 
 Cancellation:
-* Any display-mutating call expires the running Tier 2 ``Token``: ``render_*``, ``show_*``,
-  ``scroll_*``, ``set_pixel``, ``clear``, and ``hold``. ``get_pixel``, ``set_brightness``, and
-  ``set_rotation`` do not. Dimming or rotating leaves the running animation going.
+* Any call that changes the LEDs takes over the display: ``render_*``, ``show_*``, ``scroll_*``,
+  ``set_pixel``, ``clear``, and ``hold``. A running awaited call then stops, and its ``Token``
+  reports ``is_expired``. ``get_pixel``, ``set_brightness``, and ``set_rotation`` do not take
+  over the display. Dimming or rotating leaves the running animation going.
 * ``set_pixel`` leaves the latest frame, with that pixel updated when ``(x, y)`` is on the
   matrix. A coordinate outside the matrix leaves the frame unchanged and still expires the
   running token.
-* Every Tier 2 method returns a ``Token``. ``Token.was_completed`` stays true once the call
-  has run to its own end (a later call taking the display does not change it).
-  ``Token.is_expired`` becomes true when a later display call takes the display, including
+* Every awaited method except ``repeat_until_cancelled`` returns a ``Token``. ``Token.was_completed``
+  stays true once the call has run to its own end (a later call taking the display does not change
+  it). ``Token.is_expired`` becomes true when a later display call takes the display, including
   after completion. After the ``await`` returns, when ``Token.is_expired`` is false, the
   display is still as that call left it.
-* Tier 1 methods (and ``deinit``) do not return a token: there is nothing to await after
-  them, so there is nothing meaningful to have been cancelled.
 
 Bitmap encoding (used throughout this module): images are stored one column
 at a time (not one row at a time). Monochrome icons/arrows (``Icon``), glyphs, and
@@ -68,6 +77,12 @@ and ``lib/display/README.md § Column-major bytes``.
 """
 
 # Maintainer notes
+# * Structure: this file holds the classes that talk to the hardware (``Display``) and the picture types (``Image``, ``Icon``, ``Token``).
+#   The MakeCode-style 5×5 font lives in the sibling package ``font_makecode_5/``. ``text_layout`` turns a string into a stream of  column
+#   bytes from that font (inserting spacer columns between characters).
+#   Each ``Display`` owns its own NeoPixel buffer, which holds the color of every LED, and its own coordinate Look-Up Table [LUT]. The LUT
+#   translates a logical position (column ``x``, row ``y``, origin top-left, after rotation) into the index of the physical LED in the buffer,
+#   because the LEDs are wired column by column, not row by row. ``set_rotation`` recomputes the LUT in place, using  ``geometry.build_lut``.
 # * On performance numbers: Comments in this file that say "benchmarked" quote the following experimental runs:
 #   Hardware and software: BPI-Bit-S2 (ESP32-S2), CircuitPython 10.3.0 (2026-08-31), code compiled to ``.mpy`` with mpy-cross 10.3.0, the 25 onboard
 #   WS2812 LEDs at brightness 0.02, 2026-11-16. Medians of 7 rounds on one board. Other ports and firmware may differ.
@@ -621,7 +636,9 @@ def _ensure_non_negative_duration(method_name: str, param_name: str, duration: i
     the time ``duration``. Both only appear in the error message, for example ``show_image(): 'duration_ms' must be >= 0, got '-5'``.
     This check should be run before the display is acquired.
     """
-    # ``type(duration) is int`` is exact: ``bool`` (subclass of ``int``) fails it, so no separate check is needed.
+    # ``type(duration) is int`` is exact: ``bool`` is a subclass of ``int`` and needs no separate check.
+    # Maintainer: durations are type-checked so a hot loop cannot spin on an accidental zero wait. ``False`` would be that
+    # zero. Integer 0 stays legal (one yield). The same check is inlined in ``_ensure_non_negative_duration_and_acquire``.
     if type(duration) is not int:
         raise TypeError(f"{method_name}(): '{param_name}' must be an integer, got '{duration}'")
     if duration < 0:
@@ -638,6 +655,9 @@ async def _sleep_pollable(token: Token, total_ms: int, poll_ms: int = 47) -> Non
     This function always awaits at least once, so other coroutines get a turn even when ``total_ms`` is very small, 0 or negative (a negative
     value behaves like 0).
     """
+    # Maintainer: only durations in about [0, 2**28] ms are waited out (0 included; about 75 h). Past that, ``ticks_diff``
+    # could mis-read the time still left. The clock overflows at 2**29 ms (about 149 h), so that duration is stored by
+    # ``ticks_add`` as 0. Not rejected in code.
     deadline = ticks_add(ticks_ms(), total_ms)
     remaining = total_ms
     while remaining > poll_ms and not token.is_expired:
@@ -670,7 +690,7 @@ class Display:
     is unusable. See ``lib/display/README.md`` § "Singleton design & ``deinit``" for the package's rationale for exposing one ready-made
     ``display`` instance.
 
-    Starting any display operation cancels an animation that is still running (a Tier 2 call, i.e. one started with an ``await`` method such as
+    Starting any display operation cancels an animation that is still running (an awaited call, i.e. one started with an ``await`` method such as
     ``show_string`` or ``scroll_image``). The exceptions are ``get_pixel``, ``set_brightness`` and ``set_rotation``. See the module docstring for the
     two tiers and further details on the cancellation policy.
 
@@ -1155,7 +1175,7 @@ class Display:
 
         The display stays on the most recent frame. When ``(x, y)`` is on the matrix, that pixel is changed and
         flushed. When it is outside, nothing is written and the frame is left as it was. Writing to coordinates
-        ``(x, y)`` outside the matrix draws nothing visible, but it still cancels any Tier 2 call that is running
+        ``(x, y)`` outside the matrix draws nothing visible, but it still cancels any awaited call that is running
         (such as ``scroll_string``), as every other display-changing call does.
         """
         self._acquire()
@@ -1615,8 +1635,7 @@ class Display:
             display.clear()  # takes over the display: the scroll stops and its task ends
 
         ``text`` may be a Python ``str`` or a ``ScreenText``. A plain ``str`` is the easy choice for text you scroll once.
-        A ``ScreenText`` remembers how many columns the text needs. Pass ``centered(text)`` when each frame should
-        show the centered picture instead.
+        A ``ScreenText`` remembers how many columns the text needs.
 
         The display is not cleared after the scroll ends. To clear it after a scroll that ends on a lit frame (``blank_edges=False``), check the token this call
         returns first. If the token is expired, another display call has taken over the display, and ``clear()`` would erase its picture. Example:

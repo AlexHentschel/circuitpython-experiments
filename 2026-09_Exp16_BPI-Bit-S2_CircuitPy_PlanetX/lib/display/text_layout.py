@@ -177,7 +177,8 @@ class ScreenText:
       letters. It is counted the first time you ask and remembered after that.
     - ``column_count_wider_than(limit)``: ``True`` if the text needs more than ``limit`` columns.
       For a long text this can answer sooner than ``width``, because it stops counting early.
-    Use these to decide whether the text fits on the display or has to scroll.
+    Use these to decide whether the text fits on the display.
+    ``show_string`` and ``show_number`` cut off what does not fit. ``scroll_string`` and ``scroll_number`` move it.
 
     ``centered(text)`` returns a ``ScreenText`` too.
     An empty text is allowed: its ``width`` is 0 and it shows as a blank display.

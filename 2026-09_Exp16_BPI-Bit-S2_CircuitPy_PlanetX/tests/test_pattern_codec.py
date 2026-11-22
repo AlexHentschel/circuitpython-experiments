@@ -212,13 +212,30 @@ _HEART_8 = """
 """
 
 
-def test_eight_by_eight_heart_matches_the_documented_hex():
-    """The 8×8 heart in the codec docstring encodes to ``0e1f3f7e7e3f1f0e`` when width and height are passed.
+_HEART = """
+. # . # .
+# # # # #
+# # # # #
+. # # # .
+. . # . .
+"""
 
-    The docstring calls ``pattern_to_colmajor`` without those arguments, so the example as printed raises (F4).
-    This test is the call that actually produces the hex.
 
-    - Covers: the documented hex drifting from the picture.
-    - How: the same text, ``width=8``, ``height=8``.
+def test_heart_example_matches_emojis_heart():
+    """The codec example is the 5×5 ``HEART`` from ``icons.py``. Default width and height encode it.
+
+    - Covers: the example hex drifting from the stored emoji, or the pattern needing an explicit size.
+    - How: the picture with no width or height; the hex is ``060f1e0f06`` and the bytes are ``EMOJIS[:5]``.
+    """
+    encoded = pattern_to_colmajor(_HEART)
+    assert encoded.hex() == "060f1e0f06"
+    assert encoded == EMOJIS[:5]
+
+
+def test_eight_by_eight_heart_needs_an_explicit_size():
+    """An 8×8 picture encodes to ``0e1f3f7e7e3f1f0e`` when width and height are passed.
+
+    - Covers: a wider picture silently truncated to ``WIDTH`` instead of requiring ``width`` and ``height``.
+    - How: the 8×8 text with ``width=8``, ``height=8``.
     """
     assert pattern_to_colmajor(_HEART_8, width=8, height=8).hex() == "0e1f3f7e7e3f1f0e"

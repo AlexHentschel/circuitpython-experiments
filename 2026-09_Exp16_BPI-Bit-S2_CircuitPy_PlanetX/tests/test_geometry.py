@@ -304,17 +304,26 @@ def test_repeated_90cw_rotations_compose(steps, equivalent_rotation):
     assert _render_cells_at(rotated_cells, 0) == _render_cells_at(_F_CELLS, equivalent_rotation)
 
 
-@pytest.mark.parametrize("degrees", (False, True, 90.0))
-@pytest.mark.xfail(strict=True, reason="F5: build_lut must reject a non-integer before it writes dest")
-def test_build_lut_rejects_a_non_integer_before_writing(degrees):
-    """``build_lut`` raises ``TypeError`` for a bool or a float and leaves ``dest`` untouched.
+@pytest.mark.parametrize("degrees, same_as", [(False, 0), (90.0, 90)])
+def test_build_lut_false_and_whole_float_follow_equality(degrees, same_as):
+    """``False`` and ``90.0`` are outside the specification. Today ``==`` accepts them as ``0`` and ``90``.
 
-    - Covers: ``False`` writing the rotation-0 table (``False == 0``), ``90.0`` writing rotation 90, or ``True`` raising
-      ``ValueError`` after a partial write.
-    - How: a zeroed ``dest`` of ``NUM_PIXELS`` bytes; the call raises; ``dest`` is still all zero.
+    Not a request to raise ``TypeError`` (F5, Alex 2026-11-22). The test records the equality so a change is visible.
+
+    - Covers: ``False`` producing a table other than rotation 0, or ``90.0`` differing from ``90``.
+    - How: compare the two LUT byte strings.
+    """
+    assert bytes(build_lut(degrees)) == bytes(build_lut(same_as))
+
+
+def test_build_lut_true_raises_and_leaves_dest():
+    """``True`` is not an accepted angle. ``ValueError`` is raised before ``dest`` is written.
+
+    - Covers: ``True`` matching a rotation, or a rejected value tearing ``dest``.
+    - How: a zeroed ``dest``; ``build_lut(True, dest=...)`` raises; ``dest`` is still all zero.
     """
     dest = bytearray(NUM_PIXELS)
     snapshot = bytes(dest)
-    with pytest.raises(TypeError, match=rf"^.*'rotation' must be an integer, got '{degrees}'$"):
-        build_lut(degrees, dest=dest)
+    with pytest.raises(ValueError):
+        build_lut(True, dest=dest)
     assert bytes(dest) == snapshot

@@ -30,16 +30,13 @@ def pattern_to_colmajor(pattern: str, width: int = WIDTH, height: int = HEIGHT) 
     Use case: author a new icon as ASCII art, convert once, paste the hex bytes into EMOJIS. Example:
 
         >>> pattern_to_colmajor('''
-        ... . # # . . # # .
-        ... # # # # # # # #
-        ... # # # # # # # #
-        ... # # # # # # # #
-        ... . # # # # # # .
-        ... . . # # # # . .
-        ... . . . # # . . .
-        ... . . . . . . . .
+        ... . # . # .
+        ... # # # # #
+        ... # # # # #
+        ... . # # # .
+        ... . . # . .
         ... ''').hex()
-        '0e1f3f7e7e3f1f0e'
+        '060f1e0f06'
     """
     if height > _MAX_HEIGHT_PER_COLUMN_BYTE:
         raise ValueError(f"'height' exceeds column-major encoding limit of {_MAX_HEIGHT_PER_COLUMN_BYTE} (one byte per column), got '{height}'")
