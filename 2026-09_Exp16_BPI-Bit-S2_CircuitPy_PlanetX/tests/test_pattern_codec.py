@@ -178,3 +178,47 @@ def test_decoder_width_defaults_to_the_data_length():
         data = bytes((i % 7) + 1 for i in range(length))
         assert colmajor_to_pattern(data, height=HEIGHT) == colmajor_to_pattern(data, width=length, height=HEIGHT)
         assert len(colmajor_to_pattern(data, height=HEIGHT).split("\n")[0].split(" ")) == length  # cells are separated by spaces
+
+
+def test_decoder_width_past_the_data_raises():
+    """``colmajor_to_pattern`` raises ``IndexError`` when ``width`` is longer than ``data``.
+
+    - Covers: a short buffer being padded with off columns, or the extra columns reading past the bytes silently.
+    - How: two bytes and ``width=3`` at ``height=1``.
+    """
+    with pytest.raises(IndexError):
+        colmajor_to_pattern(b"\x01\x02", width=3, height=1)
+
+
+def test_wide_row_raises():
+    """A row longer than ``width`` raises ``ValueError`` and names the cell count.
+
+    - Covers: a wide row being truncated to ``width`` the way ``Image`` truncates.
+    - How: eight cells at the default width of ``WIDTH``.
+    """
+    with pytest.raises(ValueError, match=rf"row 0: {WIDTH + 3} cells, expected {WIDTH}"):
+        pattern_to_colmajor("#" * (WIDTH + 3))
+
+
+_HEART_8 = """
+. # # . . # # .
+# # # # # # # #
+# # # # # # # #
+# # # # # # # #
+. # # # # # # .
+. . # # # # . .
+. . . # # . . .
+. . . . . . . .
+"""
+
+
+def test_eight_by_eight_heart_matches_the_documented_hex():
+    """The 8×8 heart in the codec docstring encodes to ``0e1f3f7e7e3f1f0e`` when width and height are passed.
+
+    The docstring calls ``pattern_to_colmajor`` without those arguments, so the example as printed raises (F4).
+    This test is the call that actually produces the hex.
+
+    - Covers: the documented hex drifting from the picture.
+    - How: the same text, ``width=8``, ``height=8``.
+    """
+    assert pattern_to_colmajor(_HEART_8, width=8, height=8).hex() == "0e1f3f7e7e3f1f0e"

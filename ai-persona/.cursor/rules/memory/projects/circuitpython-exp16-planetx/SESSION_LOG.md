@@ -16,6 +16,52 @@ Display and button work since the 2026-09-13 on-device confirm is still not re-r
 | Rotation during scroll | Stage 2 steps 12 and 13 (`show_string("ROTATE")` with `set_rotation(270)`, `scroll_image` with `set_rotation(180)`). | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
 
+## 2026-11-20 — M3 committed: C7 remainder and C8
+
+Commit `4c3d644` on `display-verb-grid` (parent `f9b9051`). Host pytest from `tests/`: **816 passed** in 1.87s (`CircuitPython_3.13_VsCode` `pytest -q -p no:cacheprovider`). Not pushed. Not copied to the board. `py_compile` of `code_stage2.py`, `code_stage3.py`, and `lib/display/core.py` succeeded.
+
+C7: the `lib/display/core.py` module docstring states the verb-grid contract (`start_col`, `duration_ms` on `show_*`, `interval_ms` on `scroll_*`, `hold`, `was_completed`, `is_expired`). `show_string` holds and cuts off on the right. `scroll_string` moves. Two README sentences now match the code: `show_image` calls `_render_window` directly, and `render_icon` / `show_icon` use `_render_colmajor` for every `start_col`. G3 in `Notes/student-api-portability.md` is the verb grid. `Notes/exp14-divergence.md` § 2.4 records that. Exp14 was not re-read. The `ScreenText` sentence "has to scroll" is unchanged. CodingTutor was not touched. Its only stale display names are in `notes-learnings-insights_for_building_tutor/03_open-questions-todos.md`: S1 lists `pause` and `display.forever`; T1 item 4 says a lambda passed to `forever`. Those are now `hold` and `repeat_until_cancelled`. The await rule there is already right. Alex has not said to edit that file.
+
+C8: `code_stage2.py` is the 25-step checklist in parts A/B/C (`_PARTS`). `code_stage3.py` idle scroll is `scroll_image(..., interval_ms=300, loop=True)` then `while token.is_expired: token = await hold(800)`. Step 4 is `scroll_string`. No `step` argument. `_IDLE = "repeat"` is the optional contrast and does not reach step 4.
+
+C9, the device pass on UID `0740D10F1BE9`, is Alex's.
+
+## 2026-11-20 — M3 handoff: C7 remainder and C8 granted
+
+Plan `ai-notes/2026-10-17_display-api-uniformity/05_execution_plan_v1.1.md` § Current code is the source (wins over § 1 on `start_col` and `hold`). Execution granted for C7 (module docstring, G3, divergence note) and C8 (stage scripts). C9 is Alex's. Do not invent the `ScreenText` "has to scroll" sentence. Do not deploy `code_stage*.py`. Do not mix in `ai-notes/2026-11-20_display-audit/` (empty; that task does not edit the library). HEAD `f9b9051`, experiment code clean, branch 2 ahead of origin, not pushed. Host pytest 816 passed was recorded earlier the same day and not re-run for this handoff.
+
+## 2026-11-20 — docstring pass closed: human review of the display library is done (memory-light)
+
+Alex declared the human review of `lib/display/` finished; the AI logic audit runs in parallel (entry below). Done in this stretch (uncommitted, host pytest 816 passed):
+- `scroll_image`: loop over `offset` with a reusable `range`, compare form (no `max`); `loop=True` caution rewritten for students with a background-task example (`asyncio.create_task`, stop with `display.clear()`); narrow content with `blank_edges=False` is one still frame, redrawn until takeover with `loop=True` (same sentence in `scroll_string`/`scroll_number`); `_scroll_text` docstring brought in line.
+- `hold` docstring rewritten for students (example `render_number(7)` then `await display.hold(2000)`; token wording). `duration_ms=0` for `hold` not checked.
+- Rule recorded: `universal/CODING_PRINCIPLES.md` rows *Split docstring audiences* (new) and *Runtime-validate numeric ...* (argument-first refinement).
+- Open, not applied: four comment tweaks for `scroll_image` (offset-range comment, line 1466 over 160 chars, duplicate "still frame", `last_offset` comment); optional `deinit` wording; the `deinit` on-board check (see 2026-11-18 entry).
+
+## 2026-11-20 — DISPLAY AUDIT done (library not edited)
+
+Host pytest from `tests/`: **828 passed, 15 xfailed** (was 816 passed). The 15 xfailed are strict and name the finding. Notes (gitignored): exp16 `ai-notes/2026-11-20_display-audit/` (`findings.md` F1–F6, `open-flags.md`). `lib/` not edited. Git index not touched.
+
+- **F5 bug:** `set_pixel` / `get_pixel` / `set_rotation` / `build_lut` do not use the strict integer check. `False` rotates as 0, `90.0` as 90, `set_pixel(True, 0)` lights column 1 and expires the token, a float coordinate expires the token then raises from the index.
+- **F6 bug:** `_sleep_pollable` ends after one poll when the leftover time is at least half the 29-bit tick period. With the default poll of 47, `hold` / `show_*` of `duration_ms >= 2**28 + 47` return early, set `was_completed`, and a `show_*` wipes.
+- **F1 doc, invalid:** the module-docstring claim was against the pre-M3 text. At `4c3d644` the module docstring matches the verb grid, and `set_pixel` cites `scroll_string`.
+- **F2–F4 doc, open:** `ScreenText` still says text that does not fit has to scroll (left on purpose); `scroll_string` says `centered()` makes each frame the centered picture; the codec `>>>` example is 8×8 but calls the function with the 5×5 defaults (the same text with `width=8, height=8` is the printed hex).
+- Checked and matching an independent placement: mono and multi-color `Image` windows, including width 0 and far offsets. `deinit` during `hold` or `scroll_image` expires the token and does not draw again (host). On-device `deinit` remains the 2026-11-18 check.
+
+## 2026-11-20 — DISPLAY AUDIT (task definition; executed the same day, see the entry above)
+
+**Task (Alex, 2026-11-20):** (1) full pass over the display logic (`lib/display/`) for bugs and uncovered edge cases, flagging only *significantly* incorrect
+documentation; (2) exhaustive pass over all display tests to record every closable gap, without bloating business logic or growing the API; (3) write the
+tests that close the gaps; (4) a very short overview of the remaining flags that need a human expert. Work notes and the todo list live in
+`<Exp16>/ai-notes/2026-11-20_display-audit/` (`README.md` has the phases, rules and file roles; the cold AI keeps `log.md` current).
+Library code is **not** edited in this task: bugs become findings, and a test that exposes one is `xfail(strict=True)` citing the finding id.
+
+Carry-forward: the "argument-first refactor" (entry above) is executed on the host; its comment/docstring polish continues separately. Pending and not applied:
+four comment suggestions for `scroll_image` (offset-range comment, line-length, duplicate "still frame", `last_offset` comment). Do not touch the `scroll_*`
+docstrings or Alex's `Token` wording during the audit; record any problem there as a finding.
+
+Status check later: `ls <Exp16>/ai-notes/2026-11-20_display-audit/` and read `log.md` (last line = resume point) and `open-flags.md` (exists once P4 is done).
+
 ## 2026-11-20 — Tier 2 completion call is on every return
 
 `scroll_image` calls `_complete_unless_expired()` on the cut-short return as well as after one pass. The call leaves `was_completed` false when the token is already expired. `lib/display/README.md` § Cooperative multitasking & `Token` no longer says the call is only on a success return.

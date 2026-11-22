@@ -2965,3 +2965,295 @@ def test_number_methods_draw_str_of_negative_and_float(host):
                 return list(frames)
 
             assert asyncio.run(scroll()) == expected, (n, blank_edges)
+
+
+def _multi_frame(data, width, offset):
+    """Logical frame. ``offset`` is the image column at display column 0.
+
+    ``data`` is column-major RGB tuples, ``data[x * HEIGHT + y]``. A display column whose image column is
+    outside ``0 .. width-1`` is ``OFF``. This is the placement rule, not a call into ``_render_window``.
+    """
+    rows = []
+    for y in range(HEIGHT):
+        row = []
+        for x in range(WIDTH):
+            src = offset + x
+            if 0 <= src < width:
+                row.append(data[src * HEIGHT + y])
+            else:
+                row.append(OFF)
+        rows.append(tuple(row))
+    return tuple(rows)
+
+
+def test_image_window_matches_an_independent_placement(host):
+    """A mono or multi-color ``Image`` window matches a placement computed from the pixels alone.
+
+    Scroll frames are checked against ``render_image``, and both call ``_render_window``, so that check cannot see a bug
+    in the window itself. This oracle does not.
+
+    - Covers: an off-by-one on either edge, a negative or past-the-end offset, a zero-width image, a multi-color column
+      read with the mono color, or a margin pixel left as the previous frame.
+    - How: widths 0, 1, ``WIDTH - 1``, ``WIDTH``, ``WIDTH + 3``. Offsets from ``-(width + WIDTH + 1)`` through
+      ``width + WIDTH``. Each draw starts from a dirty frame. Mono uses ``_placed_window``; multi uses ``_multi_frame``.
+    """
+    disp = host.disp
+    core = host.core
+    for width in (0, 1, WIDTH - 1, WIDTH, WIDTH + 3):
+        columns = bytes((i * 3 + 1) & 0xFF for i in range(width))
+        mono = core.Image._from_encoded(columns, width, False, WHITE)
+        colors = tuple((x, y, 3) for x in range(width) for y in range(HEIGHT))
+        multi = core.Image._from_encoded(colors, width, True, None)
+        for offset in range(-(width + WIDTH + 1), width + WIDTH + 1):
+            disp.render_filled(_DIRTY)
+            disp.render_image(mono, start_col=-offset)
+            assert host.logical() == _frame_of(_placed_window(columns, -offset)), (width, offset, "mono")
+            disp.render_filled(_DIRTY)
+            disp.render_image(multi, start_col=-offset)
+            assert host.logical() == _multi_frame(colors, width, offset), (width, offset, "multi")
+
+
+def test_empty_pattern_width_and_a_row_past_height(host):
+    """A pattern with no rows has width ``WIDTH``. A row past ``HEIGHT`` does not change the width.
+
+    - Covers: an empty pattern reporting width 0, or a dropped row still widening the image.
+    - How: ``Image("")`` and a whitespace-only pattern are ``WIDTH`` wide. ``Image("#")`` is 1 wide. ``HEIGHT`` rows of
+      one ``#``, then a row of ``WIDTH + 4`` hashes, stays width 1.
+    """
+    core = host.core
+    assert core.Image("").width == WIDTH
+    assert core.Image(" \n\t\n").width == WIDTH
+    assert core.Image("#").width == 1
+    pattern = ("#\n" * HEIGHT) + ("#" * (WIDTH + 4))
+    assert core.Image(pattern).width == 1
+
+
+def test_set_pixel_on_the_far_edges_cancels_without_a_show(host):
+    """``x=WIDTH`` and ``y=HEIGHT`` are outside: the token expires, nothing is shown, and the frame stays.
+
+    The in-range corner ``(WIDTH - 1, HEIGHT - 1)`` does light. ``get_pixel`` of an outside coordinate is ``OFF``.
+
+    - Covers: an off-by-one that treats ``WIDTH`` or ``HEIGHT`` as a lit pixel, or a show on the rejected write.
+    - How: fill red; ``set_pixel(WIDTH, 0)`` and ``set_pixel(0, HEIGHT)``; show count unchanged, corner still red.
+      Then light the last in-range pixel and read the four outside corners.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    token = disp._token
+    shows = disp._pixels.shows
+    disp.set_pixel(WIDTH, 0, WHITE)
+    disp.set_pixel(0, HEIGHT, WHITE)
+    assert token.is_expired is True
+    assert disp._pixels.shows == shows
+    assert disp.get_pixel(0, 0) == RED
+    assert disp.get_pixel(WIDTH, 0) == OFF
+    assert disp.get_pixel(0, HEIGHT) == OFF
+    assert disp.get_pixel(-1, HEIGHT - 1) == OFF
+    disp.set_pixel(WIDTH - 1, HEIGHT - 1, WHITE)
+    assert disp.get_pixel(WIDTH - 1, HEIGHT - 1) == WHITE
+    assert disp.get_pixel(WIDTH - 2, HEIGHT - 1) == RED
+
+
+def test_bits_past_height_are_off_and_lower_bits_light(host):
+    """Bit ``HEIGHT`` of a column byte draws nothing. Bits ``0 .. HEIGHT-1`` light every row of that column.
+
+    - Covers: bit 0 at the bottom, or a high bit lighting a row.
+    - How: one column ``1 << HEIGHT``, the rest 0, renders blank. One column ``(1 << HEIGHT) - 1`` lights column 0 only.
+    """
+    disp = host.disp
+    high = bytes([1 << HEIGHT]) + bytes(WIDTH - 1)
+    disp.render_icon(host.core.Icon._from_columns(high), WHITE)
+    assert host.logical() == _BLANK
+    low = bytes([(1 << HEIGHT) - 1]) + bytes(WIDTH - 1)
+    disp.render_icon(host.core.Icon._from_columns(low), WHITE)
+    for y in range(HEIGHT):
+        assert disp.get_pixel(0, y) == WHITE
+    for x in range(1, WIDTH):
+        for y in range(HEIGHT):
+            assert disp.get_pixel(x, y) == OFF
+
+
+def test_icon_rejects_a_row_wider_than_the_display(host):
+    """An ``Icon`` row of ``WIDTH`` columns is accepted. One more column raises ``ValueError``.
+
+    - Covers: padding a wide row instead of raising, or an off-by-one at ``WIDTH``.
+    - How: ``"#" * WIDTH`` builds. ``"#" * (WIDTH + 1)`` raises and the message names the column count.
+    """
+    core = host.core
+    core.Icon("#" * WIDTH)
+    with pytest.raises(ValueError, match=rf"got 1 rows x {WIDTH + 1} columns$"):
+        core.Icon("#" * (WIDTH + 1))
+
+
+@pytest.mark.parametrize(
+    "x, y, name",
+    [
+        (True, 0, "x"),
+        (0, True, "y"),
+        (False, 1, "x"),
+        (1.5, 0, "x"),
+        (0, 1.5, "y"),
+    ],
+)
+@pytest.mark.xfail(strict=True, reason="F5: set_pixel must reject a non-integer before it expires the token")
+def test_set_pixel_rejects_a_non_integer_before_takeover(host, x, y, name):
+    """``set_pixel`` raises ``TypeError`` for a bool or a float coordinate and leaves the display alone.
+
+    - Covers: ``True`` lighting column 1, or a float expiring the token and then failing on the buffer index.
+    - How: fill red; one of ``x`` or ``y`` is the bad value; same token, not expired, frame still red, no new ``show``.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    before = host.logical()
+    token = disp._token
+    shows = disp._pixels.shows
+    bad = x if name == "x" else y
+    with pytest.raises(TypeError, match=rf"^set_pixel\(\): '{name}' must be an integer, got '{bad}'$"):
+        disp.set_pixel(x, y, WHITE)
+    assert disp._token is token
+    assert token.is_expired is False
+    assert host.logical() == before
+    assert disp._pixels.shows == shows
+
+
+@pytest.mark.parametrize(
+    "x, y, name",
+    [
+        (True, 0, "x"),
+        (0, True, "y"),
+        (False, 1, "x"),
+    ],
+)
+@pytest.mark.xfail(strict=True, reason="F5: get_pixel must reject a bool instead of reading column 0 or 1")
+def test_get_pixel_rejects_a_bool(host, x, y, name):
+    """``get_pixel`` raises ``TypeError`` for a bool coordinate.
+
+    - Covers: ``True`` reading the neighbouring pixel because ``bool`` is a subclass of ``int``.
+    - How: fill red; the bad coordinate raises, and the token is unchanged.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    token = disp._token
+    bad = x if name == "x" else y
+    with pytest.raises(TypeError, match=rf"^get_pixel\(\): '{name}' must be an integer, got '{bad}'$"):
+        disp.get_pixel(x, y)
+    assert disp._token is token
+    assert token.is_expired is False
+
+
+def test_get_pixel_float_raises_without_taking_over(host):
+    """A float ``get_pixel`` raises ``TypeError`` and does not expire the token.
+
+    - Covers: a read that acquires, or a float that returns a color.
+    - How: fill red; ``get_pixel(1.5, 0)`` and ``get_pixel(0, 1.5)`` raise; same token, not expired.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+    token = disp._token
+    with pytest.raises(TypeError):
+        disp.get_pixel(1.5, 0)
+    with pytest.raises(TypeError):
+        disp.get_pixel(0, 1.5)
+    assert disp._token is token
+    assert token.is_expired is False
+
+
+@pytest.mark.parametrize("degrees", (False, True, 90.0))
+@pytest.mark.xfail(strict=True, reason="F5: set_rotation must reject a non-integer before it rebuilds the LUT")
+def test_set_rotation_rejects_a_non_integer(host, degrees):
+    """``set_rotation`` raises ``TypeError`` for a bool or a float and does not ``show``.
+
+    - Covers: ``False`` applying rotation 0, ``90.0`` applying 90, or ``True`` raising ``ValueError`` instead of ``TypeError``.
+    - How: paint at 90; call with the bad value; same token, same LUT bytes, show count unchanged.
+    """
+    disp = host.disp
+    disp.set_rotation(90)
+    token = disp._token
+    lut = bytes(disp._lut)
+    shows = disp._pixels.shows
+    with pytest.raises(TypeError, match=rf"^set_rotation\(\): 'degrees' must be an integer, got '{degrees}'$"):
+        disp.set_rotation(degrees)
+    assert disp._token is token
+    assert token.is_expired is False
+    assert bytes(disp._lut) == lut
+    assert disp._pixels.shows == shows
+
+
+def test_deinit_during_hold_expires_without_completing(host):
+    """``deinit`` during ``hold`` expires the token, leaves ``was_completed`` false, and later draws raise.
+
+    - Covers: the hold completing after the display was shut down, or drawing once more on the dead pixels.
+    - How: fill red; start ``hold(500)``; let it reach its sleep; ``deinit``; the token is expired and not completed;
+      ``render_filled`` raises ``RuntimeError``.
+    """
+    disp = host.disp
+    disp.render_filled(RED)
+
+    async def run():
+        task = asyncio.create_task(disp.hold(500))
+        await asyncio.sleep(0)
+        disp.deinit()
+        return await task
+
+    token = asyncio.run(run())
+    assert token.was_completed is False
+    assert token.is_expired is True
+    with pytest.raises(RuntimeError):
+        disp.render_filled(WHITE)
+
+
+def test_deinit_during_scroll_does_not_draw_again(host):
+    """``deinit`` during ``scroll_image`` stops the scroll on the next check, with no further ``show``.
+
+    - Covers: the scroll drawing another frame on a deinited pixel buffer, or marking itself completed.
+    - How: start a marquee; let it draw one frame and sleep; remember the show count; ``deinit``; the token is expired
+      and not completed, and the show count is unchanged.
+    """
+    disp = host.disp
+    image = host.core.Image._from_encoded(bytes([1, 2, 3, 4, 5, 6]), 6, False, WHITE)
+
+    async def run():
+        task = asyncio.create_task(disp.scroll_image(image, interval_ms=50, blank_edges=True))
+        await asyncio.sleep(0)
+        shows = disp._pixels.shows
+        disp.deinit()
+        token = await task
+        return token, shows
+
+    token, shows = asyncio.run(run())
+    assert token.was_completed is False
+    assert token.is_expired is True
+    assert disp._pixels.shows == shows
+
+
+@pytest.mark.xfail(strict=True, reason="F6: a duration past the tick horizon ends after one poll and must wait the full time")
+def test_sleep_pollable_past_the_tick_horizon_waits_the_full_duration(host):
+    """``_sleep_pollable`` waits the whole duration when the leftover after one poll is at least half the tick period.
+
+    The poll here is ``2**27`` ms, so a correct split is a few sleeps. The default poll of 47 fails the same way once
+    ``duration_ms >= 2**28 + 47``, which is what ``hold`` and ``show_*`` use.
+
+    - Covers: ``ticks_diff`` of an interval at least ``2**28`` ms ending the wait, and the caller then treating that as done.
+    - How: total ``2**28 + 2**27``, poll ``2**27``; the sleeps sum to the total and the fake clock advances by the total.
+    """
+    half = _TICKS_HALF
+    poll = half // 2
+    total = half + poll
+    sleeps, elapsed = _run_sleep_pollable(host, host.core.Token(), total, poll_ms=poll)
+    assert sleeps
+    assert sum(sleeps) == total
+    assert elapsed == total
+
+
+def test_sleep_pollable_just_inside_the_tick_horizon_waits_the_full_duration(host):
+    """A duration one millisecond under half the tick period still waits the full time.
+
+    - Covers: a fix for F6 that also shortens an in-horizon wait.
+    - How: total ``2**28 - 1``, poll ``2**27``; the sleeps sum to the total and the clock advances by the total.
+    """
+    half = _TICKS_HALF
+    poll = half // 2
+    total = half - 1
+    sleeps, elapsed = _run_sleep_pollable(host, host.core.Token(), total, poll_ms=poll)
+    assert sum(sleeps) == total
+    assert elapsed == total

@@ -302,3 +302,19 @@ def test_repeated_90cw_rotations_compose(steps, equivalent_rotation):
     """
     rotated_cells = _rotate_cells_cw_90(_F_CELLS, steps=steps)
     assert _render_cells_at(rotated_cells, 0) == _render_cells_at(_F_CELLS, equivalent_rotation)
+
+
+@pytest.mark.parametrize("degrees", (False, True, 90.0))
+@pytest.mark.xfail(strict=True, reason="F5: build_lut must reject a non-integer before it writes dest")
+def test_build_lut_rejects_a_non_integer_before_writing(degrees):
+    """``build_lut`` raises ``TypeError`` for a bool or a float and leaves ``dest`` untouched.
+
+    - Covers: ``False`` writing the rotation-0 table (``False == 0``), ``90.0`` writing rotation 90, or ``True`` raising
+      ``ValueError`` after a partial write.
+    - How: a zeroed ``dest`` of ``NUM_PIXELS`` bytes; the call raises; ``dest`` is still all zero.
+    """
+    dest = bytearray(NUM_PIXELS)
+    snapshot = bytes(dest)
+    with pytest.raises(TypeError, match=rf"^.*'rotation' must be an integer, got '{degrees}'$"):
+        build_lut(degrees, dest=dest)
+    assert bytes(dest) == snapshot
