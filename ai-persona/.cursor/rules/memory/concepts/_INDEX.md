@@ -10,7 +10,8 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 
 ### `circuitpython-runtime.md` — `[family:circuitpython]` (RP2040-anchored), `evidence-supported`
 - **Heap structure (RP2040 split-heap doubling)** — two-layer TLSF + auto-doubling Python GC heap; non-compacting ⇒ fragmentation, `MemoryError` with free bytes reported.
-- **`gc` module surface** — what's present; `gc.threshold()` compiled out (docs stale); `gc.mem_free()` needs a preceding `gc.collect()`.
+- **`gc` module surface** — what's present; `gc.threshold()` compiled out (docs stale); `gc.mem_free()` on 10.3.0 returns a byte count (no `-1`) and needs a preceding `gc.collect()`.
+- **Keyword-only TypeError wording (10.3.0)** — a missing keyword-only argument can be reported as `function missing required keyword argument '__dir__'`, not the parameter name.
 - **Preallocate; mutate in place** — `buf[:] = src` vs concat; `struct.pack_into`; Design-Guide preallocation. A function-local list is still a GC-heap object. In-range `lst[i] = v` writes one pointer and does not grow the list; the value can still be a fresh object (`PixelBuf[i]` is a new tuple).
 - **`memoryview`** — zero-copy view + indexed writes; slicing zero-copy `[inferred]` (Verification Queue).
 - **`const()`** — parser-folded; leading-underscore hides from globals dict. A plain `NAME = 2` stays `LOAD_GLOBAL` after `mpy-cross`. `NAME = const(2)` compiles to the same bytecode as the literal `2`. On UID `0740D10F1BE9` (2026-11-16) a 25-add loop did not separate const from a plain global; a local copy was 6.3 µs faster. See *On-device bytecode timings*.
@@ -37,7 +38,7 @@ One line per concept across all evidenced domains. This is the retrieval skeleto
 ### `fonts.md` — `[domain:fonts]` `[cross-experiment]`, `evidence-supported`
 - **Outline fonts unsuitable at small pixel sizes** — TTF/OTF auto-raster below ~10 px loses Latin stroke topology; use hand-designed bitmap fonts (candidates listed).
 - **Glyph coordinate model (metrics y-up, raster y-down)** — why `_glyph_columns`'s `display_row = ascent - height - dy + cy` is correct; verified against `adafruit_bitmap_font/pcf.py`.
-- **DAL pendolino3 row-bytes vs column-major** — MakeCode 5×5 font is five row bytes (bit4=left); Exp14 storage is one byte per column (bit0=top). MIT; notice travels.
+- **DAL pendolino3 row-bytes vs column-major** — MakeCode 5×5 font is five row bytes (bit4=left); Exp14 storage is one byte per column (bit0=top). MIT permits a modified copy if the copyright and LICENSE travel. Exp16's polished table drops digit 7's empty last column.
 - **BananaPi original-bit `CharData` is not DAL pendolino3** — 25-int sequential 0/1 glyphs in `MicroPython-Samples/microbit/display.py`; do not vendor into Exp16.
 
 ### `power.md` — `[domain:power]` `[cross-experiment]`, `evidence-supported` (≥2 sources each, verified 2026-06-15)

@@ -1,7 +1,7 @@
 """On-device smoke for the light sensor, rainbow ring, and smart motor.
 
-Not selected by ``.vscode/cpfiles.txt``. To run it, point that manifest at
-this file as ``/code.py`` for one deploy, then point it back.
+A commented line in ``.vscode/cpfiles.txt`` names this file. To run it,
+uncomment that line, comment the active ``/code.py`` line, deploy, then restore the previous line.
 
 Wire the light sensor to J1, the rainbow ring to J2, and a smart motor to M4.
 The script prints how long 100 ``lux()`` calls take, lights the ring yellow

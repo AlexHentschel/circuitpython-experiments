@@ -14,6 +14,7 @@ A concrete font must properly implements both of those methods.
 from __future__ import annotations
 
 # Pure module: no hardware imports.
+# Live table. To draw the polished copy, import these four names from ``.polished_spaced_glyphs``.
 from .spaced_glyphs import (
     _ASCII_END,
     _ASCII_START,

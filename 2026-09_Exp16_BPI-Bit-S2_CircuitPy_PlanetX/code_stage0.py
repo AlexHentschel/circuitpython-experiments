@@ -74,7 +74,7 @@ while True:
     #    same heart re-rendered after rotating 90 deg so the shape should visibly turn.
     d.set_brightness(0.05)
     d.set_rotation(90)
-    d.render_icon(Emojis.HEART, color=display.RED, start_col=0)
+    d.render_icon(Emojis.HEART, color=display.RED, start_col=1)
     print("4/6: set_brightness(0.05) + set_rotation(90) -- dimmer, heart rotated 90deg")
     time.sleep(2)
 
@@ -92,6 +92,8 @@ while True:
     #    each new level on its own (verified against lib/display/core.py: the setter calls
     #    _pixels.show() itself), so no need to re-fill per level -- isolates brightness as the
     #    only changing variable.
+    #
+    # Observation: 0.02 still shows very dim blue, while 0.01 is completely off.
     d.render_filled(display.BLUE)
     for _level in (0.05, 0.04, 0.03, 0.02, 0.01, 0.005, 0.0):
         d.set_brightness(_level)

@@ -26,6 +26,8 @@
 
 **License:** MIT (Copyright 2016 BBC; Lancaster University by arrangement with the BBC). Notice must travel with the glyphs (`font_makecode_5/LICENSE`).
 
+**Modified copies (2026-11-23, evidence-supported).** The MIT grant includes modify, publish, and distribute. What must travel is the copyright notice and the permission notice, not an unmodified table. Exp16 keeps the generated table in `spaced_glyphs.py` and a hand-edited copy in `polished_spaced_glyphs.py`; both name the copyright and point at the directory `LICENSE`. `ink.py` imports one of those modules. First edit, checked against the table bytes: digit `7` column x=4 was `0x01` (the top pixel only). Clearing it leaves that column empty, so the length byte is 4. The change list is the maintainer comment under the license lines in the polished file.
+
 **Why not PCF on 5×5:** overnight host tests cannot load `adafruit_bitmap_font`; a 5-byte table is the font swap unit and is importable on CPython without hardware. Exp14 `_glyph_columns` PCF metric mapping stays in Exp14.
 
 ### BananaPi original-bit `CharData` is not DAL pendolino3 — `evidence-supported`

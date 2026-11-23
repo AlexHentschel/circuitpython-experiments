@@ -54,7 +54,7 @@ On a BPI-Bit-S2 this experiment uses CircuitPython 10.3.0 (`neopixel` frozen, `k
 
 ## Tests
 
-From this folder, using that host CPython (not CircuitPython on the board). The suite does not import `board` or `display.core`.
+From this folder, using that host CPython (not CircuitPython on the board). The suite does not use a physical board. `test_display_core_host.py` loads `display.core` behind stubs; the other tests do not import it.
 
 ```bash
 <path-to-venv>/bin/pytest
@@ -71,32 +71,33 @@ Human-run deploy scripts (host → mounted CIRCUITPY drive; the board is a deplo
 3. Ship the code: `python3 scripts/sync_files_to_board.py` — copies what `.vscode/cpfiles.txt` lists (currently `readme.txt` + a `code_stageN.py -> /code.py` replay line). **Switching which script is active**: edit `.vscode/cpfiles.txt` directly — comment out the currently-active `... -> /code.py` line, uncomment (or add) the one you want, then re-run the sync script. Exactly one `-> /code.py` line must be active at a time; the manifest's own header comment documents the full syntax and a real gotcha (a trailing inline comment on an active line silently corrupts the destination filename instead of erroring).
 4. The board auto-reloads after each copy batch — batch changes into as few sync runs as possible.
 
-The CircuitPythonSync extension's "CP Copy Files to Board" works here too (Exp16 currently sits at workspace folder index 0) and is fine for code-file updates; prefer the scripts for routine deploys. Its "CP Copy Libs to Board" is **not** used in this experiment — unfiltered whole-`lib/` copy (no exclude mechanism), and every extension copy triggers a full-volume `dot_clean` sweep on the live drive.
+The same two copies are the Run Task entries **Sync Lib to Board** and **Sync Files to Board**. The CircuitPythonSync extension's "CP Copy Files to Board" copies whichever workspace folder is selected. Its "CP Copy Libs to Board" is **not** used here: it copies all of `lib/` with no exclusions, and it runs `dot_clean` across the live drive.
 
 Clean-slate reset (destructive): `import storage; storage.erase_filesystem()` at the board REPL — the verified-clean path. Do **not** host-side-delete `lib/` on the live volume, and never cancel a copy mid-flight (if one stalls, eject cleanly and inspect before further writes).
 
-**Exact bundle-library versions vendored in `lib/`** are recorded in [`requirements.txt`](requirements.txt) (`adafruit_ticks==1.1.7`, `asyncio==3.1.1`, via `circup freeze -r`). The `.mpy` files themselves are the pin — gitignored bundle copies, shipped as-is by the sync script; re-download from the Adafruit Community Bundle if lost.
+The vendored `adafruit_ticks.mpy` and `asyncio/` are what the board runs. Those files identify themselves as `adafruit_ticks` 1.1.5 and `asyncio` 3.0.3. [`requirements.txt`](requirements.txt) lists 1.1.7 and 3.1.1 and does not match them. Re-download from the Adafruit Community Bundle if the `.mpy` files are lost.
 
 ## Status
 
-**First milestone (async 5×5 display + async button events) confirmed on-device 2026-09-13** on UID `0740D10F1BE9` (Stages 0–2 steps 1–10, and Stage 3 on the button API of that day). **Button API (current):** one handler for press and one for release. `OnboardButtons().button_a.on_pressed(...)` replaces any previous press handler; `on_pressed(None)` clears it. `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)` (`c_pin` / `d_pin` still work). `PlanetXCrashSensor` is a `Button`. Host pytest **278 passed** (2026-10-19). `code_stage3.py` matches this API. The 2026-09-13 confirm used an older call shape, so re-run this script before treating the current one as confirmed on the board. Per-stage scripts stay as siblings; `.vscode/cpfiles.txt` switches which one deploys to `/code.py` (see `§ Deploy` step 3).
+On UID `0740D10F1BE9`, CircuitPython 10.3.0:
 
-Separate, still-open thread: font-spacing Phase 5 is Alex's on-device re-confirm.
-`"STAGE2"` and `"42"` scroll and end blank; `"!!"` fits, holds for `interval_ms * WIDTH`, then blanks.
-The rotate-while-scrolling step in `code_stage2.py` compares elapsed time with `_scroll_sleep_s` (feeder column count).
+- **2026-11-22.** Stages 0 and 1 of the current display API. On a blue fill, brightness 0.02 is still a very dim blue and 0.01 is off.
+- **2026-09-13.** Stages 0–2 (steps 1–10) and Stage 3, on the API of that day. Stages 2 and 3 have not been re-run on the current API.
+
+`OnboardButtons().button_a.on_pressed(...)` and `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)` are the current button calls. `on_pressed(None)` clears a handler. `code_stage3.py` uses them; that script has not been confirmed on the board since the call shape changed. Stage 2 parts A–C matched on the board, including the `"STAGE2"` and `"42"` marquees. `"!!"` is not in that script. `.vscode/cpfiles.txt` chooses which stage script is copied to `/code.py`.
 
 Student-API stability target (5×5 → later 8×8): [`Notes/student-api-portability.md`](Notes/student-api-portability.md).
 
 ## Folder structure
 
 ```
-lib/display/       5×5 display package (copy of Exp14; work here, not in Exp14)
+lib/display/       5×5 display package (fork of Exp14; work here, not in Exp14)
 lib/buttons.py      Async onboard buttons (`Button`, `OnboardButtons`): one handler per press and per release
 lib/planetx/        PlanetX modules (`J1`–`J4` GPIO interface ports; shared `I2C` bus; `PlanetXButtonSensor` C/D)
-code_stage0-3.py    Stage scripts (replay via cpfiles.txt). 0/1 and stage-2 steps 1–10 confirmed on-device; stage-2 steps 11/12 and the current stage-3 button API are not.
+code_stage0-4.py    Stage scripts (which one runs: `.vscode/cpfiles.txt`). Current API: Stages 0 and 1, and Stage 2 parts A–C, confirmed 2026-11-22. Stage 3 is not confirmed yet. Stage 4 is the PlanetX driver smoke and is not in the manifest.
 scripts/            Human-run deploy + font-build scripts (see § Deploy)
 .vscode/            Per-experiment CircuitPythonSync config + tasks.json + cpfiles.txt
-tests/              Host pytest (no board / no display.core); see tests/README.md
+tests/              Host pytest (no physical board); see tests/README.md
 Notes/              Human spec + BananaPi photos (CC BY-SA, unmodified)
 ```
 

@@ -223,7 +223,7 @@ directives: `../../universal/`. Roster + routing: `../_INDEX.md`. Heavy technica
 
 ## 2026-11-21 — display names in the await note
 
-Alex approved a name fix only. `notes-learnings-insights_for_building_tutor/03_open-questions-todos.md`: S1's Tier 2 examples now say `hold` and `display.repeat_until_cancelled(cb)` (was `pause` and `display.forever(cb)`, including the stale "being made async"). T1 item 4's false-positive example is a lambda passed to `repeat_until_cancelled`. The await rule was already right. Not committed. Q1–Q8 and T1's investigation are unchanged.
+Alex approved a name fix only. `notes-learnings-insights_for_building_tutor/03_open-questions-todos.md`: S1's Tier 2 examples now say `hold` and `display.repeat_until_cancelled(cb)` (was `pause` and `display.forever(cb)`, including the stale "being made async"). T1 item 4's false-positive example is a lambda passed to `repeat_until_cancelled`. The await rule was already right. The edit is in `99f0697`. Q1–Q8 and T1's investigation are unchanged.
 
 ## Open Questions
 

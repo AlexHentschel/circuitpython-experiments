@@ -29,7 +29,13 @@ Present: `gc.enable()`, `gc.disable()`, `gc.isenabled()`, `gc.collect()`, `gc.me
 
 **Absent at runtime despite being listed on `docs.circuitpython.org/en/stable/docs/library/gc.html`**: `gc.threshold()`. The binding in `py/modgc.c` is wrapped in `#if MICROPY_GC_ALLOC_THRESHOLD`, and `py/circuitpy_mpconfig.h` sets `MICROPY_GC_ALLOC_THRESHOLD (0)` — so the function is compiled out of shipped CircuitPython builds. Calling `gc.threshold(...)` raises `AttributeError` at runtime [CPy-src, `py/modgc.c` + `py/circuitpy_mpconfig.h`, 2026-04-20]. The docs page is stale for this function; trust the source. Do not plan tuning around `gc.threshold()` on CircuitPython.
 
-`gc.mem_free()` reports only fully-free bytes after the last sweep. Stale phantom references (objects still pinned by locals, closures, or unbound attributes) still count as live until the next `gc.collect()`, so measurements are meaningless without an explicit `gc.collect()` immediately before reading [Adafruit-learn, "Measuring memory use", 2026-04-20].
+`gc.mem_free()` in CircuitPython 10.3.0 (`py/modgc.c`) returns `info.free + info.max_new_split` because `MICROPY_GC_SPLIT_HEAP_AUTO` is on. There is no `-1` branch. The library doc still says "or -1 if this amount is not known"; that sentence is wider than this build. `gc.threshold()` is the documented call that uses `-1`, and it is compiled out (see above).
+
+`gc.mem_free()` reports only fully-free bytes after the last sweep, plus the split-heap headroom above. Stale phantom references (objects still pinned by locals, closures, or unbound attributes) still count as live until the next `gc.collect()`, so measurements are meaningless without an explicit `gc.collect()` immediately before reading [Adafruit-learn, "Measuring memory use", 2026-04-20].
+
+### Missing keyword-only argument, CircuitPython 10.3.0
+
+A call that omits a required keyword-only parameter can raise `TypeError: function missing required keyword argument '__dir__'`. The quoted name is not the missing parameter. Seen on UID `0740D10F1BE9`, 2026-11-22: `show_icon(HEART)` with no `duration_ms`. Other bad-argument messages in that same run named the parameter (`duration_ms`, `interval_ms`, `start_col`). Detail: `projects/circuitpython-exp16-planetx/CONCLUSIONS.md` Stage 2 part C row.
 
 ### Preallocate; mutate in place
 

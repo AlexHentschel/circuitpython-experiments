@@ -3,7 +3,7 @@
 Sync rendering only. This script does not import ``asyncio`` and does not
 use the button modules.
 
-Stage 0 walked ``render_filled``, ``clear``, ``set_pixel``, ``render_icon``
+Stage 0 tested ``render_filled``, ``clear``, ``set_pixel``, ``render_icon``
 (``Emojis.HEART``), ``set_brightness``, ``set_rotation(90)``, and the
 brightness-floor edge case. We assume that works, and use those calls here
 as setup. This script adds the calls Stage 0 did not walk.
@@ -110,11 +110,12 @@ while True:
     time.sleep(2)
 
     # 6) colorwheel(hue) returns an RGB tuple; render_filled paints the matrix with it.
+    #    Hues 0, 85, 170 are the wheel's red, green, and blue. Brightness is still 0.20.
     d.clear()
-    for _hue in (0, 85, 170):
+    for _hue, _name in ((0, "red"), (85, "green"), (170, "blue")):
         _c = display.colorwheel(_hue)
         d.render_filled(_c)
-        print(f"6/11: render_filled(colorwheel({_hue})) -> {_c}")
+        print(f"6/11: render_filled(colorwheel({_hue})) -> {_c} -- solid {_name}, brightness 0.20")
         time.sleep(1.5)
     d.clear()
     print("6/11: colorwheel sweep done")
@@ -142,15 +143,16 @@ while True:
     # 10) An empty string draws a blank screen and leaves it blank.
     d.render_filled(display.RED)
     d.render_string("", start_col=0)
-    print("10/11: render_string('') -- red goes blank and stays blank")
+    print("10/11: fill display red and right away render_string('') -- red goes blank and stays blank")
     time.sleep(2)
 
     # 11) render_number(42) is render_string("42"). The extra lost column is
     #     on the right, and the number stays lit. Stage 2's show_number(42)
     #     scrolls and ends blank.
     d.clear()
-    d.render_number(42, start_col=0)
+    d.render_number(42, start_col=-3)
     print("11/11: render_number(42) -- cropped number stays lit")
     time.sleep(2)
+
     print("Cycle complete (Tier 1 sync only, no asyncio).")
     time.sleep(1)

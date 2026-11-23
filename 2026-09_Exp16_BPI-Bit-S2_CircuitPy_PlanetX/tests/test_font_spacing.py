@@ -165,6 +165,31 @@ def test_font_width_is_the_length_byte_and_matches_the_glyph():
     assert FONT.width("☃") == len(_TOFU_INK)
 
 
+def test_polished_font_narrows_only_seven():
+    """The polished table matches the generated table except digit ``7``.
+
+    - Covers: a second glyph drifting, or ``7`` keeping a blank fifth column.
+    - How: compare every record. The generated ``7`` is five columns and its
+      last column is ``0x01`` (top pixel only). The polished record keeps the
+      first four columns and sets the length byte to 4.
+    """
+    from display.font_makecode_5.polished_spaced_glyphs import _SPACED_GLYPHS as polished
+
+    assert len(polished) == len(_SPACED_GLYPHS)
+    seven = (ord("7") - _ASCII_START) * _RECORD_STRIDE
+    for i in range(0, len(_SPACED_GLYPHS), _RECORD_STRIDE):
+        if i == seven:
+            continue
+        assert polished[i : i + _RECORD_STRIDE] == _SPACED_GLYPHS[i : i + _RECORD_STRIDE]
+    old = _SPACED_GLYPHS[seven : seven + _RECORD_STRIDE]
+    new = polished[seven : seven + _RECORD_STRIDE]
+    assert old[0] == WIDTH
+    assert old[5] == 0x01
+    assert new[0] == WIDTH - 1
+    assert new[1:5] == old[1:5]
+    assert new[5] == 0
+
+
 def test_every_character_has_width_equal_to_its_glyph_length():
     """For every printable ASCII character, ``FONT.width(ch)`` equals ``len(FONT.glyph(ch))``.
 
