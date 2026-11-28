@@ -12,9 +12,19 @@ Display and button work since the 2026-09-13 on-device confirm is still not re-r
 |-----------|-----------|------------|
 | Stages 0–2 steps 1–10, original Stage 3 | Confirmed on-device 2026-09-11…13. K1/K2/K3 for that code. | — |
 | Font spacing | Live `show_string` uses `SpacedGlyphColumnFeeder`. Always one spacer between characters; unknown → tofu; space = 3 columns. | Phase 5: Alex looks at `"STAGE2"` / `"42"` (scroll, end blank) and `"!!"` (fits, then blank). Stage 2 step 12 times the rotate-while-scrolling case with `_scroll_sleep_s` (feeder columns). |
-| Button API | `OnboardButtons().button_a.on_pressed(...)`; `PlanetXButtonSensor(port=J3).button_c.on_pressed(...)`. `ButtonPair` removed. | Re-run `code_stage3.py`. The 2026-09-13 confirm used `Buttons` / `on_*_pressed`. |
+| Button API | `OnboardButtons().button_a.on_pressed(...)`; `PlanetXButtonSensor(port=J3).button_c.on_released(...)` in the 2026-11-27 script (`ButtonCounter`). `ButtonPair` removed. | Confirmed on-device 2026-11-27 for `_IDLE` `"loop"` and `"repeat"`. The 2026-09-13 confirm used `Buttons` / `on_*_pressed`. The file's second `_IDLE = "repeat"` is the one a deploy runs. |
 | Rotation during scroll | Stage 2 steps 12 and 13 (`show_string("ROTATE")` with `set_rotation(270)`, `scroll_image` with `set_rotation(180)`). | Not run on-device. |
 | LightTower extras | Drivers in `lib/planetx/`: light (`lux`), NeoPixel ring, `PlanetXSmartMotor` (bookmark zero, `stop` returns None), crash via `buttons.Button`. Host pytest **193 passed** (`pytest tests`). | On-device: `code_stage4.py` not deployed. `stop` does not report whether it cut off a live motion. |
+
+## 2026-11-27 — Stage 3 confirmed on the board
+
+Alex, UID `0740D10F1BE9`, CircuitPython 10.3.0: human testing shows `code_stage3.py` works. `_IDLE` was left at `"loop"`. A/B `on_pressed`, C/D `on_released`, class `ButtonCounter`. Serial log cycles 1–4 (same night): four `[OK]` 0.5000 s sleeps; counts match the code. The marquee string is the counts from before `scroll_string`, so an event during the marquee shows up in the next cycle's string. Later the same night: `_IDLE = "repeat"` is a second assignment under `"loop"` (the second wins). Alex: that mode behaves as expected. Cycle 1 sleep `[OK]`, then `repeat_until_cancelled` and no step 4, while A/B presses and C/D releases kept counting. Stage 4 and Stage 5 stay commented and unstarted. Detail: `CONCLUSIONS.md` Stage 3 row.
+
+## 2026-11-26 — Stage 3 device test started; handoff to a fresh chat
+
+Alex is on UID `0740D10F1BE9` testing `code_stage3.py` (CircuitPython 10.3.0). He asked for a fresh chat for refinements and questions. Not confirmed yet. Active deploy line in `.vscode/cpfiles.txt` is `code_stage3.py -> /code.py`. `_IDLE` defaults to `"loop"`. Stage 4 and Stage 5 stay commented lines. Do not redo Stage 2. Do not deploy, wipe the board, or edit `lib/display/` unless he asks. Detail: `CONTEXT.md` § Resumption point, 2026-11-26.
+
+Same day: paragraph (a) now says a later `on_pressed` replaces that button's press handler (analogously for `on_released`). This script still does not register release handlers. The module docstring was reflowed to about 120–160 characters per line. Checklist item 1 now says both button modules, one press handler for each of A, B, C, and D, once before the cycle loop. Adopted: `sync_files_to_board.py` skips a board file whose bytes match (`filecmp.cmp`, `shallow=False`; size first, then chunks) and still uses `copyfile`. `--force` rewrites. `sync_lib_to_board.py` still skips on size plus mtime within 2 s. A hash was considered and not used. Tool map for a cold start: `concepts/tooling.md` § Where the tools live, with per-tool notes `tooling-circuitpythonsync.md`, `tooling-sync-files-to-board.md`, `tooling-sync-lib-to-board.md`. Stage 3: A and B still `on_pressed`; C and D are `on_released` with the same count-and-arrow action. The handler class is `ButtonCounter`. `time.sleep(5)` after the imports stays.
 
 ## 2026-11-23 — audit findings rechecked against `99f0697`
 

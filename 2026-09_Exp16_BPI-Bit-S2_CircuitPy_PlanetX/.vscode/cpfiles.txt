@@ -31,10 +31,10 @@ readme.txt
 # code_stage2.py -> /code.py
 
 # Tier 2 async display + buttons combined (Buttons.run() + Image.scroll_image; K3 concurrency/cancellation check)
-code_stage3.py -> /code.py
+# code_stage3.py -> /code.py
 
 # Light on J1, rainbow ring on J2, smart motor on M4
-# code_stage4.py -> /code.py
+code_stage4.py -> /code.py
 
-# Polished-font glyph stepper (onboard A = previous, B = next). Not the live program.
+# Polished 5×5 font: button A shows the previous glyph, button B the next
 # code_stage5.py -> /code.py

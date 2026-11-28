@@ -3,9 +3,9 @@ agent can push business-logic files to the attached CIRCUITPY drive without need
 at the keyboard for every change.
 
 Scope (Alex, 2026-09-11): business-logic files only -- whatever this experiment's
-`.vscode/cpfiles.txt` manifest lists (currently just `code.py`). Full overwrite is
-acceptable here: the manifest only ever lists a handful of files, and most of them
-changed anyway on any given sync.
+`.vscode/cpfiles.txt` manifest lists. A board file whose bytes already match the
+source is left as it is, so an unchanged file is not rewritten (a write reloads the
+board). `--force` rewrites every manifest file.
 
 **Deliberately out of scope: library sync.** `lib/` stays human-driven via the
 CircuitPythonSync extension's "CP Copy Libs to Board" for now -- rewriting a large,
@@ -20,7 +20,7 @@ Manifest format (`.vscode/cpfiles.txt`, same syntax CircuitPythonSync itself rea
     source_file -> /destination_on_board
 
 Usage:
-    python3 sync_files_to_board.py [--drive /Volumes/CIRCUITPY] [--manifest PATH] [--dry-run]
+    python3 sync_files_to_board.py [--drive /Volumes/CIRCUITPY] [--manifest PATH] [--dry-run] [--force]
 
 Safety: refuses to write unless the target actually looks like a CircuitPython volume
 (has `boot_out.txt`), and always prints that board's identity (UID/version/build) before
@@ -33,6 +33,7 @@ substitute for that.
 from __future__ import annotations
 
 import argparse
+import filecmp
 import shutil
 import sys
 from pathlib import Path
@@ -71,6 +72,18 @@ def parse_manifest(path: Path) -> list[tuple[Path, str]]:
     return entries
 
 
+def needs_copy(source: Path, dest: Path, force: bool) -> bool:
+    """True when the board file is missing or its bytes differ from ``source``.
+
+    ``filecmp.cmp(..., shallow=False)`` checks the size first and, on a match,
+    compares the contents in chunks. Modification times are not used: ``copyfile``
+    does not preserve them, and the board volume stores times at a 2 second resolution.
+    """
+    if force or not dest.is_file():
+        return True
+    return not filecmp.cmp(source, dest, shallow=False)
+
+
 def verify_board(drive: Path) -> str:
     """Return boot_out.txt's content, or exit with an error if `drive` doesn't look like
     a CircuitPython volume. Refuses to write to something that isn't clearly a board."""
@@ -97,6 +110,7 @@ def main() -> int:
         help="cpfiles.txt path (default: this experiment's .vscode/cpfiles.txt)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print what would be copied; write nothing")
+    parser.add_argument("--force", action="store_true", help="Rewrite every manifest file, even when the bytes match")
     args = parser.parse_args()
 
     if not args.manifest.is_file():
@@ -112,23 +126,30 @@ def main() -> int:
         print("# manifest has no active entries -- nothing to do")
         return 0
 
-    copied = 0
+    n_copied = n_unchanged = 0
     for source, dest_rel in entries:
         dest = args.drive / dest_rel
         if not source.is_file():
             print(f"SKIP (source missing): {source}", file=sys.stderr)
             continue
-        verb = "would copy" if args.dry_run else "copying"
-        print(f"{verb}: {source.relative_to(EXPERIMENT_ROOT)} -> {dest}")
-        if not args.dry_run:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, dest)
-            copied += 1
+        rel = source.relative_to(EXPERIMENT_ROOT)
+        if needs_copy(source, dest, args.force):
+            verb = "would copy" if args.dry_run else "copying"
+            print(f"{verb}: {rel} -> {dest}")
+            if not args.dry_run:
+                # copyfile, not copy2: copy2 also copies macOS extended attributes,
+                # which the FAT driver stores as ._* AppleDouble sidecars on the board.
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, dest)
+            n_copied += 1
+        else:
+            n_unchanged += 1
+            print(f"unchanged (skip): {rel}")
 
     if args.dry_run:
-        print(f"# dry run -- {len(entries)} manifest entrie(s), nothing written")
+        print(f"# dry run -- {n_copied} file(s) would be copied, {n_unchanged} unchanged; nothing written")
     else:
-        print(f"# done -- copied {copied} file(s)")
+        print(f"# done -- copied {n_copied}, unchanged {n_unchanged}")
     return 0
 
 

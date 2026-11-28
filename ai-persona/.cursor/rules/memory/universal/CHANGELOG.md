@@ -4,6 +4,12 @@ Provenance log for **structural changes** to the memory system — new files, sc
 
 Evolution-vocabulary reminder (from `00-memory-system.mdc § Evolution vocabulary`): `extend` · `refine` · `abstract` · `simplify` · `generalize` · `split` · `compact`.
 
+## 2026-11-26 — deploy-tool map (`extend`)
+
+**Trigger:** Exp16 routine copies go through host scripts, and CircuitPythonSync's limits were buried in one long concept. Alex asked for a cold-AI map of which tool lives in which experiment, plus a per-tool note.
+
+**Change:** `concepts/tooling.md` gains § Where the tools live (short table, read first). Sibling notes, same pattern as `tooling-4mb-partitions.md`: `tooling-circuitpythonsync.md`, `tooling-sync-files-to-board.md`, `tooling-sync-lib-to-board.md`. Indexed from `concepts/_INDEX.md`. The 2026-09-12 "copy2 preserved mtimes" clause in the extension concept is corrected to `copyfile` + `os.utime`.
+
 ## 2026-10-02 — correction + two concepts in `circuitpython-runtime` (`refine`, `extend`)
 
 **Trigger:** Exp16 `Display.forever` made `async def`; Alex questioned the docstring claim "other tasks still get a turn each round".

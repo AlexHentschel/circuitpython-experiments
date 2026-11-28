@@ -59,7 +59,8 @@
         {
             "label": "Sync Files to Board",
             "type": "shell",
-            // Actually writes: copies .vscode/cpfiles.txt's active entries onto CIRCUITPY.
+            // Actually writes: copies .vscode/cpfiles.txt entries whose board bytes differ.
+            // An identical board file is skipped. Add --force to rewrite every entry.
             // Pinned interpreter, single source of truth -- see the dry-run task above.
             "command": "\"${config:python.defaultInterpreterPath}\" \"${workspaceFolder}/scripts/sync_files_to_board.py\"",
             "presentation": {
